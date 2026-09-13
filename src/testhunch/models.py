@@ -17,6 +17,11 @@ class Status(StrEnum):
         return self in (Status.FAILED, Status.ERROR)
 
 
+def is_confirmed_failure(status: Status, flaky: bool, attempts: int | None) -> bool:
+    """A failure seen on every attempt, with more than one attempt (docs/adr/0008)."""
+    return status.is_failure and not flaky and attempts is not None and attempts > 1
+
+
 # Higher is worse. Used to collapse several reports of the same test in one run.
 SEVERITY: dict[Status, int] = {
     Status.SKIPPED: 0,
@@ -40,6 +45,13 @@ class CaseResult:
     occurrences: int = 1
     # Failed and passed within this one run, e.g. on a retry (docs/adr/0005).
     flaky: bool = False
+    # How many times the test ran in this run, retries included (docs/adr/0008).
+    attempts: int = 1
+
+    @property
+    def confirmed_failure(self) -> bool:
+        """Failed on every one of several attempts: not a flaky failure (ADR 0008)."""
+        return is_confirmed_failure(self.status, self.flaky, self.attempts)
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +130,11 @@ class ShadowResult:
     status: Status
     flaky: bool
     duration_ms: int | None
+    attempts: int | None  # None for results recorded before attempts were stored
+
+    @property
+    def confirmed_failure(self) -> bool:
+        return is_confirmed_failure(self.status, self.flaky, self.attempts)
 
 
 @dataclass(frozen=True, slots=True)

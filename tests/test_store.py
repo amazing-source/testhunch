@@ -147,6 +147,27 @@ def test_migrating_keeps_results_recorded_before_flakiness_was_stored(
     assert unmigrated_store.flaky_tests(REPO) == []
 
 
+def test_results_recorded_before_attempts_were_stored_have_unknown_attempts(
+    unmigrated_store: SqlStore,
+) -> None:
+    before_attempts = [m for m in bundled_migrations(unmigrated_store.dialect) if m[0] < 4]
+    unmigrated_store.migrate(before_attempts)
+    with unmigrated_store.session() as s:
+        s.run(
+            "INSERT INTO runs (repo, commit_sha, report_digest) VALUES (?, ?, ?)",
+            (REPO, "c1", "d1"),
+        )
+        s.run("INSERT INTO tests (repo, test_key, name) VALUES (?, ?, ?)", (REPO, "a", "a"))
+        s.run(
+            "INSERT INTO results (run_id, test_id, status) "
+            "SELECT runs.id, tests.id, 'failed' FROM runs, tests"
+        )
+
+    assert 4 in unmigrated_store.migrate()
+    with unmigrated_store.session(write=False) as s:
+        assert s.all("SELECT attempts FROM results") == [(None,)]  # unknown, not guessed as 1
+
+
 def ranking(*keys: str) -> list[RankedTest]:
     return [RankedTest(key, float(len(keys) - i), ()) for i, key in enumerate(keys)]
 
@@ -162,15 +183,15 @@ def test_latest_run_id(store: SqlStore) -> None:
 def test_a_recorded_ranking_is_compared_with_the_later_run_of_its_commit(store: SqlStore) -> None:
     history = store.ingest(run("c0", "d0", case("a", Status.PASSED), case("b", Status.FAILED)))
     store.record_prediction(REPO, "c1", ranking("b", "a"), last_run_id=history.run_id)
-    retried = CaseResult("a", "a", None, None, Status.FAILED, 7, None, flaky=True)
+    retried = CaseResult("a", "a", None, None, Status.FAILED, 7, None, flaky=True, attempts=2)
     later = store.ingest(run("c1", "d1", retried, case("b", Status.PASSED, None)))
 
     (shadow,) = store.shadow_runs(REPO)
     assert shadow.run_id == later.run_id
     assert shadow.positions == {"b": 1, "a": 2}
     assert sorted(shadow.results, key=lambda r: r.key) == [
-        ShadowResult("a", Status.FAILED, True, 7),
-        ShadowResult("b", Status.PASSED, False, None),
+        ShadowResult("a", Status.FAILED, True, 7, 2),
+        ShadowResult("b", Status.PASSED, False, None, 1),
     ]
     assert store.shadow_runs("other/repo") == []
 

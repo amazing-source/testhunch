@@ -25,6 +25,11 @@ class ShadowPoint:
     caught_runs: int  # failing runs where at least one failure was selected: the build goes red
     failures: int
     caught_failures: int
+    # The same, counting only failures confirmed by retries (docs/adr/0008).
+    confirmed_failing_runs: int
+    caught_confirmed_runs: int
+    confirmed_failures: int
+    caught_confirmed_failures: int
     tests_run: int
     tests_total: int
     time_run_ms: int
@@ -43,10 +48,11 @@ def evaluate(runs: Sequence[ShadowRun], fractions: Sequence[float] = BUDGETS) ->
 
 def _evaluate(runs: Sequence[ShadowRun], fraction: float) -> ShadowPoint:
     failing_runs = caught_runs = failures = caught_failures = 0
+    confirmed_runs = caught_confirmed_runs = confirmed = caught_confirmed = 0
     tests_run = tests_total = time_run = time_total = 0
     for run in runs:
         cutoff = budget_size(fraction, len(run.positions))
-        run_failures = run_caught = 0
+        run_failures = run_caught = run_confirmed = run_caught_confirmed = 0
         for result in run.results:
             if result.status is Status.SKIPPED:
                 continue
@@ -60,10 +66,17 @@ def _evaluate(runs: Sequence[ShadowRun], fraction: float) -> ShadowPoint:
             if result.status.is_failure and not result.flaky:
                 run_failures += 1
                 run_caught += selected
+                if result.confirmed_failure:
+                    run_confirmed += 1
+                    run_caught_confirmed += selected
         failing_runs += run_failures > 0
         caught_runs += run_caught > 0
         failures += run_failures
         caught_failures += run_caught
+        confirmed_runs += run_confirmed > 0
+        caught_confirmed_runs += run_caught_confirmed > 0
+        confirmed += run_confirmed
+        caught_confirmed += run_caught_confirmed
     return ShadowPoint(
         fraction=fraction,
         runs=len(runs),
@@ -71,6 +84,10 @@ def _evaluate(runs: Sequence[ShadowRun], fraction: float) -> ShadowPoint:
         caught_runs=caught_runs,
         failures=failures,
         caught_failures=caught_failures,
+        confirmed_failing_runs=confirmed_runs,
+        caught_confirmed_runs=caught_confirmed_runs,
+        confirmed_failures=confirmed,
+        caught_confirmed_failures=caught_confirmed,
         tests_run=tests_run,
         tests_total=tests_total,
         time_run_ms=time_run,

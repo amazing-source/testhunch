@@ -105,9 +105,10 @@ class TestRealReports:
         # Failed, then passed when rerun. Nothing marks the second entry as a rerun except the
         # repetition itself, so collapsing keeps the worst attempt and marks the result flaky.
         flaky = cases["example.com/shop/pricing::TestFlakyFirstAttempt"]
-        assert (flaky.status, flaky.occurrences, flaky.flaky) == (Status.FAILED, 2, True)
+        assert (flaky.status, flaky.attempts, flaky.flaky) == (Status.FAILED, 2, True)
         always = cases["example.com/shop/cart::TestTotalFailsOnPurpose"]
-        assert (always.status, always.occurrences, always.flaky) == (Status.FAILED, 3, False)
+        assert (always.status, always.attempts, always.flaky) == (Status.FAILED, 3, False)
+        assert cases["example.com/shop/pricing::TestDiscount"].attempts == 1
 
     def surefire_run(self) -> dict[str, CaseResult]:
         # Surefire writes one report per test class; together they are one run.
@@ -137,14 +138,19 @@ class TestRealReports:
         # Failed, then passed when rerun: no <failure>, only a <flakyFailure>. It passed, flakily.
         flaky = cases["com.example.shop.FlakyTest::failsOnFirstAttempt"]
         assert (flaky.status, flaky.flaky, flaky.message) == (Status.PASSED, True, None)
+        assert flaky.attempts == 2
         # Same with an unexpected exception on the first attempt: <flakyError>.
         errored = cases["com.example.shop.FlakyTest::throwsOnFirstAttempt"]
         assert (errored.status, errored.flaky, errored.message) == (Status.PASSED, True, None)
+        assert errored.attempts == 2
 
-        # Failed every attempt: the <failure> is followed by one <rerunFailure> per rerun.
+        # Failed every attempt (rerunFailingTestsCount=2): <failure>, then two <rerunFailure>.
         failing = cases["com.example.shop.CartTest::failsOnPurpose"]
         assert (failing.status, failing.occurrences, failing.flaky) == (Status.FAILED, 1, False)
-        assert not cases["com.example.shop.CartTest::throwsUnexpectedly"].flaky  # <rerunError>
+        assert failing.attempts == 3
+        throwing = cases["com.example.shop.CartTest::throwsUnexpectedly"]  # <rerunError> twice
+        assert (throwing.status, throwing.flaky, throwing.attempts) == (Status.ERROR, False, 3)
+        assert cases["com.example.shop.CartTest::sumsPrices"].attempts == 1
         assert failing.message == "empty cart on purpose ==> expected: <1> but was: <0>"
 
     def test_nextest(self) -> None:
@@ -163,12 +169,32 @@ class TestRealReports:
 
         flaky = cases["shop::tests::flaky_first_attempt"]
         assert (flaky.status, flaky.flaky, flaky.message) == (Status.PASSED, True, None)
+        assert flaky.attempts == 2  # nextest: "FLAKY 2/3"
 
         failing = cases["shop::tests::fails_on_purpose"]
         assert (failing.status, failing.occurrences, failing.flaky) == (Status.FAILED, 1, False)
-        assert not cases["shop::tests::sums_prices"].flaky
+        assert failing.attempts == 3  # nextest: "TRY 3 FAIL"
         assert failing.message is not None
         assert failing.message.startswith("thread 'tests::fails_on_purpose' (256) panicked at")
+        passing = cases["shop::tests::sums_prices"]
+        assert (passing.flaky, passing.attempts) == (False, 1)
+
+    def test_pytest_rerunfailures_writes_rerun_attempts_as_empty_testcases(self) -> None:
+        cases = by_key(parse_report((FIXTURES / "pytest-rerunfailures.xml").read_bytes()))
+
+        # 9 <testcase> elements in a suite that declares tests="4": one result per test.
+        assert len(cases) == 4
+        failing = cases["tests.test_shop::test_fails_on_purpose"]
+        assert (failing.status, failing.attempts, failing.flaky) == (Status.FAILED, 3, False)
+        assert failing.message is not None
+        assert failing.message.startswith("AssertionError: fails on every attempt")
+        erroring = cases["tests.test_shop::test_errors_on_purpose"]
+        assert (erroring.status, erroring.attempts, erroring.flaky) == (Status.FAILED, 3, False)
+        # Failed once, passed when rerun: before ADR 0008 this read as two passes.
+        flaky = cases["tests.test_shop::test_flaky_first_attempt"]
+        assert (flaky.status, flaky.attempts, flaky.flaky) == (Status.PASSED, 2, True)
+        passing = cases["tests.test_shop::test_passes"]
+        assert (passing.status, passing.attempts, passing.flaky) == (Status.PASSED, 1, False)
 
 
 class TestDialectEdges:
@@ -216,6 +242,28 @@ class TestDialectEdges:
     def test_unusable_durations_are_unknown_not_guessed(self, raw: str) -> None:
         xml = f'<testsuite><testcase name="a" time="{raw}"/></testsuite>'.encode()
         assert parse_report(xml)[0].duration_ms is None
+
+    def test_repeated_testcases_are_only_read_as_reruns_when_the_suite_declares_fewer_tests(
+        self,
+    ) -> None:
+        entries = b"<testcase name='a'/><testcase name='a'><failure/></testcase></testsuite>"
+        declared = b"<testsuite tests='1'>" + entries
+        undeclared = b"<testsuite>" + entries
+        counted = b"<testsuite tests='2'>" + entries
+
+        (rerun,) = parse_report(declared)
+        assert (rerun.status, rerun.attempts, rerun.flaky) == (Status.FAILED, 2, False)
+        # Without the mismatch, the entries stay separate results, for collapse to merge.
+        assert len(parse_report(undeclared)) == 2
+        assert len(parse_report(counted)) == 2
+
+    def test_earlier_entries_with_an_outcome_are_not_read_as_reruns(self) -> None:
+        # e.g. a failed test body and an error in fixture teardown, reported as two entries
+        xml = (
+            b"<testsuite tests='1'><testcase name='a'><failure/></testcase>"
+            b"<testcase name='a'><error/></testcase></testsuite>"
+        )
+        assert [c.status for c in parse_report(xml)] == [Status.FAILED, Status.ERROR]
 
     def test_a_flaky_marker_next_to_a_failure_does_not_make_it_flaky(self) -> None:
         # Not seen from any runner: an outcome element decides the status, and a failed result is
@@ -303,6 +351,11 @@ class TestCollapse:
     ) -> None:
         (merged,) = collapse([self.case(status, 1) for status in statuses])
         assert not merged.flaky
+
+    def test_attempts_add_up(self) -> None:
+        retried = CaseResult("k", "k", None, None, Status.FAILED, 1, None, attempts=3)
+        (merged,) = collapse([retried, self.case(Status.FAILED, 1)])
+        assert merged.attempts == 4
 
     def test_a_flaky_entry_keeps_the_result_flaky(self) -> None:
         retried = CaseResult("k", "k", None, None, Status.PASSED, 1, None, flaky=True)

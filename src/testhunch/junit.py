@@ -27,6 +27,10 @@ Dialect notes, each backed by a real report in tests/fixtures/junit:
 - cargo-nextest: classname is the test binary ("shop" for unit tests, "shop::checkout" for
   tests/checkout.rs) and name is the module path ("tests::nested::keeps_total"). Ignored tests
   are left out of the report entirely. Retries use Surefire's <flakyFailure> and <rerunFailure>.
+- pytest-rerunfailures: every attempt is its own <testcase>, but the attempts that were rerun are
+  written empty, as if they had passed; only the last one has its outcome. The <testsuite>'s
+  `tests` counts tests, not attempts, so it is smaller than the number of <testcase> elements,
+  which no other runner's report does. See `_merge_reruns` and docs/adr/0008.
 
 Reports are untrusted input when they arrive through the API, so XML is parsed with
 defusedxml, which refuses entity expansion and external references.
@@ -38,6 +42,7 @@ import hashlib
 import math
 import re
 from collections.abc import Iterable, Iterator
+from dataclasses import replace
 from xml.etree.ElementTree import Element
 
 from defusedxml import DefusedXmlException
@@ -49,6 +54,8 @@ MAX_MESSAGE_CHARS = 2000
 
 # Surefire and nextest: attempts that failed before the test passed on a retry.
 _FLAKY_TAGS = ("flakyFailure", "flakyError")
+# ...and every extra attempt, whether it failed again (rerun*) or before a pass (flaky*).
+_RETRY_TAGS = ("rerunFailure", "rerunError", *_FLAKY_TAGS)
 
 # pytest writes ANSI colour codes into messages, escaping ESC as the literal text "#x1B".
 _ANSI = re.compile(r"(?:\x1b|#x1B)\[[0-9;]*m")
@@ -121,6 +128,7 @@ def collapse(cases: Iterable[CaseResult]) -> tuple[CaseResult, ...]:
             message=worst.message,
             occurrences=seen.occurrences + case.occurrences,
             flaky=seen.flaky or case.flaky or passed_and_failed,
+            attempts=seen.attempts + case.attempts,
         )
     return tuple(merged.values())
 
@@ -134,13 +142,50 @@ def digest_reports(blobs: Iterable[bytes]) -> str:
 
 
 def _walk(element: Element, suite: str | None) -> Iterator[CaseResult]:
+    cases: list[CaseResult] = []
     for child in element:
         if child.tag == "testsuite":
             yield from _walk(child, child.get("name") or suite)
         elif child.tag == "testsuites":
             yield from _walk(child, suite)
         elif child.tag == "testcase":
-            yield _case(child, suite)
+            cases.append(_case(child, suite))
+    declared = element.get("tests") if element.tag == "testsuite" else None
+    if declared is not None and declared.isdigit() and int(declared) < len(cases):
+        cases = _merge_reruns(cases)
+    yield from cases
+
+
+def _merge_reruns(cases: list[CaseResult]) -> list[CaseResult]:
+    """One result per rerun test, in a suite that counts tests rather than attempts (ADR 0008).
+
+    A test is only rerun after a failed attempt, so the empty entries before its last one are
+    failures, not the passes they look like. Entries that carry an outcome are left alone.
+    """
+    by_key: dict[str, list[CaseResult]] = {}
+    for case in cases:
+        by_key.setdefault(case.key, []).append(case)
+    merged: list[CaseResult] = []
+    for entries in by_key.values():
+        *reruns, last = entries
+        if not reruns or not all(_looks_empty(entry) for entry in reruns):
+            merged.extend(entries)
+            continue
+        durations = [e.duration_ms for e in entries if e.duration_ms is not None]
+        merged.append(
+            replace(
+                last,
+                duration_ms=sum(durations) if durations else None,
+                occurrences=len(entries),
+                attempts=len(entries),
+                flaky=last.status is Status.PASSED,
+            )
+        )
+    return merged
+
+
+def _looks_empty(case: CaseResult) -> bool:
+    return case.status is Status.PASSED and case.message is None and case.attempts == 1
 
 
 def _case(case: Element, suite: str | None) -> CaseResult:
@@ -168,6 +213,7 @@ def _case(case: Element, suite: str | None) -> CaseResult:
         duration_ms=_duration_ms(case.get("time")),
         message=message,
         flaky=status is Status.PASSED and any(case.find(tag) is not None for tag in _FLAKY_TAGS),
+        attempts=1 + sum(1 for child in case if child.tag in _RETRY_TAGS),
     )
 
 

@@ -315,23 +315,34 @@ def _shadow(args: argparse.Namespace) -> int:
 
     plural = "" if len(runs) == 1 else "s"
     counts = f"{len(runs)} run{plural} with a recorded ranking, {failing_runs} with failures"
+    unconfirmed = _unconfirmed_note(points[0])
     if args.format == "markdown":
         print(f"### {title}\n\n{counts}.")
         _print_markdown_table(
             None,
-            ("Budget", "Failing runs caught", "Failures caught", "Tests run", "Test time"),
+            (
+                "Budget",
+                "Failing runs caught",
+                "Failures caught",
+                "Confirmed failures caught",
+                "Tests run",
+                "Test time",
+            ),
             [
                 (
                     f"{p.fraction:.0%}",
                     f"{p.caught_runs} of {p.failing_runs}",
                     f"{p.caught_failures} of {p.failures}",
+                    f"{p.caught_confirmed_failures} of {p.confirmed_failures}",
                     f"{p.tests_run} of {p.tests_total} ({_percent(p.tests_run, p.tests_total)})",
                     _time_share(p),
                 )
                 for p in points
             ],
-            numeric_columns=5,
+            numeric_columns=6,
         )
+        if unconfirmed:
+            print(f"\n{unconfirmed}")
         return 0
 
     print(f"{title}\n{counts}\n")
@@ -342,13 +353,33 @@ def _shadow(args: argparse.Namespace) -> int:
             if p.failing_runs
             else "no failing run to catch"
         )
+        if p.confirmed_failures:
+            caught += (
+                f" (confirmed by retries: {p.caught_confirmed_runs} of "
+                f"{p.confirmed_failing_runs} runs, {p.caught_confirmed_failures} of "
+                f"{p.confirmed_failures} failures)"
+            )
         time = f"{_time_share(p)} of test time" if p.time_total_ms else "test time unknown"
         print(
             f"  top {p.fraction:.0%} of ranked tests: {caught}; "
             f"ran {p.tests_run} of {p.tests_total} tests ({_percent(p.tests_run, p.tests_total)}) "
             f"and {time}"
         )
+    if unconfirmed:
+        print(f"\n{unconfirmed}")
     return 0
+
+
+def _unconfirmed_note(point: ShadowPoint) -> str | None:
+    """Failures do not depend on the budget, so any point tells how many were confirmed."""
+    unconfirmed = point.failures - point.confirmed_failures
+    if not unconfirmed:
+        return None
+    return (
+        f"{unconfirmed} of {point.failures} failures ran only once, so some may be flaky and the "
+        "counts above can look better than the truth. Turn retries on in the test runner to "
+        "confirm failures (docs/adr/0008)."
+    )
 
 
 def _percent(part: int, total: int) -> str:
