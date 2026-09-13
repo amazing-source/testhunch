@@ -51,6 +51,12 @@ history are reported apart, since every test is unknown and runs. APFD, the metr
 paper, is computed for the same jobs as the authors' schedules, so testhunch's ranking is compared
 with theirs job for job.
 
+**For APFD, testhunch's order puts the classes its ranking does not know first**, in the order the
+job ran them, then the known classes by rank: unknown tests always run (ADR 0006), and nothing is
+known that would place them elsewhere. Each failing class is one fault, and a class listed twice in
+a job counts once, at its first position, in testhunch's order and in the authors' schedules alike;
+on the jobs the schedules cover, their class sets and failing classes equal the replay's.
+
 **Only the files a project needs are downloaded**, by HTTP range requests on the published archive;
 each file's CRC-32 from the archive is checked when it is read.
 
