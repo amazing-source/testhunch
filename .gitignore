@@ -20,3 +20,6 @@ reports/
 
 # Local environment overrides
 .env
+
+# Downloaded benchmark data (benchmarks/)
+.benchmark-cache/
