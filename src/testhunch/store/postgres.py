@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 
 import psycopg
 from psycopg import IsolationLevel
+from psycopg.conninfo import conninfo_to_dict
 
 from testhunch.store.base import Params, Row, Session, SqlStore, StoreError
 
 # Arbitrary but fixed: every testhunch process contends for the same advisory lock.
 _MIGRATION_LOCK = 7_265_110_421
+
+# Without connect_timeout psycopg waits 130 s per address before giving up, which stalls the CLI
+# and /readyz. Applied only when neither the URL nor PGCONNECT_TIMEOUT sets one.
+CONNECT_TIMEOUT_S = 10
 
 
 def _pg(sql: str) -> str:
@@ -61,7 +67,10 @@ class PostgresStore(SqlStore):
     @contextmanager
     def session(self, write: bool = True) -> Iterator[Session]:
         try:
-            conn = psycopg.connect(self.url)
+            explicit = conninfo_to_dict(self.url).get("connect_timeout") or os.environ.get(
+                "PGCONNECT_TIMEOUT"
+            )
+            conn = psycopg.connect(self.url, connect_timeout=explicit or CONNECT_TIMEOUT_S)
         except psycopg.OperationalError as exc:
             raise StoreError(f"could not connect to Postgres: {exc}") from exc
         try:
