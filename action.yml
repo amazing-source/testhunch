@@ -34,6 +34,13 @@ inputs:
     description: "For `prioritize`: how many ranked tests to show in the job summary."
     required: false
     default: "20"
+  record:
+    description: >-
+      For `prioritize`: store the ranking for the commit about to be tested (shadow mode), so
+      that `ingest` can report what running only the top-ranked tests would have missed. Nothing
+      is skipped either way. `true` or `false`.
+    required: false
+    default: "true"
 
 outputs:
   ranking-json:
@@ -61,4 +68,5 @@ runs:
         TESTHUNCH_INPUT_DATABASE_URL: ${{ inputs.database-url }}
         TESTHUNCH_LAST: ${{ inputs.last }}
         TESTHUNCH_SUMMARY_LIMIT: ${{ inputs.summary-limit }}
+        TESTHUNCH_RECORD: ${{ inputs.record }}
       run: bash "${GITHUB_ACTION_PATH}/action/run.sh"
