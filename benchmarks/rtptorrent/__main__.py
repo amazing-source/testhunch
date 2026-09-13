@@ -11,15 +11,14 @@ import statistics
 import sys
 import tempfile
 from collections.abc import Sequence
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Any
 
-from benchmarks.rtptorrent.data import STRATEGIES, fetch_project, load_jobs
+from benchmarks.rtptorrent.data import STRATEGIES, fetch_project, iter_jobs
 from benchmarks.rtptorrent.replay import (
     HISTORY_RUNS,
     apfd,
-    concurrent_groups,
     failing_classes,
     read_schedules,
     replay,
@@ -27,7 +26,7 @@ from benchmarks.rtptorrent.replay import (
 from benchmarks.rtptorrent.summary import summary
 from testhunch import __version__
 from testhunch.gitinfo import GitError, rev_parse
-from testhunch.shadow import BUDGETS, evaluate
+from testhunch.shadow import BUDGETS, ShadowPoint, evaluate
 from testhunch.store import open_store
 
 DEFAULT_CACHE = Path(".benchmark-cache") / "rtptorrent"
@@ -35,36 +34,44 @@ DEFAULT_OUT = Path("benchmarks") / "results" / "rtptorrent"
 
 
 def run_project(directory: Path) -> dict[str, Any]:
-    """Replay one fetched project and return every number the report shows."""
+    """Replay one fetched project and return every number the report shows.
+
+    Jobs are scored as they are replayed and then dropped, so memory does not grow with the project.
+    """
     project = directory.name
-    jobs = load_jobs(directory)
+    schedule_scores: dict[str, dict[int, float | None]] = {}
+    for strategy in STRATEGIES:
+        path = directory / "baseline" / f"{strategy}.csv"
+        if path.exists():
+            schedule = read_schedules(path)
+            schedule_scores[strategy] = {job: apfd(*ordered) for job, ordered in schedule.items()}
+    # Without any schedule there is nothing to compare with (square@okhttp has none).
+    covered = set.intersection(*map(set, schedule_scores.values())) if schedule_scores else set()
+
+    points = evaluate([], BUDGETS)
+    testhunch_scores: dict[int, float] = {}
+    total = groups = cold = without_commit = 0
     with tempfile.TemporaryDirectory() as scratch:
         store = open_store(f"sqlite:///{Path(scratch).as_posix()}/history.db")
         store.migrate()
-        ranked = replay(jobs, store, project)
+        for ranked in replay(iter_jobs(directory), store, project):
+            total, groups = total + 1, ranked.group + 1
+            without_commit += ranked.job.changed_files is None
+            if ranked.cold:
+                cold += 1
+                continue
+            run_points = evaluate([ranked.run], BUDGETS)
+            points = [add_points(a, b) for a, b in zip(points, run_points, strict=True)]
+            if ranked.job.job_id in covered:
+                score = apfd(ranked.order, failing_classes(ranked.run.results))
+                if score is not None:
+                    testhunch_scores[ranked.job.job_id] = score
 
-    warm = [r for r in ranked if not r.cold]
-    points = evaluate([r.run for r in warm], BUDGETS)
-
-    schedules = {
-        strategy: read_schedules(directory / "baseline" / f"{strategy}.csv")
-        for strategy in STRATEGIES
-        if (directory / "baseline" / f"{strategy}.csv").exists()
-    }
-    by_id = {r.job.job_id: r for r in warm}
-    # Without any schedule there is nothing to compare with (square@okhttp has none).
-    compared = sorted(set(by_id).intersection(*schedules.values())) if schedules else []
     apfd_scores: dict[str, list[float]] = {"testhunch": []}
-    for job_id in compared:
-        ranked_job = by_id[job_id]
-        failing = failing_classes(ranked_job.run.results)
-        score = apfd(ranked_job.order, failing)
-        if score is None:
-            continue
+    for job_id, score in sorted(testhunch_scores.items()):
         apfd_scores["testhunch"].append(score)
-        for strategy, schedule in schedules.items():
-            order, schedule_failing = schedule[job_id]
-            strategy_score = apfd(order, schedule_failing)
+        for strategy, scores in schedule_scores.items():
+            strategy_score = scores[job_id]
             if strategy_score is not None:
                 apfd_scores.setdefault(strategy, []).append(strategy_score)
 
@@ -75,11 +82,11 @@ def run_project(directory: Path) -> dict[str, Any]:
         "testhunch": {"version": __version__, "commit": _commit()},
         "history_runs": HISTORY_RUNS,
         "jobs": {
-            "total": len(jobs),
-            "concurrent_groups": len(concurrent_groups(jobs)),
-            "ranked_from_empty_history": len(ranked) - len(warm),
-            "without_commit": sum(1 for job in jobs if job.changed_files is None),
-            "evaluated": len(warm),
+            "total": total,
+            "concurrent_groups": groups,
+            "ranked_from_empty_history": cold,
+            "without_commit": without_commit,
+            "evaluated": total - cold,
             "evaluated_failing": points[0].failing_runs if points else 0,
         },
         "shadow": [asdict(point) for point in points],
@@ -149,6 +156,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     ]
     (args.out / "README.md").write_text(summary(everything), encoding="utf-8")
     return 0
+
+
+def add_points(a: ShadowPoint, b: ShadowPoint) -> ShadowPoint:
+    """The totals of two evaluations at the same budget: every count adds up."""
+    if a.fraction != b.fraction:
+        raise ValueError(f"budgets differ: {a.fraction} and {b.fraction}")
+    return ShadowPoint(
+        a.fraction,
+        *(getattr(a, f.name) + getattr(b, f.name) for f in fields(ShadowPoint)[1:]),
+    )
 
 
 def _commit() -> str | None:

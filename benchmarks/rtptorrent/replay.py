@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,23 +23,27 @@ class RankedJob:
     run: ShadowRun  # positions: the ranking made before the job's group was recorded
     order: tuple[str, ...]  # every test class of the job, in the order testhunch would run them
     cold: bool  # ranked from an empty history
+    group: int  # the number of its concurrent group, from 0
 
 
-def concurrent_groups(jobs: Sequence[Job]) -> list[list[Job]]:
+def concurrent_groups(jobs: Iterable[Job]) -> Iterator[list[Job]]:
     """Consecutive jobs building the same set of commits, which may have run at the same time."""
-    groups: list[list[Job]] = []
+    group: list[Job] = []
     for job in jobs:
-        if groups and groups[-1][-1].commits == job.commits:
-            groups[-1].append(job)
-        else:
-            groups.append([job])
-    return groups
+        if group and group[-1].commits != job.commits:
+            yield group
+            group = []
+        group.append(job)
+    if group:
+        yield group
 
 
-def replay(jobs: Sequence[Job], store: SqlStore, repo: str) -> list[RankedJob]:
-    """Rank every job from the history before its group, then record the group's results."""
-    ranked_jobs: list[RankedJob] = []
-    for group in concurrent_groups(jobs):
+def replay(jobs: Iterable[Job], store: SqlStore, repo: str) -> Iterator[RankedJob]:
+    """Rank every job from the history before its group, then record the group's results.
+
+    Lazy, so that a project's jobs need not all be in memory: each job is yielded once recorded.
+    """
+    for number, group in enumerate(concurrent_groups(jobs)):
         history = store.history(repo, HISTORY_RUNS)
         rankings = [(job, rank(history, job.changed_files or ())) for job in group]
         for job, ranking in rankings:
@@ -64,8 +68,7 @@ def replay(jobs: Sequence[Job], store: SqlStore, repo: str) -> list[RankedJob]:
                     for r in results
                 ),
             )
-            ranked_jobs.append(RankedJob(job, run, tuple(order), cold=not history))
-    return ranked_jobs
+            yield RankedJob(job, run, tuple(order), cold=not history, group=number)
 
 
 def apfd(order: Sequence[str], failing: Iterable[str]) -> float | None:

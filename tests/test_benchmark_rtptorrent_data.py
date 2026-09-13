@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import io
 import json
 import threading
@@ -13,7 +14,13 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.rtptorrent.data import HttpRangeFile, class_result, fetch_project, load_jobs
+from benchmarks.rtptorrent.data import (
+    HttpRangeFile,
+    class_result,
+    fetch_project,
+    iter_jobs,
+    load_jobs,
+)
 from testhunch.models import Status
 
 EXTRACT = Path(__file__).parent / "fixtures" / "rtptorrent" / "adamfisk@LittleProxy"
@@ -70,6 +77,46 @@ def test_jobs_come_in_job_id_order_with_their_commits_and_changed_files() -> Non
     failing = by_id[4628724]
     assert any(result.status is Status.FAILED for result in failing.results)
     assert len(failing.results) == 9
+
+
+def test_reading_jobs_one_at_a_time_keeps_every_row_in_file_order() -> None:
+    with (EXTRACT / "results.csv").open(newline="", encoding="utf-8") as file:
+        rows = list(csv.DictReader(file))
+    expected: dict[int, list[str]] = {}
+    for line in rows:
+        expected.setdefault(int(line["travisJobId"]), []).append(line["testName"])
+
+    jobs = {job.job_id: [result.key for result in job.results] for job in iter_jobs(EXTRACT)}
+
+    assert jobs == expected
+    assert sum(map(len, jobs.values())) == len(rows)
+
+
+def write_project(directory: Path, results: str) -> Path:
+    directory.mkdir()
+    header = "travisJobId,testName,index,duration,count,failures,errors,skipped\n"
+    (directory / "results.csv").write_text(header + results, encoding="utf-8")
+    (directory / "commits.csv").write_text("tr_job_id,git_commit_id\n", encoding="utf-8")
+    (directory / "patches.csv").write_text("sha,name\n", encoding="utf-8")
+    return directory
+
+
+def test_a_job_whose_rows_are_not_consecutive_is_read_whole(tmp_path: Path) -> None:
+    project = write_project(
+        tmp_path / "project",
+        "2,org.A,0,1.0,1,0,0,0\n1,org.B,0,1.0,1,0,0,0\n2,org.C,1,1.0,1,1,0,0\n",
+    )
+
+    jobs = [(job.job_id, [result.key for result in job.results]) for job in iter_jobs(project)]
+
+    assert jobs == [(1, ["org.B"]), (2, ["org.A", "org.C"])]
+
+
+def test_a_row_spanning_several_lines_is_refused(tmp_path: Path) -> None:
+    project = write_project(tmp_path / "project", '1,"org.A\nB",0,1.0,1,0,0,0\n')
+
+    with pytest.raises(ValueError, match="invalid literal"):
+        list(iter_jobs(project))
 
 
 class _ArchiveHandler(BaseHTTPRequestHandler):

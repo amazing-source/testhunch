@@ -180,10 +180,16 @@ class Job:
 
 
 def load_jobs(directory: Path) -> list[Job]:
-    """The project's jobs in job id order, which follows build numbers (docs/adr/0010)."""
-    results: dict[int, list[CaseResult]] = defaultdict(list)
-    for row in _rows(directory / "results.csv"):
-        results[int(row["travisJobId"])].append(class_result(row))
+    """Every job of the project at once, for projects small enough; see `iter_jobs`."""
+    return list(iter_jobs(directory))
+
+
+def iter_jobs(directory: Path) -> Iterator[Job]:
+    """The project's jobs in job id order, which follows build numbers (docs/adr/0010).
+
+    One job's results in memory at a time, since SonarQube's take 1.3 GB: a first pass notes where
+    each job's rows are in the file, as blocks of consecutive rows, then jobs are read by seeking.
+    """
     commits: dict[int, set[str]] = defaultdict(set)
     for row in _rows(directory / "commits.csv"):
         commits[int(row["tr_job_id"])].add(row["git_commit_id"])
@@ -191,16 +197,47 @@ def load_jobs(directory: Path) -> list[Job]:
     for row in _rows(directory / "patches.csv"):
         patches[row["sha"]].add(row["name"])
 
-    jobs = []
-    for job_id in sorted(results):
-        job_commits = frozenset(commits.get(job_id, ()))
-        changed = (
-            tuple(sorted(set().union(*(patches.get(sha, set()) for sha in job_commits))))
-            if job_commits
-            else None
-        )
-        jobs.append(Job(job_id, job_commits, changed, tuple(results[job_id])))
-    return jobs
+    path = directory / "results.csv"
+    blocks = _job_blocks(path)
+    with path.open("rb") as file:
+        fields = next(csv.reader([file.readline().decode("utf-8")]))
+        for job_id in sorted(blocks):
+            results = []
+            for start, end in blocks[job_id]:
+                file.seek(start)
+                text = io.StringIO(file.read(end - start).decode("utf-8"), newline="")
+                for row in csv.DictReader(text, fieldnames=fields):
+                    if int(row["travisJobId"]) != job_id:
+                        raise ValueError(f"{path}: a row of job {job_id} spans several lines")
+                    results.append(class_result(row))
+            job_commits = frozenset(commits.get(job_id, ()))
+            changed = (
+                tuple(sorted(set().union(*(patches.get(sha, set()) for sha in job_commits))))
+                if job_commits
+                else None
+            )
+            yield Job(job_id, job_commits, changed, tuple(results))
+
+
+def _job_blocks(path: Path) -> dict[int, list[tuple[int, int]]]:
+    """For each job id, the byte ranges of its runs of consecutive rows in `results.csv`."""
+    blocks: dict[int, list[tuple[int, int]]] = defaultdict(list)
+    with path.open("rb") as file:
+        header = file.readline()
+        if not header.startswith(b"travisJobId,"):
+            raise ValueError(f"{path}: expected travisJobId as the first column")
+        offset = start = len(header)
+        current: int | None = None
+        for line in file:
+            job_id = int(line.split(b",", 1)[0])
+            if job_id != current:
+                if current is not None:
+                    blocks[current].append((start, offset))
+                current, start = job_id, offset
+            offset += len(line)
+        if current is not None:
+            blocks[current].append((start, offset))
+    return blocks
 
 
 def class_result(row: dict[str, str]) -> CaseResult:
