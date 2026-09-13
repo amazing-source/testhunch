@@ -27,13 +27,13 @@ permet pas de la mesurer.
 - [ ] Une GitHub Action qui enveloppe `ingest` et `prioritize`
 - [ ] **Mode fantôme** : lancer tous les tests, enregistrer ce qui aurait été sauté, publier le vrai taux de tests manqués
 - [ ] Produire les sélections au format de chaque lanceur (`pytest -k`, listes de fichiers Jest/Vitest, `go test -run`)
-- [ ] Utiliser testhunch sur lui-même : la CI de testhunch conserve son historique dans l'API hébergée
+- [ ] Utiliser testhunch sur lui-même : la CI de testhunch conserve son historique d'une exécution à l'autre (l'API hébergée n'arrive qu'en phase 4)
 
 ## Phase 3 : le benchmark public
 
 - [ ] Un banc d'essai qui récupère des projets open source à des commits passés, dans des conteneurs figés, et lance leurs suites
 - [ ] Des tests de mutation pour créer des échecs réalistes là où l'historique en contient trop peu
-- [ ] Évaluer sur RTPTorrent, avec un découpage temporel pour qu'aucun modèle ne voie le futur
+- [ ] Évaluer sur RTPTorrent (résultats par classe de test, pas par méthode), avec un découpage temporel pour qu'aucun modèle ne voie le futur : chaque variable (taux d'échec, instabilité, récence) est calculée uniquement à partir des exécutions antérieures à celle qu'on prédit
 - [ ] Mesurer le rappel par test et le rappel par changement, ainsi que le temps de test économisé
 - [ ] Publier les résultats, y compris là où testhunch s'en sort mal
 
@@ -42,6 +42,7 @@ permet pas de la mesurer.
 - [ ] Terraform pour un seul serveur : Postgres, API, worker, stockage objet pour les rapports bruts
 - [ ] Déploiement continu de `main` vers la préproduction, promotion manuelle en production
 - [ ] Métriques (Prometheus) et alertes, dont le taux de tests manqués en mode fantôme comme objectif de niveau de service
+- [ ] La CI de testhunch envoie son historique à l'API hébergée
 - [ ] Des jetons par dépôt au lieu d'un jeton partagé
 - [ ] Partitionner `results` par date quand la table sera assez grosse pour le justifier
 
