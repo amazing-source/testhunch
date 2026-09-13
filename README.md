@@ -146,6 +146,32 @@ usage, passez l'URL d'une base Postgres depuis un secret, ou envoyez les rapport
 auto-hébergée (ci-dessous). Pour figer la version de l'Action, remplacez `@main` par le SHA d'un
 commit.
 
+### Sauter vraiment des tests
+
+Une fois que le rapport du mode fantôme montre ce qu'un budget aurait manqué sur votre historique,
+`testhunch select` produit la sélection correspondante. Elle **laisse de côté** les tests connus
+classés sous le budget ; tout le reste tourne, y compris les tests que testhunch n'a encore jamais
+vus ([ADR 0007](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0007-selections-leave-out-known-low-ranked-tests.md)).
+La coupure est exactement celle du mode fantôme.
+
+```bash
+# pytest : testhunch doit être installé dans l'environnement des tests
+testhunch select --budget 25% --runner pytest --base origin/main > skip.txt
+pytest -p testhunch.pytest_plugin --testhunch-skip=skip.txt
+```
+
+Deux règles pour que ce soit sûr :
+
+- **Gardez un filet de sécurité** : ne sautez des tests que sur les pull requests, et lancez toute la
+  suite sur la branche principale après chaque fusion, pour rattraper ce qu'une sélection a laissé
+  passer.
+- **N'enregistrez pas le classement d'un build qui saute des tests** (`record: false` dans l'Action) :
+  les tests sautés n'ont pas de résultat, et le rapport du mode fantôme paraîtrait meilleur que la
+  réalité.
+
+Seul pytest est pris en charge pour l'instant ; les autres lanceurs arrivent un par un, chacun vérifié
+en le faisant vraiment tourner.
+
 ### Héberger l'API soi-même
 
 ```bash
