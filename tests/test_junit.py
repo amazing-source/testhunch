@@ -12,7 +12,7 @@ from testhunch.junit import (
     parse_report,
     parse_reports,
 )
-from testhunch.models import CaseResult, Status
+from testhunch.models import SEVERITY, CaseResult, Status
 
 FIXTURES = Path(__file__).parent / "fixtures" / "junit"
 
@@ -103,11 +103,11 @@ class TestRealReports:
         cases = by_key(list(collapse(parse_report(report))))
 
         # Failed, then passed when rerun. Nothing marks the second entry as a rerun except the
-        # repetition itself, and collapsing keeps the worst attempt.
+        # repetition itself, so collapsing keeps the worst attempt and marks the result flaky.
         flaky = cases["example.com/shop/pricing::TestFlakyFirstAttempt"]
-        assert (flaky.status, flaky.occurrences) == (Status.FAILED, 2)
+        assert (flaky.status, flaky.occurrences, flaky.flaky) == (Status.FAILED, 2, True)
         always = cases["example.com/shop/cart::TestTotalFailsOnPurpose"]
-        assert (always.status, always.occurrences) == (Status.FAILED, 3)
+        assert (always.status, always.occurrences, always.flaky) == (Status.FAILED, 3, False)
 
     def surefire_run(self) -> dict[str, CaseResult]:
         # Surefire writes one report per test class; together they are one run.
@@ -120,7 +120,7 @@ class TestRealReports:
         cases = self.surefire_run()
         cart = "com.example.shop.CartTest::"
 
-        assert len(cases) == 8
+        assert len(cases) == 9
         assert cases[cart + "sumsPrices"].status is Status.PASSED
         assert cases[cart + "failsOnPurpose"].status is Status.FAILED
         assert cases[cart + "throwsUnexpectedly"].status is Status.ERROR
@@ -134,13 +134,17 @@ class TestRealReports:
     def test_surefire_reruns_stay_inside_one_testcase(self) -> None:
         cases = self.surefire_run()
 
-        # Failed, then passed when rerun: no <failure>, only a <flakyFailure>, so it passed.
+        # Failed, then passed when rerun: no <failure>, only a <flakyFailure>. It passed, flakily.
         flaky = cases["com.example.shop.FlakyTest::failsOnFirstAttempt"]
-        assert (flaky.status, flaky.occurrences, flaky.message) == (Status.PASSED, 1, None)
+        assert (flaky.status, flaky.flaky, flaky.message) == (Status.PASSED, True, None)
+        # Same with an unexpected exception on the first attempt: <flakyError>.
+        errored = cases["com.example.shop.FlakyTest::throwsOnFirstAttempt"]
+        assert (errored.status, errored.flaky, errored.message) == (Status.PASSED, True, None)
 
         # Failed every attempt: the <failure> is followed by one <rerunFailure> per rerun.
         failing = cases["com.example.shop.CartTest::failsOnPurpose"]
-        assert (failing.status, failing.occurrences) == (Status.FAILED, 1)
+        assert (failing.status, failing.occurrences, failing.flaky) == (Status.FAILED, 1, False)
+        assert not cases["com.example.shop.CartTest::throwsUnexpectedly"].flaky  # <rerunError>
         assert failing.message == "empty cart on purpose ==> expected: <1> but was: <0>"
 
     def test_nextest(self) -> None:
@@ -158,10 +162,11 @@ class TestRealReports:
         cases = by_key(parse_report((FIXTURES / "nextest.xml").read_bytes()))
 
         flaky = cases["shop::tests::flaky_first_attempt"]
-        assert (flaky.status, flaky.occurrences, flaky.message) == (Status.PASSED, 1, None)
+        assert (flaky.status, flaky.flaky, flaky.message) == (Status.PASSED, True, None)
 
         failing = cases["shop::tests::fails_on_purpose"]
-        assert (failing.status, failing.occurrences) == (Status.FAILED, 1)
+        assert (failing.status, failing.occurrences, failing.flaky) == (Status.FAILED, 1, False)
+        assert not cases["shop::tests::sums_prices"].flaky
         assert failing.message is not None
         assert failing.message.startswith("thread 'tests::fails_on_purpose' (256) panicked at")
 
@@ -212,6 +217,13 @@ class TestDialectEdges:
         xml = f'<testsuite><testcase name="a" time="{raw}"/></testsuite>'.encode()
         assert parse_report(xml)[0].duration_ms is None
 
+    def test_a_flaky_marker_next_to_a_failure_does_not_make_it_flaky(self) -> None:
+        # Not seen from any runner: an outcome element decides the status, and a failed result is
+        # not a pass that flaked.
+        xml = b"<testsuite><testcase name='a'><failure/><flakyFailure/></testcase></testsuite>"
+        (case,) = parse_report(xml)
+        assert (case.status, case.flaky) == (Status.FAILED, False)
+
     def test_long_messages_are_truncated(self) -> None:
         failure = f'<failure message="{"x" * 5000}"/>'
         xml = f'<testsuite><testcase name="a">{failure}</testcase></testsuite>'
@@ -260,6 +272,42 @@ class TestCollapse:
     def test_unknown_durations_do_not_become_zero(self) -> None:
         (merged,) = collapse([self.case(Status.PASSED, None), self.case(Status.PASSED, None)])
         assert merged.duration_ms is None
+
+    @pytest.mark.parametrize(
+        "statuses",
+        [
+            (Status.FAILED, Status.PASSED),
+            (Status.PASSED, Status.ERROR, Status.ERROR),
+            (Status.ERROR, Status.FAILED, Status.PASSED),
+        ],
+    )
+    def test_a_pass_and_a_failure_in_one_run_is_flaky_and_keeps_the_worst_status(
+        self, statuses: tuple[Status, ...]
+    ) -> None:
+        (merged,) = collapse([self.case(status, 1) for status in statuses])
+        assert merged.flaky
+        assert merged.status is max(statuses, key=SEVERITY.__getitem__)
+
+    @pytest.mark.parametrize(
+        "statuses",
+        [
+            (Status.FAILED, Status.FAILED),
+            (Status.FAILED, Status.ERROR),
+            (Status.SKIPPED, Status.FAILED),
+            (Status.SKIPPED, Status.PASSED),
+            (Status.PASSED, Status.PASSED),
+        ],
+    )
+    def test_without_both_a_pass_and_a_failure_it_is_not_flaky(
+        self, statuses: tuple[Status, ...]
+    ) -> None:
+        (merged,) = collapse([self.case(status, 1) for status in statuses])
+        assert not merged.flaky
+
+    def test_a_flaky_entry_keeps_the_result_flaky(self) -> None:
+        retried = CaseResult("k", "k", None, None, Status.PASSED, 1, None, flaky=True)
+        (merged,) = collapse([retried, self.case(Status.PASSED, 1)])
+        assert merged.flaky
 
 
 class TestDigest:

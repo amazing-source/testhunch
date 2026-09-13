@@ -98,6 +98,48 @@ def test_flaky_means_passed_and_failed_on_the_same_commit(store: SqlStore) -> No
     assert [(t.key, t.flaky_commits) for t in flaky] == [("flaky", 1)]
 
 
+def test_a_retry_that_passed_within_one_run_is_flaky(store: SqlStore) -> None:
+    retried = CaseResult("retried", "retried", None, None, Status.PASSED, 10, None, flaky=True)
+    store.ingest(run("c1", "d1", retried, case("broken", Status.FAILED)))
+
+    flaky = store.flaky_tests(REPO)
+    assert [(t.key, t.flaky_commits) for t in flaky] == [("retried", 1)]
+    # It passed in the end, so it is not a failure.
+    assert [t.key for t in store.failing_tests(REPO)] == ["broken"]
+
+
+def test_flaky_commits_are_counted_once_whatever_the_evidence(store: SqlStore) -> None:
+    retried = CaseResult("t", "t", None, None, Status.PASSED, 10, None, flaky=True)
+    # c1: a retry within a run and a failure in another run of the same commit.
+    store.ingest(run("c1", "d1", retried))
+    store.ingest(run("c1", "d2", case("t", Status.FAILED)))
+    # c2: only a retry.
+    store.ingest(run("c2", "d3", retried))
+
+    assert [(t.key, t.flaky_commits) for t in store.flaky_tests(REPO)] == [("t", 2)]
+
+
+def test_migrating_keeps_results_recorded_before_flakiness_was_stored(
+    unmigrated_store: SqlStore,
+) -> None:
+    initial_schema = bundled_migrations(unmigrated_store.dialect)[:1]
+    assert unmigrated_store.migrate(initial_schema) == [1]
+    with unmigrated_store.session() as s:
+        s.run(
+            "INSERT INTO runs (repo, commit_sha, report_digest) VALUES (?, ?, ?)",
+            (REPO, "c1", "d1"),
+        )
+        s.run("INSERT INTO tests (repo, test_key, name) VALUES (?, ?, ?)", (REPO, "a", "a"))
+        s.run(
+            "INSERT INTO results (run_id, test_id, status) "
+            "SELECT runs.id, tests.id, 'passed' FROM runs, tests"
+        )
+
+    assert 2 in unmigrated_store.migrate()
+    assert [h.key for h in unmigrated_store.history(REPO)] == ["a"]
+    assert unmigrated_store.flaky_tests(REPO) == []
+
+
 def test_repos_do_not_leak_into_each_other(store: SqlStore) -> None:
     store.ingest(run("c1", "d1", case("a", Status.PASSED)))
     store.ingest(run("c1", "d2", case("a", Status.FAILED)))

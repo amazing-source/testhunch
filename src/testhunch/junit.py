@@ -22,7 +22,7 @@ Dialect notes, each backed by a real report in tests/fixtures/junit:
   qualified class ("com.example.shop.CartTest", "...CartTest$Discounts" for a @Nested class) and
   parameterized cases are named "priceIsOdd(int)[2]". With rerunFailingTestsCount, reruns stay
   inside the one <testcase>: a test that failed then passed has only <flakyFailure> or
-  <flakyError> children (so it passed), and one that failed every attempt has <failure> or
+  <flakyError> children (it passed, flakily), and one that failed every attempt has <failure> or
   <error> followed by one <rerunFailure> or <rerunError> per rerun.
 - cargo-nextest: classname is the test binary ("shop" for unit tests, "shop::checkout" for
   tests/checkout.rs) and name is the module path ("tests::nested::keeps_total"). Ignored tests
@@ -46,6 +46,9 @@ from defusedxml import ElementTree as SafeET
 from testhunch.models import SEVERITY, CaseResult, Status
 
 MAX_MESSAGE_CHARS = 2000
+
+# Surefire and nextest: attempts that failed before the test passed on a retry.
+_FLAKY_TAGS = ("flakyFailure", "flakyError")
 
 # pytest writes ANSI colour codes into messages, escaping ESC as the literal text "#x1B".
 _ANSI = re.compile(r"(?:\x1b|#x1B)\[[0-9;]*m")
@@ -93,6 +96,8 @@ def collapse(cases: Iterable[CaseResult]) -> tuple[CaseResult, ...]:
     A test can appear more than once in a run: retries, sharded reports that overlap, or a
     framework that reports setup and call separately. The merged result keeps the worst
     status (and that entry's message), the total time spent, and how many entries there were.
+    It is flaky when the entries include both a pass and a failure: with no retry marker a
+    repetition may not be a retry, so the worst status is kept rather than hidden (ADR 0005).
     """
     merged: dict[str, CaseResult] = {}
     for case in cases:
@@ -101,6 +106,10 @@ def collapse(cases: Iterable[CaseResult]) -> tuple[CaseResult, ...]:
             merged[case.key] = case
             continue
         worst = case if SEVERITY[case.status] > SEVERITY[seen.status] else seen
+        # `seen` already holds the worst of the earlier entries, so a pass among them that was
+        # outranked by a failure has set `seen.flaky` at that point.
+        statuses = (seen.status, case.status)
+        passed_and_failed = Status.PASSED in statuses and any(s.is_failure for s in statuses)
         durations = [d for d in (seen.duration_ms, case.duration_ms) if d is not None]
         merged[case.key] = CaseResult(
             key=case.key,
@@ -111,6 +120,7 @@ def collapse(cases: Iterable[CaseResult]) -> tuple[CaseResult, ...]:
             duration_ms=sum(durations) if durations else None,
             message=worst.message,
             occurrences=seen.occurrences + case.occurrences,
+            flaky=seen.flaky or case.flaky or passed_and_failed,
         )
     return tuple(merged.values())
 
@@ -157,6 +167,7 @@ def _case(case: Element, suite: str | None) -> CaseResult:
         status=status,
         duration_ms=_duration_ms(case.get("time")),
         message=message,
+        flaky=status is Status.PASSED and any(case.find(tag) is not None for tag in _FLAKY_TAGS),
     )
 
 

@@ -1,7 +1,7 @@
 # 4. Flaky means: same commit, different outcome
 
 Date: 2026-09-13
-Status: accepted
+Status: accepted, amended by [0005](0005-retries-within-a-run-are-flakiness-evidence.md)
 
 ## Context
 

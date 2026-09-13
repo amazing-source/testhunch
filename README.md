@@ -54,8 +54,9 @@ flowchart LR
 
 1. Après votre job de tests, `testhunch ingest` enregistre le résultat de chaque test pour ce commit,
    ainsi que les fichiers modifiés.
-2. `testhunch report` affiche les tests instables (réussis *et* échoués sur le même commit), les
-   tests lents et les tests en échec.
+2. `testhunch report` affiche les tests instables (réussis *et* échoués sur le même commit, y
+   compris quand une relance réussit dans la même exécution), les tests lents et les tests en
+   échec.
 3. `testhunch prioritize` classe les tests selon les fichiers que vous avez modifiés, et explique
    pourquoi chacun arrive à cette place.
 
