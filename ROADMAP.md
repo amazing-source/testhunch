@@ -1,55 +1,56 @@
-# Roadmap
+# Feuille de route
 
-Each phase is useful on its own. Nothing is claimed about accuracy until phase 3 can measure it.
+Chaque phase est utile à elle seule. Aucune promesse de précision n'est faite tant que la phase 3 ne
+permet pas de la mesurer.
 
-## Phase 1: record test history (foundation)
+## Phase 1 : enregistrer l'historique des tests (fondations)
 
-- [x] Parse JUnit XML from pytest, Vitest and Jest, tested against real reports from each
-- [x] Normalize test identity across dialects; collapse duplicates within a run
-- [x] Refuse unsafe XML (entity expansion, external references)
-- [x] Read changed files from git, including renames
-- [x] One SQL storage layer for SQLite and Postgres, with a contract test suite run on both
-- [x] Idempotent ingest: the same reports for the same commit are recorded once
-- [x] Reports: flaky (pass and fail on one commit), slowest, failing
-- [x] CLI: `ingest`, `report`, `prioritize`, `migrate`
-- [x] HTTP API with bearer token auth, health and readiness checks
-- [x] Docker image, compose stack, CI (lint, types, tests on 3.12 to 3.14 against Postgres, container smoke test), release to GHCR
-- [ ] Real fixtures for Go (gotestsum), JUnit/Surefire (including `flakyFailure` and `rerunFailure`), cargo-nextest
-- [ ] Record in-run retries as flakiness evidence (needs those real retry fixtures first)
-- [ ] Batch the per-test upserts in `ingest` (one statement per test today)
-- [ ] Publish to PyPI with trusted publishing
+- [x] Lire le JUnit XML de pytest, Vitest et Jest, testé sur de vrais rapports de chacun
+- [x] Normaliser l'identité des tests entre dialectes ; fusionner les doublons au sein d'une exécution
+- [x] Refuser le XML dangereux (expansion d'entités, références externes)
+- [x] Lire les fichiers modifiés depuis git, renommages compris
+- [x] Une seule couche de stockage SQL pour SQLite et Postgres, avec une suite de tests de contrat exécutée sur les deux
+- [x] Ingestion idempotente : les mêmes rapports pour le même commit ne sont enregistrés qu'une fois
+- [x] Rapports : tests instables (réussis et échoués sur un même commit), les plus lents, en échec
+- [x] CLI : `ingest`, `report`, `prioritize`, `migrate`
+- [x] API HTTP avec authentification par jeton *bearer*, contrôles de vivacité et de disponibilité
+- [x] Image Docker, stack Compose, CI (lint, types, tests de Python 3.12 à 3.14 sur Postgres, test de fumée du conteneur), publication sur GHCR
+- [ ] De vrais rapports de test pour Go (gotestsum), JUnit/Surefire (dont `flakyFailure` et `rerunFailure`) et cargo-nextest
+- [ ] Enregistrer les relances au sein d'une exécution comme indice d'instabilité (demande d'abord ces vrais rapports avec relances)
+- [ ] Regrouper les insertions par test dans `ingest` (une requête par test aujourd'hui)
+- [ ] Publier sur PyPI avec la publication de confiance (*trusted publishing*)
 
-## Phase 2: use it in CI
+## Phase 2 : l'utiliser en CI
 
-- [ ] A GitHub Action wrapping `ingest` and `prioritize`
-- [ ] **Shadow mode**: run every test, record what would have been skipped, report the real miss rate
-- [ ] Emit selections in each runner's format (`pytest -k`, Jest/Vitest file lists, `go test -run`)
-- [ ] Dogfood: testhunch's own CI keeps its history in the hosted API
+- [ ] Une GitHub Action qui enveloppe `ingest` et `prioritize`
+- [ ] **Mode fantôme** : lancer tous les tests, enregistrer ce qui aurait été sauté, publier le vrai taux de tests manqués
+- [ ] Produire les sélections au format de chaque lanceur (`pytest -k`, listes de fichiers Jest/Vitest, `go test -run`)
+- [ ] Utiliser testhunch sur lui-même : la CI de testhunch conserve son historique dans l'API hébergée
 
-## Phase 3: the public benchmark
+## Phase 3 : le benchmark public
 
-- [ ] Harness that checks out open-source projects at historical commits in pinned containers and runs their suites
-- [ ] Mutation testing to create realistic failures where history has too few
-- [ ] Evaluate on RTPTorrent, split by time so no model sees the future
-- [ ] Report both per-test recall and per-change recall, with test time saved
-- [ ] Publish results, including where testhunch does badly
+- [ ] Un banc d'essai qui récupère des projets open source à des commits passés, dans des conteneurs figés, et lance leurs suites
+- [ ] Des tests de mutation pour créer des échecs réalistes là où l'historique en contient trop peu
+- [ ] Évaluer sur RTPTorrent, avec un découpage temporel pour qu'aucun modèle ne voie le futur
+- [ ] Mesurer le rappel par test et le rappel par changement, ainsi que le temps de test économisé
+- [ ] Publier les résultats, y compris là où testhunch s'en sort mal
 
-## Phase 4: hosted service
+## Phase 4 : service hébergé
 
-- [ ] Terraform for a single server: Postgres, API, worker, object storage for raw reports
-- [ ] Continuous deployment from `main` to staging, manual promotion to production
-- [ ] Metrics (Prometheus) and alerts, including shadow-mode miss rate as a service level objective
-- [ ] Per-repository tokens instead of one shared token
-- [ ] Partition `results` by time once it is large enough to need it
+- [ ] Terraform pour un seul serveur : Postgres, API, worker, stockage objet pour les rapports bruts
+- [ ] Déploiement continu de `main` vers la préproduction, promotion manuelle en production
+- [ ] Métriques (Prometheus) et alertes, dont le taux de tests manqués en mode fantôme comme objectif de niveau de service
+- [ ] Des jetons par dépôt au lieu d'un jeton partagé
+- [ ] Partitionner `results` par date quand la table sera assez grosse pour le justifier
 
-## Phase 5: a learned model
+## Phase 5 : un modèle appris
 
-- [ ] Features: co-failure of files and tests, path distance, recency, flakiness, test duration
-- [ ] Gradient boosted trees compared against the phase 1 baseline on the phase 3 benchmark
-- [ ] Ship it only if it beats the baseline; publish the comparison either way
-- [ ] Explore defect-prediction signals (historically bug-prone files) as an extra feature
+- [ ] Variables : échecs conjoints fichiers/tests, distance entre chemins, récence, instabilité, durée des tests
+- [ ] Des arbres à gradient boosting comparés au classement de référence de la phase 1, sur le benchmark de la phase 3
+- [ ] Ne le livrer que s'il bat la référence ; publier la comparaison dans tous les cas
+- [ ] Explorer les indicateurs de prédiction de défauts (fichiers historiquement sujets aux bugs) comme variable supplémentaire
 
-## References
+## Références
 
 - Machalica et al., *Predictive Test Selection*, ICSE-SEIP 2019 (Meta)
 - Mattis et al., *RTPTorrent: An Open-source Dataset for Evaluating Regression Test Prioritization*, MSR 2020
