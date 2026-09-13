@@ -1,7 +1,7 @@
 # testhunch
 
 [![CI](https://github.com/amazing-source/testhunch/actions/workflows/ci.yml/badge.svg)](https://github.com/amazing-source/testhunch/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/amazing-source/testhunch/blob/main/LICENSE)
 
 **testhunch apprend de l'historique de votre CI quels tests un changement risque de casser, et les
 lance en premier.**
@@ -13,7 +13,7 @@ Jest, Go (gotestsum), Java (Maven Surefire) et Rust (cargo-nextest).
 > **Statut : pré-alpha.** Le pipeline de données (ingestion, stockage, rapports sur les tests
 > instables et en échec) et un classement de référence simple et explicable fonctionnent dès
 > aujourd'hui. Le modèle appris et le benchmark public qui prouvera son efficacité sont prévus dans
-> la [feuille de route](ROADMAP.md). Aucune promesse de précision n'est faite tant que ce benchmark
+> la [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md). Aucune promesse de précision n'est faite tant que ce benchmark
 > n'existe pas.
 
 ## Pourquoi
@@ -73,7 +73,7 @@ L'historique est conservé dans `.testhunch/history.db` (SQLite), sauf si vous i
 base avec `--db` ou `TESTHUNCH_DATABASE_URL`, par exemple `postgresql://user@host/db`.
 
 Sortie réelle, obtenue avec deux exécutions de l'exemple pytest de
-[`tests/fixtures`](tests/fixtures/junit) :
+[`tests/fixtures`](https://github.com/amazing-source/testhunch/tree/main/tests/fixtures/junit) :
 
 ```text
 $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
@@ -140,10 +140,10 @@ TESTHUNCH_TEST_POSTGRES_URL=postgresql://testhunch:testhunch@127.0.0.1:5432/test
 Utilisez `127.0.0.1` et non `localhost` : Compose ne publie le port qu'en IPv4, et sous Windows
 `localhost` essaie d'abord `::1`, où chaque connexion reste bloquée jusqu'à expiration du délai.
 
-Les décisions de conception sont consignées dans [`docs/adr`](docs/adr). La couche de stockage est
+Les décisions de conception sont consignées dans [`docs/adr`](https://github.com/amazing-source/testhunch/tree/main/docs/adr). La couche de stockage est
 une seule implémentation SQL, exécutée sur SQLite comme sur Postgres, et chaque test de stockage
 tourne sur les deux.
 
 ## Licence
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](https://github.com/amazing-source/testhunch/blob/main/LICENSE)
