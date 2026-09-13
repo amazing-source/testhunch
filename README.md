@@ -96,18 +96,44 @@ $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
 
 ### Dans GitHub Actions
 
+L'Action de ce dépôt classe les tests avant qu'ils tournent, enregistre leurs résultats ensuite, et
+écrit un résumé dans la page du job :
+
 ```yaml
 - uses: actions/checkout@v7
   with:
-    fetch-depth: 0 # testhunch a besoin de l'historique pour comparer avec la branche de base
+    fetch-depth: 0 # testhunch compare avec la branche de base de la pull request
+- id: testhunch
+  uses: amazing-source/testhunch@main
+  with:
+    command: prioritize
+    database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
 - run: pytest --junitxml=junit.xml
 - if: ${{ !cancelled() }}
-  run: uvx testhunch ingest junit.xml --base origin/main
+  uses: amazing-source/testhunch@main
+  with:
+    command: ingest
+    reports: junit.xml
+    database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
 ```
 
-Un fichier SQLite local ne survit pas d'une exécution de CI à l'autre. Pour un vrai usage en CI,
-faites pointer `TESTHUNCH_DATABASE_URL` vers Postgres, ou envoyez les rapports à une API
-auto-hébergée (ci-dessous).
+| Entrée | Rôle |
+|---|---|
+| `command` | `prioritize` avant les tests, `ingest` après |
+| `reports` | Pour `ingest` : fichiers JUnit XML ou motifs glob, un par ligne |
+| `base` | Référence à comparer pour trouver les fichiers modifiés ; par défaut, la branche de base de la pull request |
+| `database-url` | Où garder l'historique ; par défaut un fichier SQLite qui disparaît à la fin du job |
+| `last` | Nombre d'exécutions récentes prises en compte (50) |
+| `summary-limit` | Nombre de tests affichés dans le résumé de `prioritize` (20) |
+
+`prioritize` a deux sorties : `ranking-json`, le chemin d'un fichier JSON avec le score et les
+raisons de chaque test, et `ranking-keys`, le chemin d'un fichier avec une clé de test par ligne, du
+plus au moins susceptible d'échouer.
+
+Sans `database-url`, l'historique ne survit pas d'une exécution de CI à l'autre : pour un vrai
+usage, passez l'URL d'une base Postgres depuis un secret, ou envoyez les rapports à une API
+auto-hébergée (ci-dessous). Pour figer la version de l'Action, remplacez `@main` par le SHA d'un
+commit.
 
 ### Héberger l'API soi-même
 

@@ -24,7 +24,7 @@ permet pas de la mesurer.
 
 ## Phase 2 : l'utiliser en CI
 
-- [ ] Une GitHub Action qui enveloppe `ingest` et `prioritize`
+- [x] Une GitHub Action qui enveloppe `ingest` et `prioritize`
 - [ ] **Mode fantôme** : lancer tous les tests, enregistrer ce qui aurait été sauté, publier le vrai taux de tests manqués
 - [ ] Produire les sélections au format de chaque lanceur (`pytest -k`, listes de fichiers Jest/Vitest, `go test -run`)
 - [ ] Utiliser testhunch sur lui-même : la CI de testhunch conserve son historique d'une exécution à l'autre (l'API hébergée n'arrive qu'en phase 4)
