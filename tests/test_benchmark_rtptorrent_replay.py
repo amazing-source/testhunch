@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.rtptorrent.__main__ import main, run_project
+from benchmarks.rtptorrent.__main__ import main, markdown, run_project
 from benchmarks.rtptorrent.data import STRATEGIES, Job, load_jobs
 from benchmarks.rtptorrent.replay import (
     apfd,
@@ -133,6 +133,16 @@ def test_the_report_accounts_for_every_job() -> None:
     assert all(point["runs"] == jobs["evaluated"] for point in report["shadow"])
     assert report["apfd"]["jobs"] > 0
     assert set(report["apfd"]["mean"]) == {"testhunch", *STRATEGIES}
+
+
+def test_a_project_without_schedules_compares_no_apfd(tmp_path: Path) -> None:
+    project = tmp_path / "adamfisk@LittleProxy"
+    shutil.copytree(EXTRACT, project, ignore=shutil.ignore_patterns("baseline"))
+
+    report = run_project(project)
+
+    assert report["apfd"] == {"jobs": 0, "mean": {}}
+    assert "no schedule" in markdown(report)
 
 
 def test_the_benchmark_writes_json_and_markdown_per_project(tmp_path: Path) -> None:

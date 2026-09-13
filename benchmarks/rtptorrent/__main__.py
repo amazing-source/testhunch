@@ -51,7 +51,8 @@ def run_project(directory: Path) -> dict[str, Any]:
         if (directory / "baseline" / f"{strategy}.csv").exists()
     }
     by_id = {r.job.job_id: r for r in warm}
-    compared = sorted(set(by_id).intersection(*(set(s) for s in schedules.values())))
+    # Without any schedule there is nothing to compare with (square@okhttp has none).
+    compared = sorted(set(by_id).intersection(*schedules.values())) if schedules else []
     apfd_scores: dict[str, list[float]] = {"testhunch": []}
     for job_id in compared:
         ranked_job = by_id[job_id]
@@ -112,6 +113,9 @@ def markdown(result: dict[str, Any]) -> str:
             f"{point['tests_run']} of {point['tests_total']} | {time} |"
         )
     apfd_result = result["apfd"]
+    if not apfd_result["jobs"]:
+        lines += ["", "The dataset has no schedule by its authors to compare APFD with."]
+        return "\n".join(lines) + "\n"
     lines += [
         "",
         f"Mean APFD on the {apfd_result['jobs']} jobs the authors' schedules cover:",
