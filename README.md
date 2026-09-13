@@ -1,6 +1,7 @@
 # testhunch
 
 [![CI](https://github.com/amazing-source/testhunch/actions/workflows/ci.yml/badge.svg)](https://github.com/amazing-source/testhunch/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/testhunch.svg)](https://pypi.org/project/testhunch/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/amazing-source/testhunch/blob/main/LICENSE)
 
 **testhunch apprend de l'historique de votre CI quels tests un changement risque de casser, et les
@@ -64,9 +65,9 @@ flowchart LR
 
 ```bash
 # Dans un dépôt git, après avoir lancé vos tests avec une sortie JUnit :
-uvx --from git+https://github.com/amazing-source/testhunch testhunch ingest junit.xml
-uvx --from git+https://github.com/amazing-source/testhunch testhunch report
-uvx --from git+https://github.com/amazing-source/testhunch testhunch prioritize --base origin/main
+uvx testhunch ingest junit.xml
+uvx testhunch report
+uvx testhunch prioritize --base origin/main
 ```
 
 L'historique est conservé dans `.testhunch/history.db` (SQLite), sauf si vous indiquez une autre
@@ -101,7 +102,7 @@ $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
     fetch-depth: 0 # testhunch a besoin de l'historique pour comparer avec la branche de base
 - run: pytest --junitxml=junit.xml
 - if: ${{ !cancelled() }}
-  run: uvx --from git+https://github.com/amazing-source/testhunch testhunch ingest junit.xml --base origin/main
+  run: uvx testhunch ingest junit.xml --base origin/main
 ```
 
 Un fichier SQLite local ne survit pas d'une exécution de CI à l'autre. Pour un vrai usage en CI,
