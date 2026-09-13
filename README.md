@@ -205,6 +205,17 @@ projet à un seul module.
 Avec cargo-nextest, chaque test est visé par son binaire et son nom exacts : tous les tests sous le
 budget sont écartés. Vérifié avec cargo-nextest 0.9.144.
 
+```bash
+# Vitest : -t vise des noms complets dans tous les fichiers, testhunch a donc besoin de la liste actuelle
+npx vitest list --json=vitest-list.json --no-static-parse
+npx vitest run -t "$(testhunch select --budget 25% --runner vitest --vitest-list vitest-list.json --base origin/main)"
+```
+
+Avec Vitest, un test n'est écarté que si son nom complet n'apparaît qu'une fois dans la liste
+actuelle ; `--no-static-parse` fait exécuter les fichiers pour lister, sinon un `test.each` y figure
+sous son modèle (`price %i is positive`) et non sous ses vrais noms. Vitest compte les tests écartés
+comme « skipped » dans son rapport JUnit. Vérifié avec Vitest 5.0.0.
+
 Sur environ un build sur quatre, `select` ne laisse rien de côté : c'est un *learning run*, qui lance
 toute la suite et enregistre le classement, pour que le mode fantôme continue de mesurer ce que la
 sélection manque ([ADR 0009](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0009-learning-runs-keep-measuring-while-skipping.md)).
@@ -221,8 +232,8 @@ Deux règles pour que ce soit sûr :
   et le rapport du mode fantôme paraîtrait meilleur que la réalité. `select` n'enregistre que ses
   learning runs.
 
-pytest, Go, Maven Surefire et cargo-nextest sont pris en charge ; Vitest et Jest arrivent, vérifiés
-de la même façon en faisant vraiment tourner le lanceur.
+pytest, Go, Maven Surefire, cargo-nextest et Vitest sont pris en charge ; Jest arrive, vérifié de la
+même façon en faisant vraiment tourner le lanceur.
 
 ### Héberger l'API soi-même
 

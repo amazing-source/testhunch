@@ -1,0 +1,26 @@
+[
+  {
+    "name": "cart total > sums prices",
+    "file": "/src/src/billing.test.js"
+  },
+  {
+    "name": "cart total > sums prices",
+    "file": "/src/src/cart.test.js"
+  },
+  {
+    "name": "cart total > sums prices twice",
+    "file": "/src/src/cart.test.js"
+  },
+  {
+    "name": "cart total > nested > handles quantities",
+    "file": "/src/src/cart.test.js"
+  },
+  {
+    "name": "cart total > price 1 is positive",
+    "file": "/src/src/cart.test.js"
+  },
+  {
+    "name": "cart total > price 2 is positive",
+    "file": "/src/src/cart.test.js"
+  }
+]

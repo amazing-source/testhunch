@@ -6,6 +6,7 @@ a test the runner's filter cannot aim at alone is not left out, it runs.
 
 from __future__ import annotations
 
+import json
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -183,6 +184,47 @@ def nextest_filterset(left_out: Iterable[str], suites: Mapping[str, str | None])
         for _, binary, name in chosen
     )
     return NextestSkip(f"not ({terms})", tuple(key for key, _, _ in chosen))
+
+
+@dataclass(frozen=True, slots=True)
+class VitestSkip:
+    pattern: str  # for `vitest run -t`; ".*" leaves nothing out
+    left_out: tuple[str, ...]
+
+
+_JS_REGEXP_META = re.compile(r"[.*+?^${}()|[\]\\/]")
+
+
+def parse_vitest_list(text: str) -> list[tuple[str, str]]:
+    """(file, full name) of every test in the output of `vitest list --json --no-static-parse`."""
+    entries = json.loads(text)
+    if not isinstance(entries, list):
+        raise ValueError("expected the JSON array written by `vitest list --json`")
+    return [(str(entry["file"]).replace("\\", "/"), str(entry["name"])) for entry in entries]
+
+
+def vitest_skip(left_out: Iterable[str], listed: Sequence[tuple[str, str]]) -> VitestSkip:
+    """A `vitest run -t` pattern leaving out as many of `left_out` as Vitest can aim at precisely.
+
+    Checked with real Vitest 5.0.0 runs: `-t` matches a test's full name joined with " > ", as in
+    the JUnit report, in every file of the run, and tests it filters out are reported as skipped.
+    So a test is only left out when its full name appears exactly once in the current code
+    (`listed`), in its own file: a same-named test elsewhere, or a duplicate added in the same file,
+    would be filtered out with it.
+    """
+    occurrences: dict[str, list[str]] = defaultdict(list)
+    for file, name in listed:
+        occurrences[name].append(file)
+    chosen: list[tuple[str, str]] = []
+    for key in sorted(left_out):
+        file, _, name = key.partition("::")
+        files = occurrences.get(name, [])
+        if len(files) == 1 and (files[0] == file or files[0].endswith("/" + file)):
+            chosen.append((key, name))
+    if not chosen:
+        return VitestSkip(".*", ())
+    names = "|".join(_JS_REGEXP_META.sub(r"\\\g<0>", name) for _, name in chosen)
+    return VitestSkip(f"^(?!(?:{names})$)", tuple(key for key, _ in chosen))
 
 
 def _nextest_escape(name: str) -> str:

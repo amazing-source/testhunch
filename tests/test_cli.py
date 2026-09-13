@@ -287,6 +287,32 @@ def test_select_for_nextest_uses_the_recorded_binary_ids(
     assert "test(=tests::fails_on_purpose)" not in out.out
 
 
+def test_select_for_vitest_uses_the_current_test_list(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sample = FIXTURES.parent / "select" / "vitest"
+    (workdir / "vitest.xml").write_bytes((sample / "full.xml").read_bytes())
+    (workdir / "list.json").write_bytes((sample / "vitest-list.json").read_bytes())
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "vitest.xml", *common]) == 0
+    capsys.readouterr()
+
+    select = ["select", "--budget", "10%", "--runner", "vitest", "--vitest-list", "list.json"]
+    assert main([*select, "--learning-runs", "0%", *common]) == 0
+    out = capsys.readouterr()
+    assert out.out.startswith("^(?!(?:") and out.out.endswith(")$)")
+    names = out.out.removeprefix("^(?!(?:").removesuffix(")$)").split("|")
+    # The same full name exists in two files: it cannot be filtered out alone.
+    assert "cart total > sums prices" not in names
+    assert "cart total > sums prices twice" in names
+    assert "run anyway" in out.err
+
+    (workdir / "broken.json").write_text("not json")
+    broken = [*select[:-1], "broken.json", "--learning-runs", "0%", *common]
+    assert main(broken) == 2
+    assert "cannot read broken.json" in capsys.readouterr().err
+
+
 def test_select_for_go_needs_the_test_list(
     workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
