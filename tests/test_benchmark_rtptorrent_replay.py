@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.rtptorrent.__main__ import main, markdown, run_project
+from benchmarks.rtptorrent.__main__ import add_points, main, markdown, run_project
 from benchmarks.rtptorrent.data import STRATEGIES, Job, load_jobs
 from benchmarks.rtptorrent.replay import (
     apfd,
@@ -19,6 +19,7 @@ from benchmarks.rtptorrent.replay import (
 )
 from benchmarks.rtptorrent.summary import summary
 from testhunch.models import CaseResult, Status
+from testhunch.shadow import BUDGETS, evaluate
 from testhunch.store import SqlStore, open_store
 
 EXTRACT = Path(__file__).parent / "fixtures" / "rtptorrent" / "adamfisk@LittleProxy"
@@ -83,7 +84,7 @@ def test_classes_the_ranking_does_not_know_run_first(store: SqlStore) -> None:
         job(2, "b", result("A"), result("New"), result("B"), result("Other")),
     ]
 
-    ranked = replay(jobs, store, "repo")[1]
+    ranked = list(replay(jobs, store, "repo"))[1]
 
     assert ranked.order == ("New", "Other", "B", "A")
     assert failing_classes(ranked.run.results) == set()
@@ -96,7 +97,27 @@ def test_changed_files_pull_up_the_matching_class(store: SqlStore) -> None:
         job(2, "b", *classes, changed=("src/main/java/org/example/User.java",)),
     ]
 
-    assert replay(jobs, store, "repo")[1].order == ("org.example.UserTest", "org.example.CartTest")
+    ranked = list(replay(jobs, store, "repo"))[1]
+
+    assert ranked.order == ("org.example.UserTest", "org.example.CartTest")
+
+
+def test_scoring_jobs_one_at_a_time_adds_up_to_scoring_them_together(store: SqlStore) -> None:
+    runs = [r.run for r in replay(load_jobs(EXTRACT), store, "adamfisk@LittleProxy") if not r.cold]
+
+    one_at_a_time = evaluate([], BUDGETS)
+    for run in runs:
+        pairs = zip(one_at_a_time, evaluate([run], BUDGETS), strict=True)
+        one_at_a_time = [add_points(a, b) for a, b in pairs]
+
+    assert one_at_a_time == evaluate(runs, BUDGETS)
+    assert one_at_a_time[0].failing_runs > 0
+
+
+def test_points_of_different_budgets_do_not_add_up() -> None:
+    ten, quarter, _ = evaluate([], BUDGETS)
+    with pytest.raises(ValueError, match="budgets differ"):
+        add_points(ten, quarter)
 
 
 def test_a_schedule_keeps_each_class_once_at_its_first_position(tmp_path: Path) -> None:
