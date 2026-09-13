@@ -1,6 +1,6 @@
 [project]
 name = "testhunch"
-version = "0.1.0"
+version = "0.2.0"
 description = "Learns from your CI history which tests a change is likely to break, and runs those first."
 readme = "README.md"
 license = "Apache-2.0"
