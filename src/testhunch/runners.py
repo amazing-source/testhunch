@@ -96,6 +96,61 @@ def go_skip(
     return GoSkip(pattern, tuple(covered))
 
 
+@dataclass(frozen=True, slots=True)
+class SurefireSkip:
+    value: str  # for `mvn test -Dtest=...`; empty runs everything
+    left_out: tuple[str, ...]
+
+
+# A JUnit report name that names a Java method: "sumsPrices", "priceIsOdd(int)[2]".
+_JAVA_METHOD_NAME = re.compile(r"^([A-Za-z_$][A-Za-z0-9_$]*)(?:\([^)]*\))?(?:\[.*\])?$")
+_JVM_SOURCE_EXTENSIONS = (".java", ".kt", ".groovy", ".scala")
+
+
+def surefire_exclusions(
+    left_out: Iterable[str], kept: Iterable[str], changed_paths: Sequence[str] = ()
+) -> SurefireSkip:
+    """A `-Dtest` value leaving out as many of `left_out` as Surefire can aim at precisely.
+
+    Checked with real Surefire 3.6.0 runs: `!pkg.Class#method` leaves out that method of that class
+    only (a simple class name would match same-named classes in other packages); a method filter
+    leaves out every invocation of a parameterized method, and `#method[2]` leaves out nothing. So
+    a method is only left out when:
+
+    - its report name is a Java method name, possibly with parameters and an index;
+    - every known test with that class and method is left out (all invocations, all overloads);
+    - the class's source file did not change, where an invocation could have been added.
+    """
+    wanted: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for key in left_out:
+        target = _surefire_target(key)
+        if target:
+            wanted[target].append(key)
+    kept_targets = {_surefire_target(key) for key in kept}
+
+    chosen = sorted(
+        (cls, method)
+        for cls, method in wanted
+        if (cls, method) not in kept_targets and not _jvm_source_changed(cls, changed_paths)
+    )
+    value = ",".join(f"!{cls}#{method}" for cls, method in chosen)
+    covered = sorted(key for target in chosen for key in wanted[target])
+    return SurefireSkip(value, tuple(covered))
+
+
+def _surefire_target(key: str) -> tuple[str, str] | None:
+    cls, _, name = key.partition("::")
+    match = _JAVA_METHOD_NAME.match(name)
+    return (cls, match.group(1)) if cls and match else None
+
+
+def _jvm_source_changed(cls: str, changed_paths: Sequence[str]) -> bool:
+    # Nested classes (Outer$Inner) live in the outer class's file.
+    stem = cls.split("$", 1)[0].replace(".", "/")
+    sources = [stem + extension for extension in _JVM_SOURCE_EXTENSIONS]
+    return any(path == src or path.endswith("/" + src) for path in changed_paths for src in sources)
+
+
 def _go_quote(name: str) -> str:
     return _GO_REGEXP_META.sub(r"\\\1", name)
 

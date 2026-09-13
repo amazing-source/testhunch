@@ -17,7 +17,7 @@ from testhunch.gitinfo import GitError, changed_files, current_branch, detect_re
 from testhunch.junit import ReportError, parse_reports
 from testhunch.models import RankedTest, RunInput
 from testhunch.prioritize import rank
-from testhunch.runners import go_skip, parse_go_test_list
+from testhunch.runners import go_skip, parse_go_test_list, surefire_exclusions
 from testhunch.shadow import ShadowPoint, budget_size, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
 
@@ -105,10 +105,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     select.add_argument(
         "--runner",
-        choices=["pytest", "go"],
+        choices=["pytest", "go", "surefire"],
         required=True,
         help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`; "
-        'go: a pattern for `go test ./... -skip "$(testhunch select ...)"`',
+        'go: a pattern for `go test ./... -skip "$(testhunch select ...)"`; '
+        'surefire: a value for `mvn test "-Dtest=$(testhunch select ...)"`',
     )
     select.add_argument(
         "--go-test-list",
@@ -308,6 +309,11 @@ def _select(args: argparse.Namespace) -> int:
         # No line ending: on Windows it would be \r\n, and "$(...)" only strips the \n.
         sys.stdout.write(skip.pattern)
         left_out, unreachable = len(skip.left_out), len(below) - len(skip.left_out)
+    elif args.runner == "surefire":
+        exclusions = surefire_exclusions(below, [r.key for r in ranked[:cutoff]], changed)
+        sys.stdout.write(exclusions.value)  # no line ending either, for the same reason
+        left_out = len(exclusions.left_out)
+        unreachable = len(below) - left_out
     else:
         if below:
             print("\n".join(below))
