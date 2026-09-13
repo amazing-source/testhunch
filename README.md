@@ -216,6 +216,19 @@ actuelle ; `--no-static-parse` fait exécuter les fichiers pour lister, sinon un
 sous son modèle (`price %i is positive`) et non sous ses vrais noms. Vitest compte les tests écartés
 comme « skipped » dans son rapport JUnit. Vérifié avec Vitest 5.0.0.
 
+```bash
+# Jest : le rapport doit indiquer le fichier de chaque test
+export JEST_JUNIT_ADD_FILE_ATTRIBUTE=true
+npx jest --reporters=default --reporters=jest-junit \
+  --testPathIgnorePatterns "$(testhunch select --budget 25% --runner jest --base origin/main)"
+```
+
+Jest ne sait pas lister les noms de tests sans les lancer : un test homonyme dans un autre fichier ne
+peut donc pas être exclu du doute, et la sélection écarte des **fichiers entiers**. Un fichier n'est
+écarté que si tous ses tests connus sont sous le budget et qu'il n'a pas changé. Le motif remplace
+les `testPathIgnorePatterns` de votre configuration ; il reprend `/node_modules/`, la valeur par
+défaut de Jest. Vérifié avec Jest 30.5.1 et jest-junit 17.0.0.
+
 Sur environ un build sur quatre, `select` ne laisse rien de côté : c'est un *learning run*, qui lance
 toute la suite et enregistre le classement, pour que le mode fantôme continue de mesurer ce que la
 sélection manque ([ADR 0009](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0009-learning-runs-keep-measuring-while-skipping.md)).
@@ -232,8 +245,9 @@ Deux règles pour que ce soit sûr :
   et le rapport du mode fantôme paraîtrait meilleur que la réalité. `select` n'enregistre que ses
   learning runs.
 
-pytest, Go, Maven Surefire, cargo-nextest et Vitest sont pris en charge ; Jest arrive, vérifié de la
-même façon en faisant vraiment tourner le lanceur.
+Chaque lanceur pris en charge (pytest, Go, Maven Surefire, cargo-nextest, Vitest, Jest) est vérifié
+par un vrai lancement sélectif dans `tests/fixtures/select` : les tests lancés sont exactement tous
+les tests moins ceux que testhunch dit écarter.
 
 ### Héberger l'API soi-même
 

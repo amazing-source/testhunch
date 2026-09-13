@@ -19,6 +19,7 @@ from testhunch.models import RankedTest, RunInput
 from testhunch.prioritize import rank
 from testhunch.runners import (
     go_skip,
+    jest_ignore_pattern,
     nextest_filterset,
     parse_go_test_list,
     parse_vitest_list,
@@ -112,13 +113,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     select.add_argument(
         "--runner",
-        choices=["pytest", "go", "surefire", "nextest", "vitest"],
+        choices=["pytest", "go", "surefire", "nextest", "vitest", "jest"],
         required=True,
         help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`; "
         'go: a pattern for `go test ./... -skip "$(testhunch select ...)"`; '
         'surefire: a value for `mvn test "-Dtest=$(testhunch select ...)"`; '
         'nextest: an expression for `cargo nextest run -E "$(testhunch select ...)"`; '
-        'vitest: a pattern for `vitest run -t "$(testhunch select ...)"`',
+        'vitest: a pattern for `vitest run -t "$(testhunch select ...)"`; '
+        'jest: a pattern for `jest --testPathIgnorePatterns "$(testhunch select ...)"`',
     )
     select.add_argument(
         "--vitest-list",
@@ -351,6 +353,18 @@ def _select(args: argparse.Namespace) -> int:
         sys.stdout.write(vitest.pattern)  # no line ending either, for the same reason
         left_out = len(vitest.left_out)
         unreachable = len(below) - left_out
+    elif args.runner == "jest":
+        files = {case.key: case.file for case in history}
+        jest = jest_ignore_pattern(below, [r.key for r in ranked[:cutoff]], files, changed)
+        sys.stdout.write(jest.pattern)  # no line ending either, for the same reason
+        left_out = len(jest.left_out)
+        unreachable = len(below) - left_out
+        if below and not any(files.values()):
+            print(
+                "no test file is known: run jest-junit with JEST_JUNIT_ADD_FILE_ATTRIBUTE=true, "
+                "since Jest can only leave out whole files",
+                file=sys.stderr,
+            )
     else:
         if below:
             print("\n".join(below))

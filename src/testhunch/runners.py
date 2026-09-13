@@ -227,6 +227,61 @@ def vitest_skip(left_out: Iterable[str], listed: Sequence[tuple[str, str]]) -> V
     return VitestSkip(f"^(?!(?:{names})$)", tuple(key for key, _ in chosen))
 
 
+@dataclass(frozen=True, slots=True)
+class JestSkip:
+    pattern: str  # for `jest --testPathIgnorePatterns`; "/node_modules/" is Jest's default
+    left_out: tuple[str, ...]
+
+
+# JavaScript regexp metacharacters, without "/": Jest builds the pattern with RegExp().
+_JS_REGEXP_META_NO_SLASH = re.compile(r"[.*+?^${}()|[\]\\]")
+
+
+def jest_ignore_pattern(
+    left_out: Iterable[str],
+    kept: Iterable[str],
+    files: Mapping[str, str | None],
+    changed_paths: Sequence[str] = (),
+) -> JestSkip:
+    """A `--testPathIgnorePatterns` value leaving out whole test files, when Jest allows it.
+
+    Jest's `-t` matches full test names in every file, and Jest has no command that lists test
+    names without running them, so a same-named test in another file cannot be ruled out: a
+    selection can only leave out files. Checked with real Jest 30.5.1 runs: `<rootDir>/` anchors a
+    pattern on the project root, so `src/cart/cart.test.js` does not match
+    `src/billing/cart.test.js`. A file is only left out when:
+
+    - its path is known, from jest-junit's `file` attribute (JEST_JUNIT_ADD_FILE_ATTRIBUTE=true);
+    - every known test in it is left out;
+    - it did not change, since a test added to it would be left out with the others.
+
+    The pattern keeps `/node_modules/`, which it replaces as Jest's default.
+    """
+    in_file: dict[str, list[str]] = defaultdict(list)
+    for key in left_out:
+        file = files.get(key)
+        if file and not _is_absolute(file):
+            in_file[file].append(key)
+    kept_files = {files.get(key) for key in kept}
+    chosen = sorted(
+        file
+        for file in in_file
+        if file not in kept_files
+        and not any(path == file or path.endswith("/" + file) for path in changed_paths)
+    )
+    if not chosen:
+        return JestSkip("/node_modules/", ())
+    alternatives = "|".join(_JS_REGEXP_META_NO_SLASH.sub(r"\\\g<0>", file) for file in chosen)
+    return JestSkip(
+        f"<rootDir>/(?:{alternatives})$|/node_modules/",
+        tuple(sorted(key for file in chosen for key in in_file[file])),
+    )
+
+
+def _is_absolute(path: str) -> bool:
+    return path.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:[\\/]", path) is not None
+
+
 def _nextest_escape(name: str) -> str:
     return name.translate(_NEXTEST_ESCAPES)
 

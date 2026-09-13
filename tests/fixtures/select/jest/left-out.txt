@@ -1,0 +1,5 @@
+src/pricing.test.js:: discount
+src/billing/cart.test.js::cart total sums prices
+src/cart/cart.test.js::cart total sums prices
+src/discounts.test.js::discounts none
+src/discounts.test.js::discounts ten percent

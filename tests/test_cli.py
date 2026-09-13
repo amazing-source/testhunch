@@ -313,6 +313,39 @@ def test_select_for_vitest_uses_the_current_test_list(
     assert "cannot read broken.json" in capsys.readouterr().err
 
 
+def test_select_for_jest_leaves_out_whole_files(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sample = FIXTURES.parent / "select" / "jest"
+    (workdir / "jest.xml").write_bytes((sample / "full.xml").read_bytes())
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "jest.xml", *common]) == 0
+    capsys.readouterr()
+
+    select = ["select", "--budget", "10%", "--runner", "jest", "--learning-runs", "0%"]
+    assert main([*select, *common]) == 0
+    out = capsys.readouterr()
+    assert out.out.startswith("<rootDir>/(?:") and out.out.endswith(")$|/node_modules/")
+    # Only the failing test is kept at 10%, so src/cart/cart.test.js, its file, still runs.
+    assert "src/cart/cart" not in out.out
+    assert "src/pricing\\.test\\.js" in out.out
+
+
+def test_select_for_jest_explains_why_nothing_is_left_out_without_file_paths(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (workdir / "jest.xml").write_bytes((FIXTURES / "jest.xml").read_bytes())
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "jest.xml", *common]) == 0
+    capsys.readouterr()
+
+    select = ["select", "--budget", "10%", "--runner", "jest", "--learning-runs", "0%"]
+    assert main([*select, *common]) == 0
+    out = capsys.readouterr()
+    assert out.out == "/node_modules/"
+    assert "JEST_JUNIT_ADD_FILE_ATTRIBUTE=true" in out.err
+
+
 def test_select_for_go_needs_the_test_list(
     workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
