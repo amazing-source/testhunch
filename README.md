@@ -3,70 +3,77 @@
 [![CI](https://github.com/amazing-source/testhunch/actions/workflows/ci.yml/badge.svg)](https://github.com/amazing-source/testhunch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**testhunch learns from your CI history which tests a change is likely to break, and runs those first.**
+**testhunch apprend de l'historique de votre CI quels tests un changement risque de casser, et les
+lance en premier.**
 
-It reads the JUnit XML reports your test runner already produces, plus `git diff`, so it works with
-any language and any framework: pytest, Jest, Vitest, Go, JUnit, cargo-nextest, and anything else
-that writes JUnit XML.
+Il lit les rapports JUnit XML que votre lanceur de tests produit déjà, ainsi que `git diff`, et
+n'est donc lié à aucun langage ni framework. Il est testé sur de vrais rapports de pytest, Vitest et
+Jest ; Go (gotestsum), JUnit (Surefire) et cargo-nextest sont les prochains sur la
+[feuille de route](ROADMAP.md).
 
-> **Status: pre-alpha.** The data pipeline (ingest, storage, flaky and failing test reports) and a
-> simple, explainable baseline ranking work today. The learned model and the public benchmark that
-> proves how well it works are on the [roadmap](ROADMAP.md). No accuracy claim is made until that
-> benchmark exists.
+> **Statut : pré-alpha.** Le pipeline de données (ingestion, stockage, rapports sur les tests
+> instables et en échec) et un classement de référence simple et explicable fonctionnent dès
+> aujourd'hui. Le modèle appris et le benchmark public qui prouvera son efficacité sont prévus dans
+> la [feuille de route](ROADMAP.md). Aucune promesse de précision n'est faite tant que ce benchmark
+> n'existe pas.
 
-## Why
+## Pourquoi
 
-CI runs every test on every push, whatever changed. As a suite grows, that means long waits,
-large bills, and flaky failures that force full reruns.
+La CI lance tous les tests à chaque push, quoi qu'on ait modifié. Plus une suite grossit, plus cela
+veut dire de longues attentes, de grosses factures et des échecs aléatoires qui obligent à tout
+relancer.
 
-Learning from test history which tests matter for a change is proven at scale: Meta's
-[Predictive Test Selection](https://arxiv.org/abs/1810.05286) halved the cost of testing while
-still catching over 99.9% of faulty changes. But today that capability is:
+Apprendre de l'historique des tests lesquels comptent pour un changement a fait ses preuves à
+grande échelle : chez Meta, [Predictive Test Selection](https://arxiv.org/abs/1810.05286) a divisé
+par deux le coût des tests tout en détectant plus de 99,9 % des changements défectueux. Mais
+aujourd'hui, on ne trouve cette capacité que sous ces formes :
 
-| Available as | The catch |
+| Où la trouver | Le problème |
 |---|---|
-| Internal systems at large companies | Not released |
-| Commercial services (Develocity, CloudBees Smart Tests, Datadog) | Paid, often tied to a build tool, and accuracy claims cannot be checked |
-| Bazel-based selection | Requires migrating the whole build to Bazel |
-| Open-source plugins | One language each, and mostly static analysis rather than learning from history |
+| Systèmes internes de grandes entreprises | Jamais publiés |
+| Services commerciaux (Develocity, CloudBees Smart Tests, Datadog) | Payants, souvent liés à un outil de build, et leurs promesses de précision sont invérifiables |
+| Sélection basée sur Bazel | Oblige à migrer tout le build vers Bazel |
+| Plugins open source | Un seul langage chacun, et surtout de l'analyse statique plutôt qu'un apprentissage sur l'historique |
 
-testhunch aims to be the open, language-agnostic version, and to **prove its own accuracy in
-public**: every number it reports comes with how it was measured, and a shadow mode records
-what it *would* have skipped before it is ever trusted to skip anything.
+testhunch se veut la version ouverte et indépendante du langage, et veut **prouver sa propre
+précision publiquement** : chaque chiffre qu'il annonce est accompagné de la façon dont il a été
+mesuré, et un mode fantôme (*shadow mode*) enregistre ce qu'il *aurait* sauté, avant qu'on lui
+fasse confiance pour sauter quoi que ce soit.
 
-## How it works
+## Fonctionnement
 
 ```mermaid
 flowchart LR
-    CI["CI job<br/>runs tests"] -->|JUnit XML + git diff| Ingest
+    CI["job de CI<br/>lance les tests"] -->|JUnit XML + git diff| Ingest
     subgraph testhunch
-        Ingest["parse &amp; normalize<br/>(any framework)"] --> Store[("history<br/>SQLite or Postgres")]
-        Store --> Report["flaky / slow /<br/>failing report"]
-        Store --> Rank["rank tests<br/>for a change"]
+        Ingest["analyse et normalisation<br/>(tout framework)"] --> Store[("historique<br/>SQLite ou Postgres")]
+        Store --> Report["rapport : tests instables,<br/>lents, en échec"]
+        Store --> Rank["classement des tests<br/>pour un changement"]
     end
-    Rank -->|ordered test list + reasons| CI
+    Rank -->|liste ordonnée + raisons| CI
 ```
 
-1. After your test job, `testhunch ingest` records every test's outcome for that commit, along with
-   the files that changed.
-2. `testhunch report` shows flaky tests (passed *and* failed on the same commit), slow tests and
-   failing tests.
-3. `testhunch prioritize` ranks tests for the files you changed, and says why each one ranks where
-   it does.
+1. Après votre job de tests, `testhunch ingest` enregistre le résultat de chaque test pour ce commit,
+   ainsi que les fichiers modifiés.
+2. `testhunch report` affiche les tests instables (réussis *et* échoués sur le même commit), les
+   tests lents et les tests en échec.
+3. `testhunch prioritize` classe les tests selon les fichiers que vous avez modifiés, et explique
+   pourquoi chacun arrive à cette place.
 
-## Quick start
+## Démarrage rapide
 
 ```bash
-# In a git repository, after running your tests with JUnit output:
+# Dans un dépôt git, après avoir lancé vos tests avec une sortie JUnit :
 uvx --from git+https://github.com/amazing-source/testhunch testhunch ingest junit.xml
 uvx --from git+https://github.com/amazing-source/testhunch testhunch report
 uvx --from git+https://github.com/amazing-source/testhunch testhunch prioritize --base origin/main
 ```
 
-History is kept in `.testhunch/history.db` (SQLite) unless you point `--db` or
-`TESTHUNCH_DATABASE_URL` somewhere else, such as `postgresql://user@host/db`.
+L'historique est conservé dans `.testhunch/history.db` (SQLite), sauf si vous indiquez une autre
+base avec `--db` ou `TESTHUNCH_DATABASE_URL`, par exemple `postgresql://user@host/db`.
 
-Real output, from two runs of the pytest sample in [`tests/fixtures`](tests/fixtures/junit):
+Sortie réelle, obtenue avec deux exécutions de l'exemple pytest de
+[`tests/fixtures`](tests/fixtures/junit) :
 
 ```text
 $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
@@ -75,61 +82,65 @@ $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
    3.  2.000  tests.test_sample::test_errors_in_teardown  (failed in the latest run; failed 2 of 2 runs)
 ```
 
-### Getting JUnit XML out of your test runner
+### Obtenir du JUnit XML depuis votre lanceur de tests
 
-| Runner | Command |
+| Lanceur | Commande |
 |---|---|
 | pytest | `pytest --junitxml=junit.xml` |
 | Vitest | `vitest run --reporter=junit --outputFile=junit.xml` |
-| Jest | `jest --reporters=default --reporters=jest-junit` (set `JEST_JUNIT_ADD_FILE_ATTRIBUTE=true`) |
-| Go | `gotestsum --junitfile junit.xml` |
+| Jest | `jest --reporters=default --reporters=jest-junit` (avec `JEST_JUNIT_ADD_FILE_ATTRIBUTE=true`) |
 
-### In GitHub Actions
+### Dans GitHub Actions
 
 ```yaml
 - uses: actions/checkout@v7
   with:
-    fetch-depth: 0 # testhunch needs history to diff against the base branch
+    fetch-depth: 0 # testhunch a besoin de l'historique pour comparer avec la branche de base
 - run: pytest --junitxml=junit.xml
 - if: ${{ !cancelled() }}
   run: uvx --from git+https://github.com/amazing-source/testhunch testhunch ingest junit.xml --base origin/main
 ```
 
-A local SQLite file does not survive between CI runs, so for real use in CI point
-`TESTHUNCH_DATABASE_URL` at Postgres, or upload to a self-hosted API (below).
+Un fichier SQLite local ne survit pas d'une exécution de CI à l'autre. Pour un vrai usage en CI,
+faites pointer `TESTHUNCH_DATABASE_URL` vers Postgres, ou envoyez les rapports à une API
+auto-hébergée (ci-dessous).
 
-### Self-hosting the API
+### Héberger l'API soi-même
 
 ```bash
-docker compose up --build        # Postgres, migrations, then the API on :8000
+docker compose up --build        # Postgres, les migrations, puis l'API sur :8000
 curl http://localhost:8000/readyz
 ```
 
-| Endpoint | Purpose |
+| Endpoint | Rôle |
 |---|---|
-| `POST /v1/runs` | Upload reports: multipart `reports` files plus `metadata` JSON (`repo`, `commit_sha`, optional `branch`, `base_sha`, `changes`) |
-| `GET /v1/report?repo=owner/name` | Flaky, slowest and failing tests |
-| `POST /v1/prioritize` | Ranked tests for `repo` and `changed_paths` |
-| `GET /healthz`, `GET /readyz` | Liveness, and readiness including the database |
+| `POST /v1/runs` | Envoyer des rapports : fichiers `reports` en multipart et JSON `metadata` (`repo`, `commit_sha`, et en option `branch`, `base_sha`, `changes`) |
+| `GET /v1/report?repo=owner/name` | Tests instables, les plus lents et en échec |
+| `POST /v1/prioritize` | Tests classés pour `repo` et `changed_paths` |
+| `GET /healthz`, `GET /readyz` | Vivacité, et disponibilité (base de données comprise) |
 
-Set `TESTHUNCH_API_TOKEN` to require `Authorization: Bearer <token>` on `/v1`. Without a token
-the API is open, which is only acceptable on your own machine.
+Définissez `TESTHUNCH_API_TOKEN` pour exiger `Authorization: Bearer <token>` sur `/v1`. Sans jeton,
+l'API est ouverte, ce qui n'est acceptable que sur votre propre machine.
 
-## Development
+## Développement
 
 ```bash
 uv sync --all-extras
-uv run pytest                       # SQLite contract tests; Postgres ones are skipped
+uv run pytest                       # tests de contrat sur SQLite ; ceux sur Postgres sont ignorés
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 
-# Run the storage contract tests against Postgres too:
+# Lancer aussi les tests de contrat du stockage sur Postgres :
 docker compose up -d postgres
-TESTHUNCH_TEST_POSTGRES_URL=postgresql://testhunch:testhunch@localhost:5432/testhunch uv run pytest
+TESTHUNCH_TEST_POSTGRES_URL=postgresql://testhunch:testhunch@127.0.0.1:5432/testhunch uv run pytest
 ```
 
-Design decisions are recorded in [`docs/adr`](docs/adr). The storage layer is one SQL
-implementation run against both SQLite and Postgres, and every storage test runs against both.
+Utilisez `127.0.0.1` et non `localhost` : Compose ne publie le port qu'en IPv4, et sous Windows
+`localhost` essaie d'abord `::1`, où chaque connexion reste bloquée jusqu'à expiration du délai.
 
-## License
+Les décisions de conception sont consignées dans [`docs/adr`](docs/adr). La couche de stockage est
+une seule implémentation SQL, exécutée sur SQLite comme sur Postgres, et chaque test de stockage
+tourne sur les deux.
+
+## Licence
 
 [Apache-2.0](LICENSE)
