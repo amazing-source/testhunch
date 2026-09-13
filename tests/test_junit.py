@@ -72,6 +72,43 @@ class TestRealReports:
         assert failing.message is not None
         assert failing.message.startswith("Error: expect(received).toBe(expected)")
 
+    def test_gotestsum(self) -> None:
+        cases = by_key(parse_report((FIXTURES / "gotestsum.xml").read_bytes()))
+        cart = "example.com/shop/cart::"
+
+        assert len(cases) == 9
+        assert cases[cart + "TestTotalSumsPrices"].status is Status.PASSED
+        assert cases[cart + "TestTotalFailsOnPurpose"].status is Status.FAILED
+        assert cases[cart + "TestSkipped"].status is Status.SKIPPED
+        assert cases["example.com/shop/pricing::TestDiscount"].status is Status.PASSED
+
+    def test_gotestsum_subtests_are_cases_and_fail_their_parents(self) -> None:
+        cases = by_key(parse_report((FIXTURES / "gotestsum.xml").read_bytes()))
+        cart = "example.com/shop/cart::"
+
+        # t.Run("single item") is reported as "TestQuantities/single_item".
+        assert cases[cart + "TestQuantities/single_item"].status is Status.PASSED
+        assert cases[cart + "TestQuantities/nested/zero_quantity"].status is Status.FAILED
+        assert cases[cart + "TestQuantities/nested"].status is Status.FAILED
+        assert cases[cart + "TestQuantities"].status is Status.FAILED
+
+    def test_gotestsum_import_path_is_not_a_file_path(self) -> None:
+        # classname is the package import path, "example.com/shop/cart": a directory at best,
+        # and the report never says which file a test is in.
+        cases = parse_report((FIXTURES / "gotestsum.xml").read_bytes())
+        assert {case.file for case in cases} == {None}
+
+    def test_gotestsum_rerun_fails_repeats_the_testcase(self) -> None:
+        report = (FIXTURES / "gotestsum-rerun-fails.xml").read_bytes()
+        cases = by_key(list(collapse(parse_report(report))))
+
+        # Failed, then passed when rerun. Nothing marks the second entry as a rerun except the
+        # repetition itself, and collapsing keeps the worst attempt.
+        flaky = cases["example.com/shop/pricing::TestFlakyFirstAttempt"]
+        assert (flaky.status, flaky.occurrences) == (Status.FAILED, 2)
+        always = cases["example.com/shop/cart::TestTotalFailsOnPurpose"]
+        assert (always.status, always.occurrences) == (Status.FAILED, 3)
+
 
 class TestDialectEdges:
     def test_root_can_be_a_single_testsuite(self) -> None:
@@ -99,6 +136,20 @@ class TestDialectEdges:
         xml = b'<testsuite><testcase name="t" classname="t" file="spec\\cart.test.ts"/></testsuite>'
         (case,) = parse_report(xml)
         assert (case.file, case.key) == ("spec/cart.test.ts", "spec/cart.test.ts::t")
+
+    @pytest.mark.parametrize(
+        ("classname", "file"),
+        [
+            ("src\\cart.test.mts", "src/cart.test.mts"),
+            ("cart/total", None),  # a Jest describe block named with a slash
+            ("github.com/acme/shop", None),  # a Go import path
+        ],
+    )
+    def test_classname_is_a_file_only_with_a_source_extension(
+        self, classname: str, file: str | None
+    ) -> None:
+        xml = f'<testsuite><testcase name="t" classname="{classname}"/></testsuite>'.encode()
+        assert parse_report(xml)[0].file == file
 
     @pytest.mark.parametrize("raw", ["0,5", "abc", "-1", "nan", "inf", ""])
     def test_unusable_durations_are_unknown_not_guessed(self, raw: str) -> None:

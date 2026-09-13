@@ -7,8 +7,8 @@
 lance en premier.**
 
 Il lit les rapports JUnit XML que votre lanceur de tests produit déjà, ainsi que `git diff`, et
-n'est donc lié à aucun langage ni framework. Il est testé sur de vrais rapports de pytest, Vitest et
-Jest ; Go (gotestsum), JUnit (Surefire) et cargo-nextest sont les prochains sur la
+n'est donc lié à aucun langage ni framework. Il est testé sur de vrais rapports de pytest, Vitest,
+Jest et Go (gotestsum) ; JUnit (Surefire) et cargo-nextest sont les prochains sur la
 [feuille de route](ROADMAP.md).
 
 > **Statut : pré-alpha.** Le pipeline de données (ingestion, stockage, rapports sur les tests
@@ -89,6 +89,7 @@ $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
 | pytest | `pytest --junitxml=junit.xml` |
 | Vitest | `vitest run --reporter=junit --outputFile=junit.xml` |
 | Jest | `jest --reporters=default --reporters=jest-junit` (avec `JEST_JUNIT_ADD_FILE_ATTRIBUTE=true`) |
+| Go | `gotestsum --junitfile junit.xml` |
 
 ### Dans GitHub Actions
 
