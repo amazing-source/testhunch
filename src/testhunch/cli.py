@@ -21,7 +21,9 @@ from testhunch.runners import (
     go_skip,
     nextest_filterset,
     parse_go_test_list,
+    parse_vitest_list,
     surefire_exclusions,
+    vitest_skip,
 )
 from testhunch.shadow import ShadowPoint, budget_size, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
@@ -110,12 +112,18 @@ def _parser() -> argparse.ArgumentParser:
     )
     select.add_argument(
         "--runner",
-        choices=["pytest", "go", "surefire", "nextest"],
+        choices=["pytest", "go", "surefire", "nextest", "vitest"],
         required=True,
         help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`; "
         'go: a pattern for `go test ./... -skip "$(testhunch select ...)"`; '
         'surefire: a value for `mvn test "-Dtest=$(testhunch select ...)"`; '
-        'nextest: an expression for `cargo nextest run -E "$(testhunch select ...)"`',
+        'nextest: an expression for `cargo nextest run -E "$(testhunch select ...)"`; '
+        'vitest: a pattern for `vitest run -t "$(testhunch select ...)"`',
+    )
+    select.add_argument(
+        "--vitest-list",
+        metavar="FILE",
+        help="with --runner vitest: the output of `vitest list --json --no-static-parse`",
     )
     select.add_argument(
         "--go-test-list",
@@ -286,6 +294,13 @@ def _select(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    if args.runner == "vitest" and not args.vitest_list:
+        print(
+            "testhunch: error: --runner vitest needs --vitest-list, the output of "
+            "`vitest list --json --no-static-parse`: -t matches full names in every file",
+            file=sys.stderr,
+        )
+        return 2
     if not history:
         print(f"no history for {repo} yet: nothing is left out", file=sys.stderr)
         return 0
@@ -325,6 +340,16 @@ def _select(args: argparse.Namespace) -> int:
         filterset = nextest_filterset(below, suites)
         sys.stdout.write(filterset.expression)  # no line ending either, for the same reason
         left_out = len(filterset.left_out)
+        unreachable = len(below) - left_out
+    elif args.runner == "vitest":
+        try:
+            listed = parse_vitest_list(Path(args.vitest_list).read_text(encoding="utf-8"))
+        except (ValueError, KeyError) as exc:
+            print(f"testhunch: error: cannot read {args.vitest_list}: {exc}", file=sys.stderr)
+            return 2
+        vitest = vitest_skip(below, listed)
+        sys.stdout.write(vitest.pattern)  # no line ending either, for the same reason
+        left_out = len(vitest.left_out)
         unreachable = len(below) - left_out
     else:
         if below:

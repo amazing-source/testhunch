@@ -1,0 +1,4 @@
+src/cart.test.js::cart total > sums prices
+src/cart.test.js::cart total > sums prices twice
+src/cart.test.js::cart total > price 2 is positive
+src/cart.test.js::cart total > nested > handles quantities

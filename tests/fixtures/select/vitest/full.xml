@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="6" failures="0" errors="0" time="0.006600199">
+    <testsuite name="src/billing.test.js" timestamp="2026-09-13T18:53:14.762Z" hostname="ci-runner" tests="1" failures="0" errors="0" skipped="0" time="0.003434038">
+        <testcase classname="src/billing.test.js" name="cart total &gt; sums prices" time="0.001612049">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/cart.test.js" timestamp="2026-09-13T18:53:14.766Z" hostname="ci-runner" tests="5" failures="0" errors="0" skipped="0" time="0.003166161">
+        <testcase classname="src/cart.test.js" name="cart total &gt; sums prices" time="0.001404002">
+        </testcase>
+        <testcase classname="src/cart.test.js" name="cart total &gt; sums prices twice" time="0.000203709">
+        </testcase>
+        <testcase classname="src/cart.test.js" name="cart total &gt; nested &gt; handles quantities" time="0.000144057">
+        </testcase>
+        <testcase classname="src/cart.test.js" name="cart total &gt; price 1 is positive" time="0.000188511">
+        </testcase>
+        <testcase classname="src/cart.test.js" name="cart total &gt; price 2 is positive" time="0.000118227">
+        </testcase>
+    </testsuite>
+</testsuites>

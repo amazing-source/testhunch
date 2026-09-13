@@ -70,6 +70,15 @@ another binary. A nextest key cannot be split back into binary id and test name,
 contain `::`, so the binary id is the suite recorded from the report's classname; a test whose
 suite does not prefix its key is not aimed at. With nothing to leave out, the output is `all()`.
 
+**Vitest:** `select --runner vitest` prints a pattern for `vitest run -t`, such as
+`^(?!(?:cart total > sums prices twice|...)$)`. Checked with real Vitest 5.0.0 runs
+(`tests/fixtures/select/vitest`): `-t` matches a test's full name joined with " > " (joined with
+spaces it matched nothing), in every file of the run, and the tests it filters out are reported as
+skipped. A known test is left out only when its full name appears exactly once in
+`vitest list --json --no-static-parse` on the code under test, in its own file: a same-named test in
+another file, or a duplicate added to the same file, would be filtered out with it. The list must
+come from running the files, because static parsing lists `test.each` under its template name.
+
 ## Consequences
 
 - New tests, renamed tests and tests testhunch never saw always run.

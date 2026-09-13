@@ -1,0 +1,1 @@
+^(?!(?:cart total > nested > handles quantities|cart total > price 2 is positive|cart total > sums prices twice)$)
