@@ -17,7 +17,7 @@ from testhunch.gitinfo import GitError, changed_files, current_branch, detect_re
 from testhunch.junit import ReportError, parse_reports
 from testhunch.models import RankedTest, RunInput
 from testhunch.prioritize import rank
-from testhunch.shadow import ShadowPoint, evaluate
+from testhunch.shadow import ShadowPoint, budget_size, evaluate
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
 
 
@@ -68,13 +68,15 @@ def _parser() -> argparse.ArgumentParser:
     report.add_argument("--format", choices=["text", "json", "markdown"], default="text")
     report.set_defaults(handler=_report)
 
-    prioritize = commands.add_parser(
-        "prioritize", parents=[common], help="order tests by how likely they are to fail"
-    )
-    changed = prioritize.add_mutually_exclusive_group()
+    ranking = argparse.ArgumentParser(add_help=False)
+    changed = ranking.add_mutually_exclusive_group()
     changed.add_argument("--base", help="rank for the files changed since this ref")
     changed.add_argument("--changed", nargs="+", default=[], help="rank for these changed paths")
-    prioritize.add_argument("--last", type=_positive, default=50, help="runs to look back over")
+    ranking.add_argument("--last", type=_positive, default=50, help="runs to look back over")
+
+    prioritize = commands.add_parser(
+        "prioritize", parents=[common, ranking], help="order tests by how likely they are to fail"
+    )
     prioritize.add_argument("--limit", type=_positive, help="show only the top N tests")
     prioritize.add_argument(
         "--format", choices=["text", "json", "keys", "markdown"], default="text"
@@ -88,6 +90,25 @@ def _parser() -> argparse.ArgumentParser:
         "--commit", default="HEAD", help="with --record: the commit about to be tested (HEAD)"
     )
     prioritize.set_defaults(handler=_prioritize)
+
+    select = commands.add_parser(
+        "select",
+        parents=[common, ranking],
+        help="list the known tests a test budget leaves out, for the test runner to skip",
+    )
+    select.add_argument(
+        "--budget",
+        type=parse_budget,
+        required=True,
+        help="share of the known tests to run, top-ranked first, e.g. 25%%",
+    )
+    select.add_argument(
+        "--runner",
+        choices=["pytest"],
+        required=True,
+        help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`",
+    )
+    select.set_defaults(handler=_select)
 
     shadow = commands.add_parser(
         "shadow", parents=[common], help="what skipping low-ranked tests would have missed"
@@ -106,6 +127,19 @@ def _positive(value: str) -> int:
     if number < 1:
         raise argparse.ArgumentTypeError("must be at least 1")
     return number
+
+
+def parse_budget(value: str) -> float:
+    """`25%` or `0.25`: the share of the known tests to run."""
+    try:
+        fraction = float(value.removesuffix("%")) / 100 if value.endswith("%") else float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not a share of the tests, such as 25% or 0.25"
+        ) from None
+    if not 0 < fraction <= 1:  # also refuses nan
+        raise argparse.ArgumentTypeError(f"{value!r} must be more than 0% and at most 100%")
+    return fraction
 
 
 def _store(args: argparse.Namespace) -> SqlStore:
@@ -208,6 +242,28 @@ def _report(args: argparse.Namespace) -> int:
 
 def _print_rows(rows: Sequence[str]) -> None:
     print("\n".join(f"  {row}" for row in rows) if rows else "  none")
+
+
+def _changed_paths(args: argparse.Namespace) -> list[str]:
+    return [c.path for c in changed_files(args.base)] if args.base else list(args.changed)
+
+
+def _select(args: argparse.Namespace) -> int:
+    store, repo = _store(args), _repo(args)
+    history = store.history(repo, args.last)
+    if not history:
+        print(f"no history for {repo} yet: nothing is left out", file=sys.stderr)
+        return 0
+    ranked = rank(history, _changed_paths(args))
+    left_out = ranked[budget_size(args.budget, len(ranked)) :]
+    if left_out:
+        print("\n".join(r.key for r in left_out))
+    print(
+        f"leaving out {len(left_out)} of {len(ranked)} known tests: the top {args.budget:.0%} "
+        "run, and so does every test testhunch has no result for",
+        file=sys.stderr,
+    )
+    return 0
 
 
 def _record(args: argparse.Namespace, store: SqlStore, repo: str, ranked: list[RankedTest]) -> None:
@@ -351,7 +407,7 @@ def _prioritize(args: argparse.Namespace) -> int:
             print(f"### testhunch ranking for {repo}\n")
             print("No history yet: run `testhunch ingest` after your test job first.")
         return 0
-    paths = [c.path for c in changed_files(args.base)] if args.base else list(args.changed)
+    paths = _changed_paths(args)
     ranked = rank(history, paths)
     total = len(ranked)
     if args.record:

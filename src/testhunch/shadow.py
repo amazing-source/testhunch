@@ -31,6 +31,12 @@ class ShadowPoint:
     time_total_ms: int  # results with a known duration only
 
 
+def budget_size(fraction: float, known_tests: int) -> int:
+    """How many of the top-ranked known tests a budget runs; `testhunch select` cuts the same."""
+    # Rounded first so that 0.7 * 10 == 7.000000000000001 runs 7 tests, not 8.
+    return math.ceil(round(fraction * known_tests, 9))
+
+
 def evaluate(runs: Sequence[ShadowRun], fractions: Sequence[float] = BUDGETS) -> list[ShadowPoint]:
     return [_evaluate(runs, fraction) for fraction in fractions]
 
@@ -39,8 +45,7 @@ def _evaluate(runs: Sequence[ShadowRun], fraction: float) -> ShadowPoint:
     failing_runs = caught_runs = failures = caught_failures = 0
     tests_run = tests_total = time_run = time_total = 0
     for run in runs:
-        # Rounded first so that 0.7 * 10 == 7.000000000000001 selects 7 tests, not 8.
-        cutoff = math.ceil(round(fraction * len(run.positions), 9))
+        cutoff = budget_size(fraction, len(run.positions))
         run_failures = run_caught = 0
         for result in run.results:
             if result.status is Status.SKIPPED:

@@ -12,6 +12,9 @@ import pytest
 
 from testhunch.store import SqlStore, open_store
 
+# Real pytest sessions, for the pytest plugin.
+pytest_plugins = ["pytester"]
+
 Git = Callable[..., str]
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 from collections.abc import Callable
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from testhunch.cli import main, markdown_code
+from testhunch.cli import main, markdown_code, parse_budget
 from testhunch.store import open_store
 
 FIXTURES = Path(__file__).parent / "fixtures" / "junit"
@@ -163,6 +164,47 @@ def test_shadow_mode_from_recorded_ranking_to_report(
 
     assert main(["shadow", "--format", "markdown", *common]) == 0
     assert "| 25% | 1 of 1 | 2 of 4 | 2 of 8 (25%) |" in capsys.readouterr().out
+
+
+def test_select_leaves_out_the_known_tests_below_the_budget(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    capsys.readouterr()
+
+    args = ["select", "--budget", "50%", "--runner", "pytest", "--changed", "src/other.py"]
+    assert main([*args, *common]) == 0
+    out = capsys.readouterr()
+    # 8 known tests: the 4 that failed rank first and run; the 4 that passed are left out.
+    assert sorted(out.out.splitlines()) == [
+        "tests.test_sample.TestGrouped::test_in_class",
+        "tests.test_sample::test_parametrized[1]",
+        "tests.test_sample::test_parametrized[3]",
+        "tests.test_sample::test_passes",
+    ]
+    assert "leaving out 4 of 8 known tests" in out.err
+
+
+def test_select_without_history_leaves_nothing_out(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    args = ["select", "--budget", "10%", "--runner", "pytest", "--db", sqlite_url, "--repo", "x/y"]
+    assert main(args) == 0
+    out = capsys.readouterr()
+    assert out.out == ""
+    assert "nothing is left out" in out.err
+
+
+@pytest.mark.parametrize(("budget", "fraction"), [("25%", 0.25), ("0.25", 0.25), ("100%", 1.0)])
+def test_budgets_are_shares_of_the_known_tests(budget: str, fraction: float) -> None:
+    assert parse_budget(budget) == fraction
+
+
+@pytest.mark.parametrize("budget", ["0", "0%", "150%", "1.5", "-10%", "nan", "a quarter"])
+def test_budgets_outside_zero_to_one_hundred_percent_are_refused(budget: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_budget(budget)
 
 
 def test_shadow_report_without_rankings_says_there_is_nothing_to_measure(
