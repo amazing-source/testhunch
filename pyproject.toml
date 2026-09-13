@@ -62,13 +62,15 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.mypy]
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "benchmarks"]
 exclude = ["^tests/fixtures/"]  # sample projects that produce the real reports
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # tests/fixtures holds sample projects whose tests fail on purpose to produce real reports.
 addopts = ["--strict-markers", "--import-mode=importlib", "--ignore=tests/fixtures"]
+# benchmarks/ is not part of the package; its tests import it from the repository root.
+pythonpath = ["."]
 # Warnings fail the suite, so deprecations surface the day they appear. Each ignore below
 # is a specific third-party warning we cannot fix ourselves; remove it once upstream does.
 filterwarnings = [
