@@ -17,7 +17,7 @@ permet pas de la mesurer.
 - [x] Image Docker, stack Compose, CI (lint, types, tests de Python 3.12 à 3.14 sur Postgres, test de fumée du conteneur), publication sur GHCR
 - [ ] De vrais rapports de test pour Go (gotestsum), JUnit/Surefire (dont `flakyFailure` et `rerunFailure`) et cargo-nextest
 - [ ] Enregistrer les relances au sein d'une exécution comme indice d'instabilité (demande d'abord ces vrais rapports avec relances)
-- [ ] Regrouper les insertions par test dans `ingest` (une requête par test aujourd'hui)
+- [x] Regrouper les insertions par test dans `ingest` (auparavant une requête par test)
 - [ ] Publier sur PyPI avec la publication de confiance (*trusted publishing*)
 
 ## Phase 2 : l'utiliser en CI

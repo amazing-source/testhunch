@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from testhunch.models import CaseResult, FileChange, RunInput, Status
-from testhunch.store import SqlStore, StoreError
+from testhunch.store import SqlStore, StoreError, base
 from testhunch.store.base import bundled_migrations
 
 REPO = "acme/shop"
@@ -57,6 +57,34 @@ def test_changes_are_recorded(store: SqlStore) -> None:
         RunInput(REPO, "c1", "d1", (case("a", Status.PASSED),), base_sha="b0", changes=changes)
     )
     assert store.run_changes(outcome.run_id) == sorted(changes, key=lambda c: c.path)
+
+
+def test_a_known_file_survives_reports_that_omit_it(store: SqlStore) -> None:
+    def ingest_with_file(commit: str, file: str | None) -> str | None:
+        result = CaseResult("a", "a", None, file, Status.PASSED, 10, None)
+        store.ingest(run(commit, commit, result))
+        return store.history(REPO)[0].file
+
+    assert ingest_with_file("c1", "tests/a.py") == "tests/a.py"
+    assert ingest_with_file("c2", None) == "tests/a.py"
+    assert ingest_with_file("c3", "tests/moved.py") == "tests/moved.py"
+
+
+def test_ingest_maps_every_result_to_its_own_test_across_lookup_batches(store: SqlStore) -> None:
+    count = base._KEYS_PER_QUERY * 2 + 1
+    cases = [
+        case(f"t{i:05d}", Status.FAILED if i % 100 == 0 else Status.PASSED) for i in range(count)
+    ]
+    expected_failing = {c.key for c in cases if c.status is Status.FAILED}
+
+    # The first run inserts every test; the second finds them all already recorded.
+    for commit in ("c1", "c2"):
+        assert store.ingest(run(commit, commit, *cases)).results == count
+
+    history = store.history(REPO)
+    assert len(history) == count
+    assert {h.key for h in history if h.failures} == expected_failing
+    assert {(h.failures, h.executions) for h in history} == {(0, 2), (2, 2)}
 
 
 def test_flaky_means_passed_and_failed_on_the_same_commit(store: SqlStore) -> None:
