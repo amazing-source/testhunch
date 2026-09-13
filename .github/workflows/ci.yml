@@ -82,6 +82,28 @@ jobs:
           path: reports/
           retention-days: 14
 
+  package:
+    name: Build and run the package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0 # this action publishes no floating major tag
+      - run: uv build
+      - name: Install the wheel in a clean environment and ingest a real report
+        # Outside the checkout, so the installed package (and its bundled migrations) is what runs.
+        run: |
+          uv venv "${RUNNER_TEMP}/venv"
+          uv pip install --python "${RUNNER_TEMP}/venv" dist/*.whl
+          cd "$(mktemp -d)"
+          git init --quiet
+          git -c user.name=ci -c user.email=ci@example.com commit --quiet --allow-empty -m smoke
+          testhunch="${RUNNER_TEMP}/venv/bin/testhunch"
+          "$testhunch" ingest "${GITHUB_WORKSPACE}/tests/fixtures/junit/nextest.xml" --db sqlite:///smoke.db --repo ci/smoke
+          "$testhunch" report --db sqlite:///smoke.db --repo ci/smoke | tee report.txt
+          grep -q "shop::tests::flaky_first_attempt" report.txt
+
   docker:
     name: Docker image and compose stack
     runs-on: ubuntu-latest
