@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="9" failures="5" errors="0" time="0.009170">
+	<testsuite tests="7" failures="4" skipped="1" time="0.008000" name="example.com/shop/cart" timestamp="2026-09-13T15:41:10Z">
+		<properties>
+			<property name="go.version" value="go1.27.1 linux/amd64"></property>
+		</properties>
+		<testcase classname="example.com/shop/cart" name="TestTotalFailsOnPurpose" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestTotalFailsOnPurpose&#xA;    cart_test.go:13: Total(nil) = 0, want 1&#xA;--- FAIL: TestTotalFailsOnPurpose (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="example.com/shop/cart" name="TestQuantities/nested/zero_quantity" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestQuantities/nested/zero_quantity&#xA;    cart_test.go:30: got 0, want 4 on purpose&#xA;--- FAIL: TestQuantities/nested/zero_quantity (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="example.com/shop/cart" name="TestQuantities/nested" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestQuantities/nested&#xA;--- FAIL: TestQuantities/nested (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="example.com/shop/cart" name="TestQuantities" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestQuantities&#xA;--- FAIL: TestQuantities (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="example.com/shop/cart" name="TestSkipped" time="0.000000">
+			<skipped message="=== RUN   TestSkipped&#xA;    cart_test.go:18: not ready yet&#xA;--- SKIP: TestSkipped (0.00s)&#xA;"></skipped>
+		</testcase>
+		<testcase classname="example.com/shop/cart" name="TestTotalSumsPrices" time="0.000000"></testcase>
+		<testcase classname="example.com/shop/cart" name="TestQuantities/single_item" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="2" failures="1" time="0.009000" name="example.com/shop/pricing" timestamp="2026-09-13T15:41:10Z">
+		<properties>
+			<property name="go.version" value="go1.27.1 linux/amd64"></property>
+		</properties>
+		<testcase classname="example.com/shop/pricing" name="TestFlakyFirstAttempt" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestFlakyFirstAttempt&#xA;    pricing_test.go:22: first attempt fails on purpose&#xA;--- FAIL: TestFlakyFirstAttempt (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="example.com/shop/pricing" name="TestDiscount" time="0.000000"></testcase>
+	</testsuite>
+</testsuites>

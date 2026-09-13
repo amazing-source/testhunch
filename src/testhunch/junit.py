@@ -14,6 +14,10 @@ Dialect notes, each backed by a real report in tests/fixtures/junit:
 - Vitest: classname is the test file path, and name joins describe blocks with " > ".
 - jest-junit (default options): classname and name are both "describe blocks + title", and
   there is no file attribute.
+- gotestsum: classname is the package import path ("example.com/shop/cart"), which says nothing
+  about the file. Subtests are separate cases named "TestParent/sub_name" (spaces become
+  underscores), and a failing subtest also fails every parent. The failure message attribute is
+  always "Failed". With --rerun-fails, each rerun repeats the <testcase> with no other marker.
 
 Reports are untrusted input when they arrive through the API, so XML is parsed with
 defusedxml, which refuses entity expansion and external references.
@@ -38,8 +42,8 @@ MAX_MESSAGE_CHARS = 2000
 _ANSI = re.compile(r"(?:\x1b|#x1B)\[[0-9;]*m")
 
 _SOURCE_EXTENSIONS = (
-    ".c", ".cc", ".cjs", ".cpp", ".cs", ".go", ".java", ".js", ".jsx", ".kt", ".mjs",
-    ".php", ".py", ".rb", ".rs", ".swift", ".ts", ".tsx",
+    ".c", ".cc", ".cjs", ".cpp", ".cs", ".cts", ".go", ".java", ".js", ".jsx", ".kt", ".mjs",
+    ".mts", ".php", ".py", ".rb", ".rs", ".swift", ".ts", ".tsx",
 )  # fmt: skip
 
 
@@ -151,9 +155,8 @@ def _file(case: Element, classname: str | None) -> str | None:
     explicit = case.get("file")
     if explicit:
         return explicit.replace("\\", "/")
-    if classname and (
-        "/" in classname or "\\" in classname or classname.endswith(_SOURCE_EXTENSIONS)
-    ):
+    # A slash alone does not make a file: Go import paths and Jest describe names contain them.
+    if classname and classname.endswith(_SOURCE_EXTENSIONS):
         return classname.replace("\\", "/")
     return None
 
