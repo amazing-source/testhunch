@@ -109,6 +109,40 @@ class TestRealReports:
         always = cases["example.com/shop/cart::TestTotalFailsOnPurpose"]
         assert (always.status, always.occurrences) == (Status.FAILED, 3)
 
+    def surefire_run(self) -> dict[str, CaseResult]:
+        # Surefire writes one report per test class; together they are one run.
+        reports = sorted((FIXTURES / "surefire").glob("TEST-*.xml"))
+        assert len(reports) == 2
+        cases, _ = parse_reports(path.read_bytes() for path in reports)
+        return by_key(list(cases))
+
+    def test_surefire(self) -> None:
+        cases = self.surefire_run()
+        cart = "com.example.shop.CartTest::"
+
+        assert len(cases) == 8
+        assert cases[cart + "sumsPrices"].status is Status.PASSED
+        assert cases[cart + "failsOnPurpose"].status is Status.FAILED
+        assert cases[cart + "throwsUnexpectedly"].status is Status.ERROR
+        assert cases[cart + "skippedCase"].status is Status.SKIPPED
+        assert cases[cart + "priceIsOdd(int)[1]"].status is Status.PASSED
+        assert cases[cart + "priceIsOdd(int)[2]"].status is Status.FAILED
+        nested = cases["com.example.shop.CartTest$Discounts::keepsTotalWithoutDiscount"]
+        assert nested.status is Status.PASSED
+        assert {case.file for case in cases.values()} == {None}
+
+    def test_surefire_reruns_stay_inside_one_testcase(self) -> None:
+        cases = self.surefire_run()
+
+        # Failed, then passed when rerun: no <failure>, only a <flakyFailure>, so it passed.
+        flaky = cases["com.example.shop.FlakyTest::failsOnFirstAttempt"]
+        assert (flaky.status, flaky.occurrences, flaky.message) == (Status.PASSED, 1, None)
+
+        # Failed every attempt: the <failure> is followed by one <rerunFailure> per rerun.
+        failing = cases["com.example.shop.CartTest::failsOnPurpose"]
+        assert (failing.status, failing.occurrences) == (Status.FAILED, 1)
+        assert failing.message == "empty cart on purpose ==> expected: <1> but was: <0>"
+
 
 class TestDialectEdges:
     def test_root_can_be_a_single_testsuite(self) -> None:

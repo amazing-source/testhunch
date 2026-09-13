@@ -18,6 +18,12 @@ Dialect notes, each backed by a real report in tests/fixtures/junit:
   about the file. Subtests are separate cases named "TestParent/sub_name" (spaces become
   underscores), and a failing subtest also fails every parent. The failure message attribute is
   always "Failed". With --rerun-fails, each rerun repeats the <testcase> with no other marker.
+- Maven Surefire: one report per test class, rooted at <testsuite>. classname is the fully
+  qualified class ("com.example.shop.CartTest", "...CartTest$Discounts" for a @Nested class) and
+  parameterized cases are named "priceIsOdd(int)[2]". With rerunFailingTestsCount, reruns stay
+  inside the one <testcase>: a test that failed then passed has only <flakyFailure> or
+  <flakyError> children (so it passed), and one that failed every attempt has <failure> or
+  <error> followed by one <rerunFailure> or <rerunError> per rerun.
 
 Reports are untrusted input when they arrive through the API, so XML is parsed with
 defusedxml, which refuses entity expansion and external references.
