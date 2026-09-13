@@ -17,7 +17,7 @@ from testhunch.gitinfo import GitError, changed_files, current_branch, detect_re
 from testhunch.junit import ReportError, parse_reports
 from testhunch.models import RankedTest, RunInput
 from testhunch.prioritize import rank
-from testhunch.shadow import ShadowPoint, budget_size, evaluate
+from testhunch.shadow import ShadowPoint, budget_size, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
 
 
@@ -108,6 +108,14 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`",
     )
+    select.add_argument(
+        "--learning-runs",
+        type=parse_share,
+        default=0.25,
+        help="share of builds that run every test and record the ranking for `testhunch shadow` "
+        "(default 25%%; 0%% turns learning runs off)",
+    )
+    select.add_argument("--commit", default="HEAD", help="the commit about to be tested (HEAD)")
     select.set_defaults(handler=_select)
 
     shadow = commands.add_parser(
@@ -129,16 +137,22 @@ def _positive(value: str) -> int:
     return number
 
 
-def parse_budget(value: str) -> float:
-    """`25%` or `0.25`: the share of the known tests to run."""
+def parse_share(value: str) -> float:
+    """`25%` or `0.25`, from 0% to 100%."""
     try:
         fraction = float(value.removesuffix("%")) / 100 if value.endswith("%") else float(value)
     except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"{value!r} is not a share of the tests, such as 25% or 0.25"
-        ) from None
-    if not 0 < fraction <= 1:  # also refuses nan
-        raise argparse.ArgumentTypeError(f"{value!r} must be more than 0% and at most 100%")
+        raise argparse.ArgumentTypeError(f"{value!r} is not a share, such as 25% or 0.25") from None
+    if not 0 <= fraction <= 1:  # also refuses nan
+        raise argparse.ArgumentTypeError(f"{value!r} must be from 0% to 100%")
+    return fraction
+
+
+def parse_budget(value: str) -> float:
+    """`25%` or `0.25`: the share of the known tests to run, more than 0%."""
+    fraction = parse_share(value)
+    if fraction == 0:
+        raise argparse.ArgumentTypeError(f"{value!r} would run no known test: use more than 0%")
     return fraction
 
 
@@ -255,6 +269,17 @@ def _select(args: argparse.Namespace) -> int:
         print(f"no history for {repo} yet: nothing is left out", file=sys.stderr)
         return 0
     ranked = rank(history, _changed_paths(args))
+
+    if is_learning_run(repo, rev_parse(args.commit), args.learning_runs):
+        # Every test runs, so this build's results can measure the ranking (docs/adr/0009).
+        print(
+            f"learning run (about {args.learning_runs:.0%} of builds): nothing is left out",
+            file=sys.stderr,
+        )
+        _record(args, store, repo, ranked)
+        return 0
+
+    # Tests are left out, so the ranking is not recorded: shadow mode needs full runs (ADR 0007).
     left_out = ranked[budget_size(args.budget, len(ranked)) :]
     if left_out:
         print("\n".join(r.key for r in left_out))
