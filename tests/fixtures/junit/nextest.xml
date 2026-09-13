@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="6" skipped="0" failures="1" errors="0" uuid="36450530-4be4-4470-bc44-19160e907444" timestamp="2026-09-13T15:50:30.085+00:00" time="0.134">
+    <testsuite name="shop::checkout" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="checkout_total" classname="shop::checkout" timestamp="2026-09-13T15:50:30.086+00:00" time="0.036"/>
+    </testsuite>
+    <testsuite name="shop" tests="5" skipped="0" errors="0" failures="1">
+        <testcase name="tests::panics_as_expected" classname="shop" timestamp="2026-09-13T15:50:30.086+00:00" time="0.036"/>
+        <testcase name="tests::nested::keeps_total_for_one_item" classname="shop" timestamp="2026-09-13T15:50:30.086+00:00" time="0.036"/>
+        <testcase name="tests::sums_prices" classname="shop" timestamp="2026-09-13T15:50:30.086+00:00" time="0.036"/>
+        <testcase name="tests::flaky_first_attempt" classname="shop" timestamp="2026-09-13T15:50:30.122+00:00" time="0.031">
+            <flakyFailure timestamp="2026-09-13T15:50:30.086+00:00" time="0.036" message="thread &apos;tests::flaky_first_attempt&apos; (258) panicked at src/lib.rs:36:13" type="test failure with exit code 101">thread &apos;tests::flaky_first_attempt&apos; (258) panicked at src/lib.rs:36:13:
+first attempt fails on purpose
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+                <system-out>
+running 1 test
+test tests::flaky_first_attempt ... FAILED
+
+failures:
+
+failures:
+    tests::flaky_first_attempt
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+</system-out>
+                <system-err>
+thread &apos;tests::flaky_first_attempt&apos; (258) panicked at src/lib.rs:36:13:
+first attempt fails on purpose
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</system-err>
+            </flakyFailure>
+        </testcase>
+        <testcase name="tests::fails_on_purpose" classname="shop" timestamp="2026-09-13T15:50:30.086+00:00" time="0.034">
+            <failure message="thread &apos;tests::fails_on_purpose&apos; (256) panicked at src/lib.rs:16:9" type="test failure with exit code 101">thread &apos;tests::fails_on_purpose&apos; (256) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace</failure>
+            <rerunFailure timestamp="2026-09-13T15:50:30.122+00:00" time="0.032" message="thread &apos;tests::fails_on_purpose&apos; (262) panicked at src/lib.rs:16:9" type="test failure with exit code 101">thread &apos;tests::fails_on_purpose&apos; (262) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+                <system-out>
+running 1 test
+test tests::fails_on_purpose ... FAILED
+
+failures:
+
+failures:
+    tests::fails_on_purpose
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+</system-out>
+                <system-err>
+thread &apos;tests::fails_on_purpose&apos; (262) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</system-err>
+            </rerunFailure>
+            <rerunFailure timestamp="2026-09-13T15:50:30.156+00:00" time="0.063" message="thread &apos;tests::fails_on_purpose&apos; (265) panicked at src/lib.rs:16:9" type="test failure with exit code 101">thread &apos;tests::fails_on_purpose&apos; (265) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+                <system-out>
+running 1 test
+test tests::fails_on_purpose ... FAILED
+
+failures:
+
+failures:
+    tests::fails_on_purpose
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+</system-out>
+                <system-err>
+thread &apos;tests::fails_on_purpose&apos; (265) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</system-err>
+            </rerunFailure>
+            <system-out>
+running 1 test
+test tests::fails_on_purpose ... FAILED
+
+failures:
+
+failures:
+    tests::fails_on_purpose
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+</system-out>
+            <system-err>
+thread &apos;tests::fails_on_purpose&apos; (256) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</system-err>
+        </testcase>
+    </testsuite>
+</testsuites>

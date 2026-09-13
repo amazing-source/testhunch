@@ -8,8 +8,7 @@ lance en premier.**
 
 Il lit les rapports JUnit XML que votre lanceur de tests produit déjà, ainsi que `git diff`, et
 n'est donc lié à aucun langage ni framework. Il est testé sur de vrais rapports de pytest, Vitest,
-Jest, Go (gotestsum) et Java (Maven Surefire) ; cargo-nextest est le prochain sur la
-[feuille de route](ROADMAP.md).
+Jest, Go (gotestsum), Java (Maven Surefire) et Rust (cargo-nextest).
 
 > **Statut : pré-alpha.** Le pipeline de données (ingestion, stockage, rapports sur les tests
 > instables et en échec) et un classement de référence simple et explicable fonctionnent dès
@@ -91,6 +90,7 @@ $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
 | Jest | `jest --reporters=default --reporters=jest-junit` (avec `JEST_JUNIT_ADD_FILE_ATTRIBUTE=true`) |
 | Go | `gotestsum --junitfile junit.xml` |
 | Maven (Surefire) | `mvn test` écrit un rapport par classe : `testhunch ingest 'target/surefire-reports/TEST-*.xml'` |
+| cargo-nextest | `cargo nextest run --profile ci`, avec `[profile.ci.junit]` dans `.config/nextest.toml` (rapport dans `target/nextest/ci/junit.xml`) |
 
 ### Dans GitHub Actions
 
