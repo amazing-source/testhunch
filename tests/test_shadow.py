@@ -7,9 +7,13 @@ from testhunch.shadow import evaluate
 
 
 def result(
-    key: str, status: Status = Status.PASSED, duration_ms: int | None = 10, flaky: bool = False
+    key: str,
+    status: Status = Status.PASSED,
+    duration_ms: int | None = 10,
+    flaky: bool = False,
+    attempts: int | None = 1,
 ) -> ShadowResult:
-    return ShadowResult(key, status, flaky, duration_ms)
+    return ShadowResult(key, status, flaky, duration_ms, attempts)
 
 
 def ranked(ranking: str, *results: ShadowResult, run_id: int = 1) -> ShadowRun:
@@ -89,6 +93,45 @@ def test_counts_add_up_across_runs_and_follow_the_fractions() -> None:
 
     assert (small.fraction, small.runs, small.failing_runs, small.caught_runs) == (0.5, 3, 2, 1)
     assert (everything.fraction, everything.caught_runs, everything.tests_run) == (1.0, 2, 6)
+
+
+def test_failures_confirmed_by_retries_are_counted_apart() -> None:
+    run = ranked(
+        "abcd",
+        result("a", Status.FAILED, attempts=3),  # failed on all three attempts: confirmed
+        result("d", Status.FAILED, attempts=1),  # ran once: may be flaky
+        *passing("bc"),
+    )
+    (point,) = evaluate([run], fractions=(0.25,))
+    assert (point.failures, point.caught_failures) == (2, 1)
+    assert (point.confirmed_failures, point.caught_confirmed_failures) == (1, 1)
+    assert (point.confirmed_failing_runs, point.caught_confirmed_runs) == (1, 1)
+
+
+def test_a_run_whose_only_confirmed_failure_is_missed_is_a_missed_confirmed_run() -> None:
+    run = ranked(
+        "abcd",
+        result("a", Status.FAILED, attempts=1),
+        result("d", Status.ERROR, attempts=2),
+        *passing("bc"),
+    )
+    (point,) = evaluate([run], fractions=(0.25,))
+    assert (point.caught_runs, point.confirmed_failing_runs, point.caught_confirmed_runs) == (
+        1,
+        1,
+        0,
+    )
+
+
+def test_unknown_attempts_and_flaky_results_are_never_confirmed() -> None:
+    run = ranked(
+        "abc",
+        result("a", Status.FAILED, attempts=None),  # recorded before attempts were stored
+        result("b", Status.FAILED, attempts=2, flaky=True),
+        *passing("c"),
+    )
+    (point,) = evaluate([run], fractions=(1.0,))
+    assert (point.failures, point.confirmed_failures, point.confirmed_failing_runs) == (1, 0, 0)
 
 
 def test_no_runs_means_nothing_measured() -> None:

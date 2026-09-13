@@ -157,8 +157,8 @@ class SqlStore(ABC):
                 raise StoreError("some tests were not recorded")
             s.many(
                 "INSERT INTO results "
-                "(run_id, test_id, status, duration_ms, occurrences, message, flaky) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(run_id, test_id, status, duration_ms, occurrences, message, flaky, attempts) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (
                         run_id,
@@ -168,6 +168,7 @@ class SqlStore(ABC):
                         case.occurrences,
                         case.message,
                         case.flaky,
+                        case.attempts,
                     )
                     for case in run.results
                 ],
@@ -267,9 +268,10 @@ class SqlStore(ABC):
             ):
                 positions[int(prediction_id)][key] = int(position)
             results: dict[int, list[ShadowResult]] = {r: [] for r, _ in pairs}
-            for run_id, key, status, flaky, duration_ms in _all_in(
+            for run_id, key, status, flaky, duration_ms, attempts in _all_in(
                 s,
-                "SELECT res.run_id, t.test_key, res.status, res.flaky, res.duration_ms "
+                "SELECT res.run_id, t.test_key, res.status, res.flaky, res.duration_ms, "
+                "res.attempts "
                 "FROM results res JOIN tests t ON t.id = res.test_id "
                 "WHERE res.run_id IN ({})",
                 [],
@@ -281,6 +283,7 @@ class SqlStore(ABC):
                         status=Status(status),
                         flaky=bool(flaky),
                         duration_ms=None if duration_ms is None else int(duration_ms),
+                        attempts=None if attempts is None else int(attempts),
                     )
                 )
         return [ShadowRun(r, positions[p], tuple(results[r])) for r, p in pairs]

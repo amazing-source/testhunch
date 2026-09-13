@@ -100,6 +100,25 @@ $ testhunch prioritize --changed src/sample/parametrized.py --limit 3
 | Maven (Surefire) | `mvn test` écrit un rapport par classe : `testhunch ingest 'target/surefire-reports/TEST-*.xml'` |
 | cargo-nextest | `cargo nextest run --profile ci`, avec `[profile.ci.junit]` dans `.config/nextest.toml` (rapport dans `target/nextest/ci/junit.xml`) |
 
+### Activer les relances
+
+Un échec vu une seule fois peut venir d'un test instable. Quand le lanceur relance les tests en
+échec, testhunch sait si un échec s'est reproduit à chaque tentative (échec **confirmé**) ou si le
+test a fini par passer (test instable), et le mode fantôme compte les échecs confirmés à part
+([ADR 0008](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0008-failures-are-confirmed-by-retries.md)).
+Sans relances, le rapport le signale : ses chiffres peuvent alors paraître meilleurs que la réalité.
+
+| Lanceur | Relancer deux fois les tests en échec |
+|---|---|
+| pytest | `pip install pytest-rerunfailures`, puis `pytest --reruns 2 --junitxml=junit.xml` |
+| Maven (Surefire) | `mvn test -Dsurefire.rerunFailingTestsCount=2` |
+| cargo-nextest | `retries = 2` dans le profil, par exemple `[profile.ci]` de `.config/nextest.toml` |
+| Go | `gotestsum --junitfile junit.xml --rerun-fails=2 --packages ./...` |
+
+Chaque ligne est vérifiée par un vrai rapport dans `tests/fixtures/junit` (pytest-rerunfailures
+16.6.1, Surefire 3.6.0, cargo-nextest 0.9.144, gotestsum 1.13.0). Les relances de Vitest et de Jest
+ne le sont pas encore.
+
 ### Dans GitHub Actions
 
 L'Action de ce dépôt classe les tests avant qu'ils tournent, enregistre leurs résultats ensuite, et

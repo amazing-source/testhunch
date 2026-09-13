@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="4" time="0.071" timestamp="2026-09-13T17:57:23.534297+00:00" hostname="ci-runner"><testcase classname="tests.test_shop" name="test_passes" time="0.001" /><testcase classname="tests.test_shop" name="test_fails_on_purpose" time="0.001" /><testcase classname="tests.test_shop" name="test_fails_on_purpose" time="0.001" /><testcase classname="tests.test_shop" name="test_fails_on_purpose" time="0.001"><failure message="AssertionError: fails on every attempt&#10;assert 'carte' == 'grise'&#10;  &#10;  - grise&#10;  + carte">def test_fails_on_purpose():
+&gt;       assert "carte" == "grise", "fails on every attempt"
+E       AssertionError: fails on every attempt
+E       assert 'carte' == 'grise'
+E         
+E         - grise
+E         + carte
+
+tests/test_shop.py:10: AssertionError</failure></testcase><testcase classname="tests.test_shop" name="test_errors_on_purpose" time="0.001" /><testcase classname="tests.test_shop" name="test_errors_on_purpose" time="0.000" /><testcase classname="tests.test_shop" name="test_errors_on_purpose" time="0.000"><failure message="RuntimeError: errors on every attempt">def test_errors_on_purpose():
+&gt;       raise RuntimeError("errors on every attempt")
+E       RuntimeError: errors on every attempt
+
+tests/test_shop.py:14: RuntimeError</failure></testcase><testcase classname="tests.test_shop" name="test_flaky_first_attempt" time="0.001" /><testcase classname="tests.test_shop" name="test_flaky_first_attempt" time="0.000" /></testsuite></testsuites>

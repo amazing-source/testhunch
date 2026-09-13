@@ -160,10 +160,14 @@ def test_shadow_mode_from_recorded_ranking_to_report(
     assert main(["shadow", *common]) == 0
     text = capsys.readouterr().out
     assert "1 run with a recorded ranking, 1 with failures" in text
-    assert "top 25% of ranked tests: caught 1 of 1 failing runs, 2 of 4 failures" in text
+    assert "top 25% of ranked tests: caught 1 of 1 failing runs, 2 of 4 failures;" in text
+    # The sample report has no retries, so no failure is confirmed (docs/adr/0008).
+    assert "4 of 4 failures ran only once" in text
 
     assert main(["shadow", "--format", "markdown", *common]) == 0
-    assert "| 25% | 1 of 1 | 2 of 4 | 2 of 8 (25%) |" in capsys.readouterr().out
+    markdown = capsys.readouterr().out
+    assert "| 25% | 1 of 1 | 2 of 4 | 0 of 0 | 2 of 8 (25%) |" in markdown
+    assert "4 of 4 failures ran only once" in markdown
 
 
 def test_select_leaves_out_the_known_tests_below_the_budget(

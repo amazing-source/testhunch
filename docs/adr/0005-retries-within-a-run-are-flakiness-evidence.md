@@ -1,7 +1,7 @@
 # 5. Retries within a run are flakiness evidence
 
 Date: 2026-09-13
-Status: accepted (amends [0004](0004-flaky-means-same-commit-different-outcome.md))
+Status: accepted (amends [0004](0004-flaky-means-same-commit-different-outcome.md)), amended by [0008](0008-failures-are-confirmed-by-retries.md)
 
 ## Context
 
