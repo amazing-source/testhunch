@@ -24,6 +24,7 @@ from benchmarks.rtptorrent.replay import (
     read_schedules,
     replay,
 )
+from benchmarks.rtptorrent.summary import summary
 from testhunch import __version__
 from testhunch.gitinfo import GitError, rev_parse
 from testhunch.shadow import BUDGETS, evaluate
@@ -142,6 +143,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         (args.out / f"{project}.md").write_text(markdown(result), encoding="utf-8")
         sys.stdout.write(markdown(result) + "\n")
+    # Every project measured so far in this directory, not only the ones of this call.
+    everything = [
+        json.loads(path.read_text(encoding="utf-8")) for path in sorted(args.out.glob("*.json"))
+    ]
+    (args.out / "README.md").write_text(summary(everything), encoding="utf-8")
     return 0
 
 
