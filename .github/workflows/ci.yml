@@ -57,23 +57,48 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0 # testhunch diffs each build against the commit before it
       - uses: astral-sh/setup-uv@v10.1.0 # this action publishes no floating major tag
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --locked --all-extras
+
+      # testhunch on its own tests, through its own Action. One job (Python 3.14) owns the history,
+      # which lives in the Actions cache between builds: every build restores the latest history
+      # saved by a build of main (pull requests can read it), and only builds of main save it.
+      - name: Restore testhunch's history of this test suite
+        if: matrix.python == '3.14'
+        uses: actions/cache/restore@v6
+        with:
+          path: .testhunch
+          key: testhunch-history-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: testhunch-history-
+
+      - name: Rank the tests before they run (shadow mode records the ranking)
+        if: matrix.python == '3.14'
+        uses: ./
+        with:
+          command: prioritize
+          # Pull requests diff against their base branch by default; main is one commit per merge.
+          base: ${{ github.event_name == 'push' && 'HEAD~1' || '' }}
+
       - run: uv run pytest --junitxml=reports/junit.xml
 
-      - name: Record this run with testhunch itself
+      - name: Record the results and report what shadow mode would have missed
         if: ${{ !cancelled() && matrix.python == '3.14' }}
-        run: |
-          uv run testhunch ingest reports/junit.xml --db sqlite:///reports/history.db
-          {
-            echo '### testhunch on its own test suite'
-            echo '```'
-            uv run testhunch report --db sqlite:///reports/history.db
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        uses: ./
+        with:
+          command: ingest
+          reports: reports/junit.xml
+          base: ${{ github.event_name == 'push' && 'HEAD~1' || '' }}
+
+      - name: Save the history for the next builds
+        if: ${{ !cancelled() && matrix.python == '3.14' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .testhunch
+          key: testhunch-history-${{ github.run_id }}-${{ github.run_attempt }}
 
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
