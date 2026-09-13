@@ -64,7 +64,14 @@ def changed_files(base: str, head: str = "HEAD", cwd: Path | None = None) -> tup
     for ref in (base, head):
         if ref.startswith("-"):  # would be read as a git option, not a revision
             raise GitError(f"invalid revision {ref!r}")
-    output = _git(["diff", "--name-status", "-z", "-M", "--no-color", f"{base}...{head}"], cwd)
+        rev_parse(ref, cwd)  # a missing ref gets rev_parse's explanation, not git diff's usage text
+    try:
+        output = _git(["diff", "--name-status", "-z", "-M", "--no-color", f"{base}...{head}"], cwd)
+    except GitError as exc:
+        raise GitError(
+            f"cannot list the files changed on {head} since it forked from {base}: {exc}. "
+            "A shallow checkout hides the commit they share (use fetch-depth: 0)."
+        ) from exc
     return parse_name_status_z(output)
 
 

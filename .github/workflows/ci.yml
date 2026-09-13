@@ -104,6 +104,52 @@ jobs:
           "$testhunch" report --db sqlite:///smoke.db --repo ci/smoke | tee report.txt
           grep -q "shop::tests::flaky_first_attempt" report.txt
 
+  action:
+    name: GitHub Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the action diffs against the pull request's base branch
+
+      - name: Rank tests before any history exists
+        id: empty
+        uses: ./
+        with:
+          command: prioritize
+
+      - name: Check the empty ranking is still well-formed
+        env:
+          RANKING_JSON: ${{ steps.empty.outputs.ranking-json }}
+          RANKING_KEYS: ${{ steps.empty.outputs.ranking-keys }}
+        run: |
+          test "$(cat "$RANKING_JSON")" = "[]"
+          test ! -s "$RANKING_KEYS"
+
+      - name: Record a real report
+        uses: ./
+        with:
+          command: ingest
+          reports: |
+            tests/fixtures/junit/nextest.xml
+
+      - name: Rank tests with that history
+        id: ranked
+        uses: ./
+        with:
+          command: prioritize
+          base: HEAD # no changed files, so the ranking only reflects the recorded failures
+
+      - name: Check the ranking
+        env:
+          RANKING_JSON: ${{ steps.ranked.outputs.ranking-json }}
+          RANKING_KEYS: ${{ steps.ranked.outputs.ranking-keys }}
+        run: |
+          test "$(head -n 1 "$RANKING_KEYS")" = "shop::tests::fails_on_purpose"
+          test "$(wc -l < "$RANKING_KEYS")" -eq 6
+          python3 -c 'import json, sys; ranked = json.load(open(sys.argv[1])); assert len(ranked) == 6, ranked' "$RANKING_JSON"
+
   docker:
     name: Docker image and compose stack
     runs-on: ubuntu-latest

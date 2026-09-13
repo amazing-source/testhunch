@@ -6,6 +6,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 from collections.abc import Sequence
 from dataclasses import asdict
@@ -63,7 +64,7 @@ def _parser() -> argparse.ArgumentParser:
     report = commands.add_parser("report", parents=[common], help="flaky, slow and failing tests")
     report.add_argument("--last", type=_positive, default=50, help="runs to look back over")
     report.add_argument("--limit", type=_positive, default=10, help="rows per section")
-    report.add_argument("--format", choices=["text", "json"], default="text")
+    report.add_argument("--format", choices=["text", "json", "markdown"], default="text")
     report.set_defaults(handler=_report)
 
     prioritize = commands.add_parser(
@@ -74,7 +75,9 @@ def _parser() -> argparse.ArgumentParser:
     changed.add_argument("--changed", nargs="+", default=[], help="rank for these changed paths")
     prioritize.add_argument("--last", type=_positive, default=50, help="runs to look back over")
     prioritize.add_argument("--limit", type=_positive, help="show only the top N tests")
-    prioritize.add_argument("--format", choices=["text", "json", "keys"], default="text")
+    prioritize.add_argument(
+        "--format", choices=["text", "json", "keys", "markdown"], default="text"
+    )
     prioritize.set_defaults(handler=_prioritize)
 
     return parser
@@ -156,6 +159,25 @@ def _report(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2))
         return 0
 
+    if args.format == "markdown":
+        print(f"### testhunch report for {repo} ({store.run_count(repo)} runs recorded)")
+        _print_markdown_table(
+            "Flaky (passed and failed on the same commit)",
+            ("Commits", "Test"),
+            [(str(t.flaky_commits), markdown_code(t.key)) for t in flaky],
+        )
+        _print_markdown_table(
+            f"Slowest (average over the last {args.last} runs)",
+            ("Average", "Test"),
+            [(f"{t.avg_ms:.0f} ms", markdown_code(t.key)) for t in slowest],
+        )
+        _print_markdown_table(
+            f"Failing (last {args.last} runs)",
+            ("Failures", "Test"),
+            [(f"{t.failures} / {t.executions}", markdown_code(t.key)) for t in failing],
+        )
+        return 0
+
     print(f"testhunch report for {repo} ({store.run_count(repo)} runs recorded)")
     print("\nFlaky (passed and failed on the same commit):")
     _print_rows([f"{t.flaky_commits:>4} commit(s)  {t.key}" for t in flaky])
@@ -170,6 +192,36 @@ def _print_rows(rows: Sequence[str]) -> None:
     print("\n".join(f"  {row}" for row in rows) if rows else "  none")
 
 
+def _print_markdown_table(
+    title: str | None,
+    header: Sequence[str],
+    rows: Sequence[Sequence[str]],
+    numeric_columns: int = 1,
+) -> None:
+    print(f"\n**{title}**\n" if title else "")
+    if not rows:
+        print("None.")
+        return
+    print("| " + " | ".join(header) + " |")
+    print(
+        "|" + "|".join("---:" if i < numeric_columns else "---" for i in range(len(header))) + "|"
+    )
+    for row in rows:
+        print("| " + " | ".join(row) + " |")
+
+
+def markdown_code(text: str) -> str:
+    """`text` as a code span that stays inside one Markdown table cell."""
+    # The fence must be longer than any run of backticks inside, and padded when there is one.
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    fence, pad = "`" * (longest + 1), " " if longest else ""
+    return f"{fence}{pad}{_markdown_cell(text)}{pad}{fence}"
+
+
+def _markdown_cell(text: str) -> str:
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
 def _prioritize(args: argparse.Namespace) -> int:
     store, repo = _store(args), _repo(args)
     history = store.history(repo, args.last)
@@ -178,9 +230,16 @@ def _prioritize(args: argparse.Namespace) -> int:
             f"no history for {repo} yet: run `testhunch ingest` after your test job first",
             file=sys.stderr,
         )
+        # Machine-readable formats still get well-formed, empty output.
+        if args.format == "json":
+            print("[]")
+        elif args.format == "markdown":
+            print(f"### testhunch ranking for {repo}\n")
+            print("No history yet: run `testhunch ingest` after your test job first.")
         return 0
     paths = [c.path for c in changed_files(args.base)] if args.base else list(args.changed)
     ranked = rank(history, paths)
+    total = len(ranked)
     if args.limit:
         ranked = ranked[: args.limit]
 
@@ -188,6 +247,19 @@ def _prioritize(args: argparse.Namespace) -> int:
         print(json.dumps([asdict(r) for r in ranked], indent=2))
     elif args.format == "keys":
         print("\n".join(r.key for r in ranked))
+    elif args.format == "markdown":
+        print(f"### testhunch ranking for {repo}\n")
+        print(f"Top {len(ranked)} of {total} tests for {len(paths)} changed file(s).")
+        rows = [
+            (
+                str(position),
+                f"{r.score:.3f}",
+                markdown_code(r.key),
+                _markdown_cell("; ".join(r.reasons) if r.reasons else "no signal"),
+            )
+            for position, r in enumerate(ranked, start=1)
+        ]
+        _print_markdown_table(None, ("#", "Score", "Test", "Why"), rows, numeric_columns=2)
     else:
         for position, r in enumerate(ranked, start=1):
             why = "; ".join(r.reasons) if r.reasons else "no signal"

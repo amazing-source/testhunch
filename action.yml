@@ -1,0 +1,64 @@
+name: testhunch
+description: Record JUnit XML test results after your tests, and rank tests by how likely a change is to break them.
+author: ren
+branding:
+  icon: target
+  color: orange
+
+inputs:
+  command:
+    description: "`ingest` records JUnit XML reports after the tests run; `prioritize` ranks tests before they run."
+    required: true
+  reports:
+    description: "For `ingest`: JUnit XML files or glob patterns, one per line."
+    required: false
+    default: ""
+  base:
+    description: >-
+      Ref to diff against to find the changed files, such as origin/main. Defaults to the pull
+      request's base branch on pull_request events, and to no diff otherwise. Diffing needs the
+      history: check out with fetch-depth 0.
+    required: false
+    default: ""
+  database-url:
+    description: >-
+      Where the history is kept. Defaults to the SQLite file .testhunch/history.db in the
+      workspace, which is gone when the job ends; pass a Postgres URL from a secret to keep it.
+    required: false
+    default: ""
+  last:
+    description: How many recent runs to learn from.
+    required: false
+    default: "50"
+  summary-limit:
+    description: "For `prioritize`: how many ranked tests to show in the job summary."
+    required: false
+    default: "20"
+
+outputs:
+  ranking-json:
+    description: "For `prioritize`: path to a JSON file with every ranked test, its score and the reasons."
+    value: ${{ steps.run.outputs.ranking-json }}
+  ranking-keys:
+    description: "For `prioritize`: path to a text file with one test key per line, most likely to fail first."
+    value: ${{ steps.run.outputs.ranking-keys }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v10.1.0 # this action publishes no floating major tag
+      with:
+        enable-cache: false # do not save caches into the calling repository
+
+    - id: run
+      shell: bash
+      # Inputs reach the script as environment variables only: interpolating them into `run`
+      # would let a crafted value run shell commands.
+      env:
+        TESTHUNCH_COMMAND: ${{ inputs.command }}
+        TESTHUNCH_REPORTS: ${{ inputs.reports }}
+        TESTHUNCH_BASE: ${{ inputs.base }}
+        TESTHUNCH_INPUT_DATABASE_URL: ${{ inputs.database-url }}
+        TESTHUNCH_LAST: ${{ inputs.last }}
+        TESTHUNCH_SUMMARY_LIMIT: ${{ inputs.summary-limit }}
+      run: bash "${GITHUB_ACTION_PATH}/action/run.sh"

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from testhunch.cli import main
+from testhunch.cli import main, markdown_code
 from testhunch.store import open_store
 
 FIXTURES = Path(__file__).parent / "fixtures" / "junit"
@@ -82,6 +82,67 @@ def test_prioritize_without_history_explains_what_to_do(
 ) -> None:
     assert main(["prioritize", "--db", sqlite_url, "--repo", "empty/repo"]) == 0
     assert "run `testhunch ingest`" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("output_format", "expected_out"),
+    [
+        ("json", "[]\n"),  # still valid JSON for whatever reads it
+        ("keys", ""),
+        ("markdown", "### testhunch ranking for empty/repo\n\nNo history yet"),
+    ],
+)
+def test_prioritize_without_history_still_writes_well_formed_output(
+    workdir: Path,
+    sqlite_url: str,
+    capsys: pytest.CaptureFixture[str],
+    output_format: str,
+    expected_out: str,
+) -> None:
+    args = ["prioritize", "--format", output_format, "--db", sqlite_url, "--repo", "empty/repo"]
+    assert main(args) == 0
+    out = capsys.readouterr().out
+    assert out.startswith(expected_out) if expected_out else out == ""
+
+
+def test_markdown_formats_for_job_summaries(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    capsys.readouterr()
+
+    assert main(["report", "--format", "markdown", *common]) == 0
+    report = capsys.readouterr().out
+    assert report.startswith("### testhunch report for acme/shop (1 runs recorded)\n")
+    assert "**Flaky (passed and failed on the same commit)**\n\nNone.\n" in report
+    assert "| Failures | Test |\n|---:|---|\n| 1 / 1 | `tests.test_sample::" in report
+
+    changed = ["--changed", "src/sample.py", "--limit", "2"]
+    assert main(["prioritize", "--format", "markdown", *changed, *common]) == 0
+    ranking = capsys.readouterr().out
+    assert ranking.startswith(
+        "### testhunch ranking for acme/shop\n\n"
+        "Top 2 of 8 tests for 1 changed file(s).\n\n"
+        "| # | Score | Test | Why |\n|---:|---:|---|---|\n"
+        "| 1 | 4.000 | `tests.test_sample::test_errors_in_setup` | matches changed file sample; "
+        "failed in the latest run; failed 1 of 1 runs |\n"
+    )
+    assert ranking.count("\n| ") == 3  # header and two rows
+
+
+@pytest.mark.parametrize(
+    ("text", "cell"),
+    [
+        ("tests::plain", "`tests::plain`"),
+        ("a | b", "`a \\| b`"),  # a bare pipe would end the table cell
+        ("uses `code`", "`` uses `code` ``"),
+        ("two``ticks", "``` two``ticks ```"),
+        ("line\nbreak", "`line break`"),
+    ],
+)
+def test_markdown_code_cells_survive_pipes_backticks_and_newlines(text: str, cell: str) -> None:
+    assert markdown_code(text) == cell
 
 
 def test_report_on_a_fresh_database_works(

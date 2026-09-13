@@ -44,6 +44,20 @@ def test_unknown_ref_is_a_git_error(git_repo: Path) -> None:
         rev_parse("does-not-exist", cwd=git_repo)
 
 
+def test_diffing_against_a_ref_that_was_never_fetched_says_how_to_fix_it(git_repo: Path) -> None:
+    # What a pull request build sees with actions/checkout's default shallow clone.
+    with pytest.raises(GitError, match=r"cannot resolve 'origin/main'.*fetch-depth: 0"):
+        changed_files("origin/main", cwd=git_repo)
+
+
+def test_diffing_without_a_merge_base_says_how_to_fix_it(git_repo: Path, git: Git) -> None:
+    git(git_repo, "checkout", "--quiet", "--orphan", "unrelated")
+    git(git_repo, "commit", "--quiet", "-m", "no shared history")
+
+    with pytest.raises(GitError, match=r"since it forked from base.*fetch-depth: 0"):
+        changed_files("base", cwd=git_repo)
+
+
 def test_option_like_refs_are_refused() -> None:
     with pytest.raises(GitError, match="invalid revision"):
         changed_files("--output=/tmp/pwned")
