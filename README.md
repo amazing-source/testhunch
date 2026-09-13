@@ -60,6 +60,12 @@ flowchart LR
    échec.
 3. `testhunch prioritize` classe les tests selon les fichiers que vous avez modifiés, et explique
    pourquoi chacun arrive à cette place.
+4. **Mode fantôme** : avec `prioritize --record` avant les tests, le classement est enregistré
+   pour ce commit ; tous les tests tournent quand même. Ensuite, `testhunch shadow` mesure ce
+   qu'aurait manqué le fait de ne lancer que les 10 %, 25 % ou 50 % de tests les mieux classés :
+   combien d'exécutions en échec seraient restées en échec, combien d'échecs auraient été vus, et
+   la part de tests et de temps économisée. Un classement n'est jamais comparé à une exécution qu'il
+   a déjà vue ([ADR 0006](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0006-shadow-mode-measures-misses-without-skipping.md)).
 
 ## Démarrage rapide
 

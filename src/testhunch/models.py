@@ -103,3 +103,27 @@ class CaseHistory:
     failures: int
     executions: int
     runs_since_failure: int | None  # 0 = failed in the newest run; None = no failure in window
+
+
+@dataclass(frozen=True, slots=True)
+class RankedTest:
+    key: str
+    score: float
+    reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ShadowResult:
+    key: str
+    status: Status
+    flaky: bool
+    duration_ms: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class ShadowRun:
+    """A run, and the ranking recorded for its commit before the run was ingested (ADR 0006)."""
+
+    run_id: int
+    positions: dict[str, int]  # test key -> 1-based position in the ranking
+    results: tuple[ShadowResult, ...]

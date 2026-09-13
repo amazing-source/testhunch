@@ -131,6 +131,54 @@ def test_markdown_formats_for_job_summaries(
     assert ranking.count("\n| ") == 3  # header and two rows
 
 
+def test_shadow_mode_from_recorded_ranking_to_report(
+    workdir: Path, sqlite_url: str, git: Git, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+
+    # The next commit: rank before its tests run, then record its results.
+    (workdir / "kept.py").write_text("x = 5\n")
+    git(workdir, "commit", "--quiet", "-am", "next")
+    capsys.readouterr()
+    assert main(["prioritize", "--record", "--format", "keys", *common]) == 0
+    recorded = capsys.readouterr()
+    assert len(recorded.out.splitlines()) == 8  # stdout stays the ranking alone
+    assert "recorded the ranking of 8 tests" in recorded.err
+    assert main(["ingest", "junit.xml", *common]) == 0
+    capsys.readouterr()
+
+    assert main(["shadow", "--format", "json", *common]) == 0
+    report = json.loads(capsys.readouterr().out)
+    # The 4 failures of the first run rank first and fail again. Of the 8 ranked tests, the
+    # top 10% is 1 test, 25% is 2 and 50% is 4.
+    assert (report["runs"], report["failing_runs"]) == (1, 1)
+    budgets = {p["fraction"]: (p["caught_runs"], p["caught_failures"]) for p in report["budgets"]}
+    assert budgets == {0.1: (1, 1), 0.25: (1, 2), 0.5: (1, 4)}
+
+    assert main(["shadow", *common]) == 0
+    text = capsys.readouterr().out
+    assert "1 run with a recorded ranking, 1 with failures" in text
+    assert "top 25% of ranked tests: caught 1 of 1 failing runs, 2 of 4 failures" in text
+
+    assert main(["shadow", "--format", "markdown", *common]) == 0
+    assert "| 25% | 1 of 1 | 2 of 4 | 2 of 8 (25%) |" in capsys.readouterr().out
+
+
+def test_shadow_report_without_rankings_says_there_is_nothing_to_measure(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["shadow", "--db", sqlite_url, "--repo", "acme/shop"]) == 0
+    assert "no run with a recorded ranking yet" in capsys.readouterr().out
+
+
+def test_prioritize_records_nothing_without_history(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["prioritize", "--record", "--db", sqlite_url, "--repo", "empty/repo"]) == 0
+    assert "recorded" not in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     ("text", "cell"),
     [

@@ -15,20 +15,12 @@ matching over-matches ("store" in "restore"), and a flaky test's failures count 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
 
-from testhunch.models import CaseHistory
+from testhunch.models import CaseHistory, RankedTest
 
 AFFINITY_WEIGHT = 2.0
 _MIN_STEM_LENGTH = 3
 _GENERIC_STEMS = frozenset({"__init__", "conftest", "index", "main", "mod", "setup", "utils"})
-
-
-@dataclass(frozen=True, slots=True)
-class RankedTest:
-    key: str
-    score: float
-    reasons: tuple[str, ...]
 
 
 def stem(path: str) -> str:

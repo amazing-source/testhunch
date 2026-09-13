@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from testhunch.models import CaseResult, FileChange, RunInput, Status
+from testhunch.models import (
+    CaseResult,
+    FileChange,
+    RankedTest,
+    RunInput,
+    ShadowResult,
+    Status,
+)
 from testhunch.store import SqlStore, StoreError, base
 from testhunch.store.base import bundled_migrations
 
@@ -138,6 +145,70 @@ def test_migrating_keeps_results_recorded_before_flakiness_was_stored(
     assert 2 in unmigrated_store.migrate()
     assert [h.key for h in unmigrated_store.history(REPO)] == ["a"]
     assert unmigrated_store.flaky_tests(REPO) == []
+
+
+def ranking(*keys: str) -> list[RankedTest]:
+    return [RankedTest(key, float(len(keys) - i), ()) for i, key in enumerate(keys)]
+
+
+def test_latest_run_id(store: SqlStore) -> None:
+    assert store.latest_run_id(REPO) is None
+    store.ingest(run("c1", "d1", case("a", Status.PASSED)))
+    newest = store.ingest(run("c2", "d2", case("a", Status.PASSED)))
+    store.ingest(run("c9", "d9", case("a", Status.PASSED), repo="other/repo"))
+    assert store.latest_run_id(REPO) == newest.run_id
+
+
+def test_a_recorded_ranking_is_compared_with_the_later_run_of_its_commit(store: SqlStore) -> None:
+    history = store.ingest(run("c0", "d0", case("a", Status.PASSED), case("b", Status.FAILED)))
+    store.record_prediction(REPO, "c1", ranking("b", "a"), last_run_id=history.run_id)
+    retried = CaseResult("a", "a", None, None, Status.FAILED, 7, None, flaky=True)
+    later = store.ingest(run("c1", "d1", retried, case("b", Status.PASSED, None)))
+
+    (shadow,) = store.shadow_runs(REPO)
+    assert shadow.run_id == later.run_id
+    assert shadow.positions == {"b": 1, "a": 2}
+    assert sorted(shadow.results, key=lambda r: r.key) == [
+        ShadowResult("a", Status.FAILED, True, 7),
+        ShadowResult("b", Status.PASSED, False, None),
+    ]
+    assert store.shadow_runs("other/repo") == []
+
+
+def test_a_ranking_that_had_already_seen_the_run_is_never_used(store: SqlStore) -> None:
+    tested = store.ingest(run("c1", "d1", case("a", Status.FAILED)))
+    # Recorded after the results were in: it "predicts" a failure it has already seen.
+    store.record_prediction(REPO, "c1", ranking("a"), last_run_id=tested.run_id)
+    assert store.shadow_runs(REPO) == []
+
+
+def test_each_run_uses_the_latest_usable_ranking_of_its_commit(store: SqlStore) -> None:
+    history = store.ingest(run("c0", "d0", case("a", Status.PASSED), case("b", Status.PASSED)))
+    store.record_prediction(REPO, "c1", ranking("a", "b"), last_run_id=history.run_id)
+    store.record_prediction(REPO, "c1", ranking("b", "a"), last_run_id=history.run_id)
+    store.record_prediction(REPO, "c2", ranking("a"), last_run_id=history.run_id)
+    first = store.ingest(run("c1", "d1", case("a", Status.PASSED)))
+    second = store.ingest(run("c1", "d2", case("a", Status.FAILED)))  # e.g. another matrix job
+
+    shadow = store.shadow_runs(REPO)
+    assert [s.run_id for s in shadow] == [second.run_id, first.run_id]  # newest first
+    assert all(s.positions == {"b": 1, "a": 2} for s in shadow)
+
+
+def test_a_ranking_of_tests_with_no_recorded_result_is_refused(store: SqlStore) -> None:
+    history = store.ingest(run("c0", "d0", case("a", Status.PASSED)))
+    with pytest.raises(ValueError, match="no recorded result"):
+        store.record_prediction(REPO, "c1", ranking("a", "ghost"), last_run_id=history.run_id)
+    assert store.shadow_runs(REPO) == []
+
+
+def test_shadow_runs_are_limited_to_the_most_recent(store: SqlStore) -> None:
+    history = store.ingest(run("c0", "d0", case("a", Status.PASSED)))
+    for n in range(1, 4):
+        store.record_prediction(REPO, f"c{n}", ranking("a"), last_run_id=history.run_id)
+        store.ingest(run(f"c{n}", f"d{n}", case("a", Status.PASSED)))
+
+    assert len(store.shadow_runs(REPO, last_runs=2)) == 2
 
 
 def test_repos_do_not_leak_into_each_other(store: SqlStore) -> None:
