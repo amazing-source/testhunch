@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from email.message import Message
 from pathlib import Path
 
+from benchmarks.replay import Job
 from testhunch.models import CaseResult, Status
 
 ARCHIVE_URL = "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content"
@@ -169,14 +170,6 @@ def fetch_project(project: str, cache: Path, url: str = ARCHIVE_URL) -> Path:
     source = {"archive": url, "project": project, "members_crc32": crcs, "missing": missing}
     (target / "source.json").write_text(json.dumps(source, indent=2) + "\n", encoding="utf-8")
     return target
-
-
-@dataclass(frozen=True, slots=True)
-class Job:
-    job_id: int
-    commits: frozenset[str]  # empty when the dataset maps the job to no commit
-    changed_files: tuple[str, ...] | None  # None when unknown: no commit mapping
-    results: tuple[CaseResult, ...]
 
 
 def load_jobs(directory: Path) -> list[Job]:
