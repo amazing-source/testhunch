@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="6" failures="1" errors="0" time="9.38">
+  <testsuite name="discounts" errors="0" failures="0" skipped="0" timestamp="2026-09-13T19:01:28" time="2.324" tests="2">
+    <testcase classname="discounts ten percent" name="discounts ten percent" time="0.008" file="src/discounts.test.js">
+    </testcase>
+    <testcase classname="discounts none" name="discounts none" time="0.001" file="src/discounts.test.js">
+    </testcase>
+  </testsuite>
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2026-09-13T19:01:28" time="2.325" tests="1">
+    <testcase classname=" discount" name=" discount" time="0.011" file="src/pricing.test.js">
+    </testcase>
+  </testsuite>
+  <testsuite name="cart total" errors="0" failures="1" skipped="0" timestamp="2026-09-13T19:01:29" time="4.055" tests="2">
+    <testcase classname="cart total sums prices" name="cart total sums prices" time="0.016" file="src/cart/cart.test.js">
+    </testcase>
+    <testcase classname="cart total fails on purpose" name="cart total fails on purpose" time="0.002" file="src/cart/cart.test.js">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 1
+Received: 0
+    at Object.toBe (/src/src/cart/cart.test.js:3:44)
+    at Promise.finally.completed (/src/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/src/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)
+    at _callCircusTest (/src/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at _runTestInContext (/src/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)
+    at runTestWithContext (/src/node_modules/jest-circus/build/jestAdapterInit.js:996:5)
+    at _runTestsForDescribeBlockOnce (/src/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)
+    at _runTestsForDescribeBlock (/src/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at _runTestsForDescribeBlockOnce (/src/node_modules/jest-circus/build/jestAdapterInit.js:1003:11)
+    at _runTestsForDescribeBlock (/src/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at run (/src/node_modules/jest-circus/build/jestAdapterInit.js:789:3)
+    at runAndTransformResultsToJestFormat (/src/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)
+    at jestAdapter (/src/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/src/node_modules/jest-runner/build/testWorker.js:247:16)
+    at runTest (/src/node_modules/jest-runner/build/testWorker.js:315:7)
+    at Object.worker (/src/node_modules/jest-runner/build/testWorker.js:479:12)</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="cart total" errors="0" failures="0" skipped="0" timestamp="2026-09-13T19:01:29" time="3.968" tests="1">
+    <testcase classname="cart total sums prices" name="cart total sums prices" time="0.008" file="src/billing/cart.test.js">
+    </testcase>
+  </testsuite>
+</testsuites>

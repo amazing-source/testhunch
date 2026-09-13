@@ -79,6 +79,17 @@ skipped. A known test is left out only when its full name appears exactly once i
 another file, or a duplicate added to the same file, would be filtered out with it. The list must
 come from running the files, because static parsing lists `test.each` under its template name.
 
+**Jest:** Jest's `-t` also matches full names in every file, but Jest has no command that lists test
+names without running them (`--listTests` lists files), so a same-named test elsewhere can never be
+ruled out. `select --runner jest` therefore leaves out whole files, with one pattern for
+`--testPathIgnorePatterns` such as `<rootDir>/(?:src/pricing\.test\.js)$|/node_modules/`. Checked
+with real Jest 30.5.1 and jest-junit 17.0.0 runs (`tests/fixtures/select/jest`): `<rootDir>/`
+anchors the pattern on the project root, so a file does not match a same-named file in another
+directory. A file is left out only when jest-junit recorded its path
+(`JEST_JUNIT_ADD_FILE_ATTRIBUTE=true`), every known test in it is left out, and it did not change in
+the diff, where a test added to it would be left out with the others. The value replaces the
+project's `testPathIgnorePatterns`, so it repeats Jest's default, `/node_modules/`.
+
 ## Consequences
 
 - New tests, renamed tests and tests testhunch never saw always run.
