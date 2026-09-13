@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="6" failures="0" errors="0" time="0.011301">
+	<testsuite tests="1" failures="0" time="0.011000" name="example.com/shop/billing" timestamp="2026-09-13T18:30:00Z">
+		<properties>
+			<property name="go.version" value="go1.27.1 linux/amd64"></property>
+		</properties>
+		<testcase classname="example.com/shop/billing" name="TestTotalSumsPrices" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="4" failures="0" time="0.007000" name="example.com/shop/cart" timestamp="2026-09-13T18:30:00Z">
+		<properties>
+			<property name="go.version" value="go1.27.1 linux/amd64"></property>
+		</properties>
+		<testcase classname="example.com/shop/cart" name="TestTotalSumsPrices" time="0.000000"></testcase>
+		<testcase classname="example.com/shop/cart" name="TestQuantities/nested/zero_quantity" time="0.000000"></testcase>
+		<testcase classname="example.com/shop/cart" name="TestQuantities/nested" time="0.000000"></testcase>
+		<testcase classname="example.com/shop/cart" name="TestQuantities" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="1" failures="0" time="0.008000" name="example.com/shop/pricing" timestamp="2026-09-13T18:30:00Z">
+		<properties>
+			<property name="go.version" value="go1.27.1 linux/amd64"></property>
+		</properties>
+		<testcase classname="example.com/shop/pricing" name="TestMargin" time="0.000000"></testcase>
+	</testsuite>
+</testsuites>
