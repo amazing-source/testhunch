@@ -191,6 +191,9 @@ sous-test ajouté serait écarté avec son parent). `select` indique combien.
 ```bash
 # Maven Surefire
 mvn test "-Dtest=$(testhunch select --budget 25% --runner surefire --base origin/main)"
+
+# cargo-nextest
+cargo nextest run -E "$(testhunch select --budget 25% --runner nextest --base origin/main)"
 ```
 
 Avec Surefire, une méthode paramétrée n'est écartée que si toutes ses invocations connues le sont,
@@ -198,6 +201,9 @@ et rien n'est écarté dans une classe dont le fichier source a changé. Attenti
 les `includes` et `excludes` configurés dans le `pom.xml`, donc des tests normalement exclus (des
 tests d'intégration, par exemple) tourneraient. Vérifié avec Surefire 3.6.0 et JUnit 6 sur un
 projet à un seul module.
+
+Avec cargo-nextest, chaque test est visé par son binaire et son nom exacts : tous les tests sous le
+budget sont écartés. Vérifié avec cargo-nextest 0.9.144.
 
 Sur environ un build sur quatre, `select` ne laisse rien de côté : c'est un *learning run*, qui lance
 toute la suite et enregistre le classement, pour que le mode fantôme continue de mesurer ce que la
@@ -215,8 +221,8 @@ Deux règles pour que ce soit sûr :
   et le rapport du mode fantôme paraîtrait meilleur que la réalité. `select` n'enregistre que ses
   learning runs.
 
-pytest, Go et Maven Surefire sont pris en charge ; les autres lanceurs arrivent un par un, chacun
-vérifié en le faisant vraiment tourner.
+pytest, Go, Maven Surefire et cargo-nextest sont pris en charge ; Vitest et Jest arrivent, vérifiés
+de la même façon en faisant vraiment tourner le lanceur.
 
 ### Héberger l'API soi-même
 

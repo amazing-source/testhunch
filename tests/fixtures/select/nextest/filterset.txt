@@ -1,0 +1,1 @@
+not ((binary_id(=shop::checkout) & test(=checkout_total)) | (binary_id(=shop) & test(=tests::panics_as_expected)) | (binary_id(=shop) & test(=tests::sums_prices)))

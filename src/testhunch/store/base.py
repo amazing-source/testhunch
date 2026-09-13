@@ -386,6 +386,7 @@ class SqlStore(ABC):
                 WITH recent AS (SELECT id FROM runs WHERE repo = ? ORDER BY id DESC LIMIT ?)
                 SELECT t.test_key,
                        t.file,
+                       t.suite,
                        SUM(CASE WHEN res.status IN {_FAILED} THEN 1 ELSE 0 END) AS failures,
                        COUNT(*) AS executions,
                        MAX(CASE WHEN res.status IN {_FAILED} THEN res.run_id END) AS last_failed
@@ -393,7 +394,7 @@ class SqlStore(ABC):
                 JOIN recent ON recent.id = res.run_id
                 JOIN tests t ON t.id = res.test_id
                 WHERE res.status <> 'skipped'
-                GROUP BY t.test_key, t.file
+                GROUP BY t.test_key, t.file, t.suite
                 ORDER BY t.test_key
                 """,
                 (repo, last_runs),
@@ -406,6 +407,7 @@ class SqlStore(ABC):
                 failures=int(failures),
                 executions=int(executions),
                 runs_since_failure=None if last_failed is None else position[int(last_failed)],
+                suite=suite,
             )
-            for key, file, failures, executions, last_failed in rows
+            for key, file, suite, failures, executions, last_failed in rows
         ]

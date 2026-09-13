@@ -17,7 +17,12 @@ from testhunch.gitinfo import GitError, changed_files, current_branch, detect_re
 from testhunch.junit import ReportError, parse_reports
 from testhunch.models import RankedTest, RunInput
 from testhunch.prioritize import rank
-from testhunch.runners import go_skip, parse_go_test_list, surefire_exclusions
+from testhunch.runners import (
+    go_skip,
+    nextest_filterset,
+    parse_go_test_list,
+    surefire_exclusions,
+)
 from testhunch.shadow import ShadowPoint, budget_size, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
 
@@ -105,11 +110,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     select.add_argument(
         "--runner",
-        choices=["pytest", "go", "surefire"],
+        choices=["pytest", "go", "surefire", "nextest"],
         required=True,
         help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`; "
         'go: a pattern for `go test ./... -skip "$(testhunch select ...)"`; '
-        'surefire: a value for `mvn test "-Dtest=$(testhunch select ...)"`',
+        'surefire: a value for `mvn test "-Dtest=$(testhunch select ...)"`; '
+        'nextest: an expression for `cargo nextest run -E "$(testhunch select ...)"`',
     )
     select.add_argument(
         "--go-test-list",
@@ -313,6 +319,12 @@ def _select(args: argparse.Namespace) -> int:
         exclusions = surefire_exclusions(below, [r.key for r in ranked[:cutoff]], changed)
         sys.stdout.write(exclusions.value)  # no line ending either, for the same reason
         left_out = len(exclusions.left_out)
+        unreachable = len(below) - left_out
+    elif args.runner == "nextest":
+        suites = {case.key: case.suite for case in history}
+        filterset = nextest_filterset(below, suites)
+        sys.stdout.write(filterset.expression)  # no line ending either, for the same reason
+        left_out = len(filterset.left_out)
         unreachable = len(below) - left_out
     else:
         if below:

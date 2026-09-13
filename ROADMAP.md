@@ -30,7 +30,7 @@ permet pas de la mesurer.
   - [x] pytest (plugin `testhunch.pytest_plugin`)
   - [x] Go (`go test -skip`, aussi derrière gotestsum)
   - [x] JUnit/Surefire (`-Dtest=!classe#méthode`)
-  - [ ] cargo-nextest
+  - [x] cargo-nextest (filterset `-E`)
   - [ ] Vitest
   - [ ] Jest
 - [x] Documenter le filet de sécurité : ne sauter des tests que sur les pull requests, et lancer toute la suite sur la branche principale après chaque fusion (comme l'étape de stabilisation de Facebook, Machalica et al., section II-B)

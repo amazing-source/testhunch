@@ -61,6 +61,15 @@ out only when:
 `-Dtest` overrides the `includes` and `excludes` of the build (Surefire's own documentation), so a
 project that excludes some tests in its `pom.xml` would run them.
 
+**cargo-nextest:** `select --runner nextest` prints a filterset for `cargo nextest run -E`, such as
+`not ((binary_id(=shop) & test(=tests::sums_prices)) | ...)`. The equality matcher (`=`) is exact,
+where the defaults would match more (glob for binary ids, "contains" for test names), and the DSL
+reference asks programs building expressions to always give a matcher prefix. Checked with real
+cargo-nextest 0.9.144 runs (`tests/fixtures/select/nextest`), including tests of the same name in
+another binary. A nextest key cannot be split back into binary id and test name, because both may
+contain `::`, so the binary id is the suite recorded from the report's classname; a test whose
+suite does not prefix its key is not aimed at. With nothing to leave out, the output is `all()`.
+
 ## Consequences
 
 - New tests, renamed tests and tests testhunch never saw always run.

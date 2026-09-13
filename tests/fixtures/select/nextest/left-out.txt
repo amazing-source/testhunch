@@ -1,0 +1,3 @@
+shop::tests::sums_prices
+shop::checkout::checkout_total
+shop::tests::panics_as_expected
