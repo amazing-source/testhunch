@@ -1,0 +1,2 @@
+# Store text with LF line endings, so files behave the same on Windows, in CI and in Docker.
+* text=auto eol=lf

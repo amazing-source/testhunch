@@ -1,0 +1,44 @@
+# Local development stack: Postgres, a one-shot migration, then the API.
+#   docker compose up --build
+#   curl http://localhost:8000/readyz
+# The credentials below are for this local stack only.
+
+x-testhunch: &testhunch
+  build: .
+  environment:
+    TESTHUNCH_DATABASE_URL: postgresql://testhunch:testhunch@postgres:5432/testhunch
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: testhunch
+      POSTGRES_PASSWORD: testhunch
+      POSTGRES_DB: testhunch
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testhunch -d testhunch"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *testhunch
+    command: ["testhunch", "migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *testhunch
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

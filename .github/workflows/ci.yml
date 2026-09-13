@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+      - run: uv sync --locked --all-extras
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run mypy
+
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: testhunch
+          POSTGRES_PASSWORD: testhunch
+          POSTGRES_DB: testhunch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testhunch -d testhunch"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      TESTHUNCH_TEST_POSTGRES_URL: postgresql://testhunch:testhunch@localhost:5432/testhunch
+      # Fail instead of skipping if the Postgres contract tests cannot run.
+      TESTHUNCH_REQUIRE_POSTGRES: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --locked --all-extras
+      - run: uv run pytest --junitxml=reports/junit.xml
+
+      - name: Record this run with testhunch itself
+        if: ${{ !cancelled() && matrix.python == '3.14' }}
+        run: |
+          uv run testhunch ingest reports/junit.xml --db sqlite:///reports/history.db
+          {
+            echo '### testhunch on its own test suite'
+            echo '```'
+            uv run testhunch report --db sqlite:///reports/history.db
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: reports-python-${{ matrix.python }}
+          path: reports/
+          retention-days: 14
+
+  docker:
+    name: Docker image and compose stack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build and start Postgres, migrations and the API
+        run: docker compose up --build --detach
+
+      - name: Wait until the API can reach the database
+        run: >-
+          curl --fail --silent --show-error
+          --retry 30 --retry-delay 2 --retry-all-errors
+          http://127.0.0.1:8000/readyz
+
+      - name: Upload a report and read it back
+        run: |
+          curl --fail --silent --show-error \
+            -F 'metadata={"repo": "ci/smoke", "commit_sha": "${{ github.sha }}"}' \
+            -F 'reports=@tests/fixtures/junit/pytest.xml' \
+            http://127.0.0.1:8000/v1/runs
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:8000/v1/report?repo=ci/smoke" > report.json
+          python3 - <<'EOF'
+          import json
+          report = json.load(open("report.json"))
+          assert report["runs"] == 1, report
+          assert len(report["failing"]) == 4, report
+          print("smoke test passed:", report["runs"], "run,", len(report["failing"]), "failing tests")
+          EOF
+
+      - name: Show container logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes

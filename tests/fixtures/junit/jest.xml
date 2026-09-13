@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="4" failures="1" errors="0" time="8.069">
+  <testsuite name="cart total" errors="0" failures="1" skipped="1" timestamp="2026-09-13T13:30:18" time="1.45" tests="4">
+    <testcase classname="cart total sums prices" name="cart total sums prices" time="0.003">
+    </testcase>
+    <testcase classname="cart total fails on purpose" name="cart total fails on purpose" time="0.003">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 1
+Received: 0
+    at Object.&lt;anonymous&gt; (/work/src/cart.jest.test.cjs:4:54)
+    at Promise.finally.completed (/work/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/work/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)
+    at _callCircusTest (/work/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at _runTestInContext (/work/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)
+    at runTestWithContext (/work/node_modules/jest-circus/build/jestAdapterInit.js:996:5)
+    at _runTestsForDescribeBlockOnce (/work/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)
+    at _runTestsForDescribeBlock (/work/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at _runTestsForDescribeBlockOnce (/work/node_modules/jest-circus/build/jestAdapterInit.js:1003:11)
+    at _runTestsForDescribeBlock (/work/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at run (/work/node_modules/jest-circus/build/jestAdapterInit.js:789:3)
+    at runAndTransformResultsToJestFormat (/work/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)
+    at jestAdapter (/work/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/work/node_modules/jest-runner/build/index.js:247:16)
+    at runTest (/work/node_modules/jest-runner/build/index.js:315:7)</failure>
+    </testcase>
+    <testcase classname="cart total skipped case" name="cart total skipped case" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="cart total nested handles quantities" name="cart total nested handles quantities" time="0.001">
+    </testcase>
+  </testsuite>
+</testsuites>

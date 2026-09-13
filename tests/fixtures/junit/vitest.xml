@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="4" failures="1" errors="0" time="0.0083716">
+    <testsuite name="src/cart.vitest.test.js" timestamp="2026-09-13T13:30:03.245Z" hostname="ci-runner" tests="4" failures="1" errors="0" skipped="1" time="0.0083716">
+        <testcase classname="src/cart.vitest.test.js" name="cart total &gt; sums prices" time="0.0012674">
+        </testcase>
+        <testcase classname="src/cart.vitest.test.js" name="cart total &gt; fails on purpose" time="0.005506">
+            <failure message="expected +0 to be 1 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/cart.vitest.test.js:5:52
+            </failure>
+        </testcase>
+        <testcase classname="src/cart.vitest.test.js" name="cart total &gt; skipped case" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/cart.vitest.test.js" name="cart total &gt; nested &gt; handles quantities" time="0.0002668">
+        </testcase>
+    </testsuite>
+</testsuites>

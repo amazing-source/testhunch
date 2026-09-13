@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="2" failures="2" skipped="1" tests="9" time="0.057" timestamp="2026-09-13T15:29:25.831699+02:00" hostname="ci-runner"><testcase classname="tests.test_sample" name="test_passes" time="0.000" /><testcase classname="tests.test_sample" name="test_fails" time="0.001"><failure message="AssertionError: strings differ&#10;assert 'carte' == 'grise'&#10;  &#10;  #x1B[0m#x1B[91m- grise#x1B[39;49;00m#x1B[90m#x1B[39;49;00m&#10;  #x1B[92m+ carte#x1B[39;49;00m#x1B[90m#x1B[39;49;00m">def test_fails():
+&gt;       assert "carte" == "grise", "strings differ"
+E       AssertionError: strings differ
+E       assert 'carte' == 'grise'
+E         
+E         #x1B[0m#x1B[91m- grise#x1B[39;49;00m#x1B[90m#x1B[39;49;00m
+E         #x1B[92m+ carte#x1B[39;49;00m#x1B[90m#x1B[39;49;00m
+
+tests\test_sample.py:9: AssertionError</failure></testcase><testcase classname="tests.test_sample" name="test_skipped" time="0.000"><skipped type="pytest.skip" message="not ready">/work/tests/test_sample.py:12: not ready</skipped></testcase><testcase classname="tests.test_sample" name="test_parametrized[1]" time="0.000" /><testcase classname="tests.test_sample" name="test_parametrized[2]" time="0.000"><failure message="assert 2 != 2">n = 2
+
+    @pytest.mark.parametrize("n", [1, 2, 3])
+    def test_parametrized(n):
+&gt;       assert n != 2
+E       assert 2 != 2
+
+tests\test_sample.py:19: AssertionError</failure></testcase><testcase classname="tests.test_sample" name="test_parametrized[3]" time="0.000" /><testcase classname="tests.test_sample" name="test_errors_in_setup" time="0.000"><error message="failed on setup with &quot;RuntimeError: fixture setup exploded&quot;">@pytest.fixture
+    def broken():
+&gt;       raise RuntimeError("fixture setup exploded")
+E       RuntimeError: fixture setup exploded
+
+tests\test_sample.py:24: RuntimeError</error></testcase><testcase classname="tests.test_sample.TestGrouped" name="test_in_class" time="0.000" /><testcase classname="tests.test_sample" name="test_errors_in_teardown" time="0.000"><error message="failed on teardown with &quot;RuntimeError: teardown exploded&quot;">@pytest.fixture
+    def breaks_on_teardown():
+        yield
+&gt;       raise RuntimeError("teardown exploded")
+E       RuntimeError: teardown exploded
+
+tests\test_sample.py:39: RuntimeError</error></testcase></testsuite></testsuites>

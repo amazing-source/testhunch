@@ -1,0 +1,75 @@
+[project]
+name = "testhunch"
+version = "0.1.0"
+description = "Learns from your CI history which tests a change is likely to break, and runs those first."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "ren" }]
+requires-python = ">=3.12"
+keywords = ["testing", "ci", "test-selection", "test-prioritization", "flaky-tests", "junit"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "defusedxml>=0.7.1",
+]
+
+[project.urls]
+Repository = "https://github.com/amazing-source/testhunch"
+Issues = "https://github.com/amazing-source/testhunch/issues"
+
+[project.scripts]
+testhunch = "testhunch.cli:run"
+
+[project.optional-dependencies]
+postgres = [
+    "psycopg[binary]>=3.3.5",
+]
+api = [
+    "fastapi>=0.141.1",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.52.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.12.0",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.7",
+    "types-defusedxml>=0.7.0.20260504",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--import-mode=importlib"]
+# Warnings fail the suite, so deprecations surface the day they appear. Each ignore below
+# is a specific third-party warning we cannot fix ourselves; remove it once upstream does.
+filterwarnings = [
+    "error",
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
