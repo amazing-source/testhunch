@@ -177,7 +177,16 @@ La coupure est exactement celle du mode fantôme.
 # pytest : testhunch doit être installé dans l'environnement des tests
 testhunch select --budget 25% --runner pytest --base origin/main > skip.txt
 pytest -p testhunch.pytest_plugin --testhunch-skip=skip.txt
+
+# Go : -skip vise des noms de tests dans tous les paquets, testhunch a donc besoin de la liste actuelle
+go test -list '.*' ./... > go-tests.txt
+go test ./... -skip "$(testhunch select --budget 25% --runner go --go-test-list go-tests.txt --base origin/main)"
 ```
+
+Avec Go, certains tests classés sous le budget tournent quand même, parce que `-skip` ne pourrait
+pas les écarter seuls : un test dont le nom existe aussi dans un autre paquet, un test parent dont
+un sous-test est gardé, et tous les tests d'un paquet dont un fichier `_test.go` a changé (un
+sous-test ajouté serait écarté avec son parent). `select` indique combien.
 
 Sur environ un build sur quatre, `select` ne laisse rien de côté : c'est un *learning run*, qui lance
 toute la suite et enregistre le classement, pour que le mode fantôme continue de mesurer ce que la
@@ -195,8 +204,8 @@ Deux règles pour que ce soit sûr :
   et le rapport du mode fantôme paraîtrait meilleur que la réalité. `select` n'enregistre que ses
   learning runs.
 
-Seul pytest est pris en charge pour l'instant ; les autres lanceurs arrivent un par un, chacun vérifié
-en le faisant vraiment tourner.
+pytest et Go sont pris en charge ; les autres lanceurs arrivent un par un, chacun vérifié en le
+faisant vraiment tourner.
 
 ### Héberger l'API soi-même
 

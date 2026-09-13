@@ -1,0 +1,8 @@
+example.com/shop/cart::TestTotalSumsPrices
+example.com/shop/cart::TestTotalOfNothing
+example.com/shop/cart::TestQuantities/single_item
+example.com/shop/cart::TestQuantities/nested/negative_quantity
+example.com/shop/billing::TestInvoice
+example.com/shop/billing::TestInvoice/single_item
+example.com/shop/billing::TestInvoice/two_items
+example.com/shop/pricing::TestDiscount

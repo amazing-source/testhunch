@@ -17,6 +17,7 @@ from testhunch.gitinfo import GitError, changed_files, current_branch, detect_re
 from testhunch.junit import ReportError, parse_reports
 from testhunch.models import RankedTest, RunInput
 from testhunch.prioritize import rank
+from testhunch.runners import go_skip, parse_go_test_list
 from testhunch.shadow import ShadowPoint, budget_size, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
 
@@ -104,9 +105,15 @@ def _parser() -> argparse.ArgumentParser:
     )
     select.add_argument(
         "--runner",
-        choices=["pytest"],
+        choices=["pytest", "go"],
         required=True,
-        help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`",
+        help="pytest: keys for `pytest -p testhunch.pytest_plugin --testhunch-skip=FILE`; "
+        'go: a pattern for `go test ./... -skip "$(testhunch select ...)"`',
+    )
+    select.add_argument(
+        "--go-test-list",
+        metavar="FILE",
+        help="with --runner go: the output of `go test -list '.*' ./...` for the code under test",
     )
     select.add_argument(
         "--learning-runs",
@@ -265,10 +272,18 @@ def _changed_paths(args: argparse.Namespace) -> list[str]:
 def _select(args: argparse.Namespace) -> int:
     store, repo = _store(args), _repo(args)
     history = store.history(repo, args.last)
+    if args.runner == "go" and not args.go_test_list:
+        print(
+            "testhunch: error: --runner go needs --go-test-list, the output of "
+            "`go test -list '.*' ./...`: -skip matches test names in every package",
+            file=sys.stderr,
+        )
+        return 2
     if not history:
         print(f"no history for {repo} yet: nothing is left out", file=sys.stderr)
         return 0
-    ranked = rank(history, _changed_paths(args))
+    changed = _changed_paths(args)
+    ranked = rank(history, changed)
 
     if is_learning_run(repo, rev_parse(args.commit), args.learning_runs):
         # Every test runs, so this build's results can measure the ranking (docs/adr/0009).
@@ -280,14 +295,34 @@ def _select(args: argparse.Namespace) -> int:
         return 0
 
     # Tests are left out, so the ranking is not recorded: shadow mode needs full runs (ADR 0007).
-    left_out = ranked[budget_size(args.budget, len(ranked)) :]
-    if left_out:
-        print("\n".join(r.key for r in left_out))
+    cutoff = budget_size(args.budget, len(ranked))
+    below = [r.key for r in ranked[cutoff:]]
+    unreachable = 0
+    if args.runner == "go":
+        skip = go_skip(
+            below,
+            [r.key for r in ranked[:cutoff]],
+            parse_go_test_list(Path(args.go_test_list).read_text(encoding="utf-8")),
+            changed,
+        )
+        # No line ending: on Windows it would be \r\n, and "$(...)" only strips the \n.
+        sys.stdout.write(skip.pattern)
+        left_out, unreachable = len(skip.left_out), len(below) - len(skip.left_out)
+    else:
+        if below:
+            print("\n".join(below))
+        left_out = len(below)
     print(
-        f"leaving out {len(left_out)} of {len(ranked)} known tests: the top {args.budget:.0%} "
-        "run, and so does every test testhunch has no result for",
+        f"leaving out {left_out} of {len(ranked)} known tests: the top {args.budget:.0%} run, "
+        "and so does every test testhunch has no result for",
         file=sys.stderr,
     )
+    if unreachable:
+        print(
+            f"{unreachable} more tests below the budget run anyway: {args.runner} cannot leave "
+            "them out without also leaving out tests that must run (docs/adr/0007)",
+            file=sys.stderr,
+        )
     return 0
 
 

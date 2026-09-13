@@ -1,0 +1,10 @@
+TestTotalSumsPrices
+TestInvoice
+ok  	example.com/shop/billing	0.009s
+TestTotalSumsPrices
+TestTotalOfNothing
+TestQuantities
+ok  	example.com/shop/cart	0.008s
+TestDiscount
+TestMargin
+ok  	example.com/shop/pricing	0.007s

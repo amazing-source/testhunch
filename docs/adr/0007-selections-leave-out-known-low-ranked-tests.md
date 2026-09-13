@@ -30,6 +30,20 @@ deselects the collected items whose key is listed. It computes each item's key t
 JUnit XML writer does (node id to classname, including `--junitprefix`), so a key matches exactly
 the test it was recorded for, without guessing file paths.
 
+**Go:** `select --runner go` prints one pattern for `go test -skip`. Go splits it on top-level `|`
+into alternatives and on `/` into one regexp per subtest level, and applies it to every package of
+the run (`src/testing/match.go` in Go 1.27.1; checked with real runs in
+`tests/fixtures/select/go`). A known test is left out only when:
+
+- its top-level name exists in its own package alone, according to `go test -list '.*' ./...` run
+  on the code under test, because `-skip` would also skip a same-named test elsewhere;
+- none of its known subtests is kept, because leaving a test out leaves its subtests out;
+- no `_test.go` file changed in a directory named like its package, because a subtest added there
+  would be left out with its parent. A changed test file at the module root turns skipping off.
+
+The pattern is printed without a line ending: `"$(...)"` strips `\n` but not the `\r` of a Windows
+line ending, which would stick to the last alternative and stop it matching.
+
 ## Consequences
 
 - New tests, renamed tests and tests testhunch never saw always run.

@@ -229,6 +229,38 @@ def test_a_learning_run_leaves_nothing_out_and_records_the_ranking(
     assert len(shadow.positions) == 8
 
 
+def test_select_for_go_prints_one_skip_pattern_without_a_line_ending(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (workdir / "go.xml").write_bytes((FIXTURES / "gotestsum.xml").read_bytes())
+    (workdir / "list.txt").write_text(
+        "TestTotalSumsPrices\nTestTotalFailsOnPurpose\nTestSkipped\nTestQuantities\n"
+        "ok  \texample.com/shop/cart\t0.006s\n"
+        "TestDiscount\nTestFlakyFirstAttempt\nok  \texample.com/shop/pricing\t0.007s\n"
+    )
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "go.xml", *common]) == 0
+    capsys.readouterr()
+
+    select = ["select", "--budget", "50%", "--runner", "go", "--go-test-list", "list.txt"]
+    assert main([*select, "--learning-runs", "0%", *common]) == 0
+    out = capsys.readouterr()
+    # A trailing \r\n from Windows would stick to the last alternative after "$(...)".
+    assert out.out and not out.out.endswith(("\n", "\r"))
+    assert out.out.startswith("^")
+    assert "leaving out" in out.err
+
+
+def test_select_for_go_needs_the_test_list(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    args = ["select", "--budget", "50%", "--runner", "go", "--learning-runs", "0%", *common]
+    assert main(args) == 2
+    assert "--go-test-list" in capsys.readouterr().err
+
+
 def test_select_without_history_leaves_nothing_out(
     workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:

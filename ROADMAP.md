@@ -28,7 +28,7 @@ permet pas de la mesurer.
 - [x] **Mode fantôme** : lancer tous les tests, enregistrer ce qui aurait été sauté, publier le vrai taux de tests manqués ([ADR 0006](docs/adr/0006-shadow-mode-measures-misses-without-skipping.md))
 - [ ] Produire les sélections au format de chaque lanceur, sous forme d'exclusions des tests connus classés sous le budget, pour que les nouveaux tests tournent toujours ([ADR 0007](docs/adr/0007-selections-leave-out-known-low-ranked-tests.md)) ; chaque format vérifié en faisant tourner le vrai lanceur :
   - [x] pytest (plugin `testhunch.pytest_plugin`)
-  - [ ] Go (gotestsum, `go test`)
+  - [x] Go (`go test -skip`, aussi derrière gotestsum)
   - [ ] JUnit/Surefire
   - [ ] cargo-nextest
   - [ ] Vitest

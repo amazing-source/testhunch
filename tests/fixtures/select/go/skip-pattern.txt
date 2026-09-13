@@ -1,0 +1,1 @@
+^TestDiscount$|^TestInvoice$|^TestQuantities$/^nested$/^negative_quantity$|^TestQuantities$/^single_item$|^TestTotalOfNothing$
