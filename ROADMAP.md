@@ -20,7 +20,7 @@ permet pas de la mesurer.
 - [x] Un vrai rapport de test pour cargo-nextest
 - [x] Enregistrer les relances au sein d'une exécution comme indice d'instabilité ([ADR 0005](docs/adr/0005-retries-within-a-run-are-flakiness-evidence.md))
 - [x] Regrouper les insertions par test dans `ingest` (auparavant une requête par test)
-- [ ] Publier sur PyPI avec la publication de confiance (*trusted publishing*)
+- [x] Publier sur PyPI avec la publication de confiance (*trusted publishing*) : [testhunch 0.1.0](https://pypi.org/project/testhunch/0.1.0/)
 
 ## Phase 2 : l'utiliser en CI
 
