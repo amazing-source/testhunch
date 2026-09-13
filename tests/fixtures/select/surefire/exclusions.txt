@@ -1,0 +1,1 @@
+!com.example.shop.CartTest#sumsPrices,!com.example.shop.CartTest#throwsUnexpectedly,!com.example.shop.CartTest$Discounts#keepsTotalWithoutDiscount,!com.example.shop.FlakyTest#failsOnFirstAttempt

@@ -29,7 +29,7 @@ permet pas de la mesurer.
 - [ ] Produire les sélections au format de chaque lanceur, sous forme d'exclusions des tests connus classés sous le budget, pour que les nouveaux tests tournent toujours ([ADR 0007](docs/adr/0007-selections-leave-out-known-low-ranked-tests.md)) ; chaque format vérifié en faisant tourner le vrai lanceur :
   - [x] pytest (plugin `testhunch.pytest_plugin`)
   - [x] Go (`go test -skip`, aussi derrière gotestsum)
-  - [ ] JUnit/Surefire
+  - [x] JUnit/Surefire (`-Dtest=!classe#méthode`)
   - [ ] cargo-nextest
   - [ ] Vitest
   - [ ] Jest

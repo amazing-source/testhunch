@@ -251,6 +251,23 @@ def test_select_for_go_prints_one_skip_pattern_without_a_line_ending(
     assert "leaving out" in out.err
 
 
+def test_select_for_surefire_prints_exclusions_without_a_line_ending(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for report in (FIXTURES / "surefire").glob("TEST-*.xml"):
+        (workdir / report.name).write_bytes(report.read_bytes())
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "TEST-*.xml", *common]) == 0
+    capsys.readouterr()
+
+    select = ["select", "--budget", "50%", "--runner", "surefire", "--learning-runs", "0%"]
+    assert main([*select, *common]) == 0
+    out = capsys.readouterr()
+    assert out.out.startswith("!com.example.shop.")
+    assert not out.out.endswith(("\n", "\r"))
+    assert "leaving out" in out.err
+
+
 def test_select_for_go_needs_the_test_list(
     workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -44,6 +44,23 @@ the run (`src/testing/match.go` in Go 1.27.1; checked with real runs in
 The pattern is printed without a line ending: `"$(...)"` strips `\n` but not the `\r` of a Windows
 line ending, which would stick to the last alternative and stop it matching.
 
+**Maven Surefire:** `select --runner surefire` prints a `-Dtest` value such as
+`!com.example.shop.CartTest#sumsPrices,!com.example.shop.FlakyTest#failsOnFirstAttempt`. Checked
+with real Surefire 3.6.0 and JUnit 6.1.3 runs (`tests/fixtures/select/surefire`): exclusions alone
+run every other test; the fully qualified class name aims at one class, where a simple name also
+matched a same-named class in another package; method names match exactly; `#method` leaves out
+every invocation of a parameterized method and `#method[2]` leaves out nothing. A known test is left
+out only when:
+
+- its report name is a Java method name (a phrased `@DisplayName` is not);
+- every known test with the same class and method name is left out, covering all invocations of a
+  parameterized method and all overloads;
+- the source file of its class (the outer class for `Outer$Inner`) did not change, because an
+  invocation added there would be left out with the others.
+
+`-Dtest` overrides the `includes` and `excludes` of the build (Surefire's own documentation), so a
+project that excludes some tests in its `pom.xml` would run them.
+
 ## Consequences
 
 - New tests, renamed tests and tests testhunch never saw always run.
