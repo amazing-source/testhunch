@@ -1,18 +1,64 @@
 name: Release
 
-# Push a tag like v0.1.0 to publish ghcr.io/<owner>/testhunch:0.1.0 and :0.1
+# Push a tag like v0.1.0, matching the version in pyproject.toml, to publish:
+#   - testhunch 0.1.0 on PyPI, through trusted publishing: PyPI trusts this workflow's OIDC
+#     identity (repository, release.yml, environment "pypi"), so no token is stored in GitHub
+#   - ghcr.io/<owner>/testhunch:0.1.0 and :0.1
+# Nothing is published if the tag does not match the package version.
 on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: read
-  packages: write
+permissions: {}
 
 jobs:
+  dist:
+    name: Build the Python package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0 # this action publishes no floating major tag
+      - name: Check that the tag matches the package version
+        run: |
+          version="$(uv version --short)"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match version ${version} in pyproject.toml"
+            exit 1
+          fi
+      - run: uv build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  pypi:
+    name: Publish to PyPI
+    needs: dist
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/testhunch/
+    permissions:
+      id-token: write # the OIDC token PyPI checks instead of a password
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
+
   image:
     name: Publish container image
+    needs: dist
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
         with:
