@@ -31,6 +31,10 @@ Migration = tuple[int, str]
 _MIGRATION_FILE = re.compile(r"(\d{4})_[a-z0-9_]+\.sql")
 _FAILED = "('failed', 'error')"
 
+# Test keys per id lookup during ingest, well below the bound-parameter limits of both databases
+# (32766 for SQLite, 65535 for Postgres).
+_KEYS_PER_QUERY = 500
+
 
 class StoreError(RuntimeError):
     """The database could not be opened, migrated or written to."""
@@ -126,36 +130,51 @@ class SqlStore(ABC):
                 return IngestOutcome(run_id=int(existing[0]), created=False, results=0)
 
             run_id = int(row[0])
-            rows: list[Params] = []
-            for case in run.results:
-                test = s.one(
-                    "INSERT INTO tests (repo, test_key, name, suite, file) VALUES (?, ?, ?, ?, ?) "
-                    "ON CONFLICT (repo, test_key) "
-                    "DO UPDATE SET file = COALESCE(excluded.file, tests.file) RETURNING id",
-                    (run.repo, case.key, case.name, case.suite, case.file),
-                )
-                if test is None:  # pragma: no cover - DO UPDATE always returns the row
-                    raise StoreError(f"could not record test {case.key!r}")
-                rows.append(
+            # One batch of upserts, then the ids looked up in chunks, instead of a round trip
+            # per test. A known file is only rewritten when the report names a different one.
+            s.many(
+                "INSERT INTO tests (repo, test_key, name, suite, file) VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT (repo, test_key) DO UPDATE SET file = excluded.file "
+                "WHERE excluded.file IS NOT NULL "
+                "AND (tests.file IS NULL OR tests.file <> excluded.file)",
+                [(run.repo, case.key, case.name, case.suite, case.file) for case in run.results],
+            )
+            test_ids = self._test_ids(s, run.repo, keys)
+            s.many(
+                "INSERT INTO results (run_id, test_id, status, duration_ms, occurrences, message) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [
                     (
                         run_id,
-                        test[0],
+                        test_ids[case.key],
                         case.status.value,
                         case.duration_ms,
                         case.occurrences,
                         case.message,
                     )
-                )
-            s.many(
-                "INSERT INTO results (run_id, test_id, status, duration_ms, occurrences, message) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                rows,
+                    for case in run.results
+                ],
             )
             s.many(
                 "INSERT INTO run_changes (run_id, path, change_type, old_path) VALUES (?, ?, ?, ?)",
                 [(run_id, c.path, c.change_type, c.old_path) for c in run.changes],
             )
         return IngestOutcome(run_id=run_id, created=True, results=len(run.results))
+
+    @staticmethod
+    def _test_ids(s: Session, repo: str, keys: Sequence[str]) -> dict[str, int]:
+        ids: dict[str, int] = {}
+        for start in range(0, len(keys), _KEYS_PER_QUERY):
+            chunk = keys[start : start + _KEYS_PER_QUERY]
+            placeholders = ", ".join("?" * len(chunk))
+            for test_id, key in s.all(
+                f"SELECT id, test_key FROM tests WHERE repo = ? AND test_key IN ({placeholders})",
+                (repo, *chunk),
+            ):
+                ids[key] = int(test_id)
+        if len(ids) != len(keys):  # pragma: no cover - every key was upserted just before
+            raise StoreError("some tests were not recorded")
+        return ids
 
     # -- reads ----------------------------------------------------------------------------
 
