@@ -8,15 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.rtptorrent.__main__ import add_points, main, markdown, run_project
-from benchmarks.rtptorrent.data import STRATEGIES, Job, load_jobs
-from benchmarks.rtptorrent.replay import (
-    apfd,
-    concurrent_groups,
-    failing_classes,
-    read_schedules,
-    replay,
-)
+from benchmarks.replay import Job, add_points, apfd, concurrent_groups, failing_tests, replay
+from benchmarks.rtptorrent.__main__ import main, markdown, run_project
+from benchmarks.rtptorrent.data import STRATEGIES, load_jobs
+from benchmarks.rtptorrent.schedules import read_schedules
 from benchmarks.rtptorrent.summary import summary
 from testhunch.models import CaseResult, Status
 from testhunch.shadow import BUDGETS, evaluate
@@ -87,7 +82,7 @@ def test_classes_the_ranking_does_not_know_run_first(store: SqlStore) -> None:
     ranked = list(replay(jobs, store, "repo"))[1]
 
     assert ranked.order == ("New", "Other", "B", "A")
-    assert failing_classes(ranked.run.results) == set()
+    assert failing_tests(ranked.run.results) == set()
 
 
 def test_changed_files_pull_up_the_matching_class(store: SqlStore) -> None:
@@ -142,7 +137,7 @@ def test_the_authors_schedules_order_the_same_classes_as_the_replay(store: SqlSt
         assert schedules
         for job_id, (order, failing) in schedules.items():
             assert sorted(order) == sorted(by_id[job_id].order)
-            assert failing == failing_classes(by_id[job_id].run.results)
+            assert failing == failing_tests(by_id[job_id].run.results)
 
 
 def test_the_report_accounts_for_every_job() -> None:

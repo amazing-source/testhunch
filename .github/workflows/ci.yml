@@ -53,6 +53,8 @@ jobs:
       TESTHUNCH_TEST_POSTGRES_URL: postgresql://testhunch:testhunch@localhost:5432/testhunch
       # Fail instead of skipping if the Postgres contract tests cannot run.
       TESTHUNCH_REQUIRE_POSTGRES: "1"
+      # The harness's container script, run for real in Docker (tests/test_benchmark_harness.py).
+      TESTHUNCH_TEST_DOCKER: "1"
     steps:
       - uses: actions/checkout@v7
         with:

@@ -11,22 +11,17 @@ import statistics
 import sys
 import tempfile
 from collections.abc import Sequence
-from dataclasses import asdict, fields
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from benchmarks.replay import HISTORY_RUNS, add_points, apfd, failing_tests, replay
 from benchmarks.rtptorrent.data import STRATEGIES, fetch_project, iter_jobs
-from benchmarks.rtptorrent.replay import (
-    HISTORY_RUNS,
-    apfd,
-    failing_classes,
-    read_schedules,
-    replay,
-)
+from benchmarks.rtptorrent.schedules import read_schedules
 from benchmarks.rtptorrent.summary import summary
 from testhunch import __version__
 from testhunch.gitinfo import GitError, rev_parse
-from testhunch.shadow import BUDGETS, ShadowPoint, evaluate
+from testhunch.shadow import BUDGETS, evaluate
 from testhunch.store import open_store
 
 DEFAULT_CACHE = Path(".benchmark-cache") / "rtptorrent"
@@ -63,7 +58,7 @@ def run_project(directory: Path) -> dict[str, Any]:
             run_points = evaluate([ranked.run], BUDGETS)
             points = [add_points(a, b) for a, b in zip(points, run_points, strict=True)]
             if ranked.job.job_id in covered:
-                score = apfd(ranked.order, failing_classes(ranked.run.results))
+                score = apfd(ranked.order, failing_tests(ranked.run.results))
                 if score is not None:
                     testhunch_scores[ranked.job.job_id] = score
 
@@ -156,16 +151,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     ]
     (args.out / "README.md").write_text(summary(everything), encoding="utf-8")
     return 0
-
-
-def add_points(a: ShadowPoint, b: ShadowPoint) -> ShadowPoint:
-    """The totals of two evaluations at the same budget: every count adds up."""
-    if a.fraction != b.fraction:
-        raise ValueError(f"budgets differ: {a.fraction} and {b.fraction}")
-    return ShadowPoint(
-        a.fraction,
-        *(getattr(a, f.name) + getattr(b, f.name) for f in fields(ShadowPoint)[1:]),
-    )
 
 
 def _commit() -> str | None:
