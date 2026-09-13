@@ -20,8 +20,12 @@ from testhunch.models import (
     FileChange,
     FlakyTest,
     IngestOutcome,
+    RankedTest,
     RunInput,
+    ShadowResult,
+    ShadowRun,
     SlowTest,
+    Status,
 )
 
 Row = tuple[Any, ...]
@@ -31,13 +35,22 @@ Migration = tuple[int, str]
 _MIGRATION_FILE = re.compile(r"(\d{4})_[a-z0-9_]+\.sql")
 _FAILED = "('failed', 'error')"
 
-# Test keys per id lookup during ingest, well below the bound-parameter limits of both databases
+# Values per `IN (...)` list, well below the bound-parameter limits of both databases
 # (32766 for SQLite, 65535 for Postgres).
 _KEYS_PER_QUERY = 500
 
 
 class StoreError(RuntimeError):
     """The database could not be opened, migrated or written to."""
+
+
+def _all_in(s: Session, sql: str, params: Params, values: Sequence[Any]) -> list[Row]:
+    """Rows of `sql` for every value, filling its one `IN ({})` in chunks of bound parameters."""
+    rows: list[Row] = []
+    for start in range(0, len(values), _KEYS_PER_QUERY):
+        chunk = values[start : start + _KEYS_PER_QUERY]
+        rows.extend(s.all(sql.format(", ".join("?" * len(chunk))), (*params, *chunk)))
+    return rows
 
 
 class Session(Protocol):
@@ -140,6 +153,8 @@ class SqlStore(ABC):
                 [(run.repo, case.key, case.name, case.suite, case.file) for case in run.results],
             )
             test_ids = self._test_ids(s, run.repo, keys)
+            if len(test_ids) != len(keys):  # pragma: no cover - every key was just upserted
+                raise StoreError("some tests were not recorded")
             s.many(
                 "INSERT INTO results "
                 "(run_id, test_id, status, duration_ms, occurrences, message, flaky) "
@@ -163,20 +178,49 @@ class SqlStore(ABC):
             )
         return IngestOutcome(run_id=run_id, created=True, results=len(run.results))
 
+    def record_prediction(
+        self,
+        repo: str,
+        commit_sha: str,
+        ranked: Sequence[RankedTest],
+        last_run_id: int,
+        base_sha: str | None = None,
+    ) -> int:
+        """Store a ranking made before `commit_sha` was tested, for shadow mode (ADR 0006).
+
+        `last_run_id` is the newest run the ranking could have learned from. Returns the id.
+        """
+        keys = [r.key for r in ranked]
+        if len(keys) != len(set(keys)):
+            raise ValueError("ranking contains duplicate test keys")
+        with self.session() as s:
+            test_ids = self._test_ids(s, repo, keys)
+            if len(test_ids) != len(keys):
+                raise ValueError("ranking names tests that have no recorded result")
+            row = s.one(
+                "INSERT INTO predictions (repo, commit_sha, base_sha, last_run_id) "
+                "VALUES (?, ?, ?, ?) RETURNING id",
+                (repo, commit_sha, base_sha, last_run_id),
+            )
+            if row is None:  # pragma: no cover - INSERT ... RETURNING always returns the row
+                raise StoreError("could not record the ranking")
+            prediction_id = int(row[0])
+            s.many(
+                "INSERT INTO prediction_positions (prediction_id, test_id, position, score) "
+                "VALUES (?, ?, ?, ?)",
+                [
+                    (prediction_id, test_ids[r.key], position, r.score)
+                    for position, r in enumerate(ranked, start=1)
+                ],
+            )
+        return prediction_id
+
     @staticmethod
     def _test_ids(s: Session, repo: str, keys: Sequence[str]) -> dict[str, int]:
-        ids: dict[str, int] = {}
-        for start in range(0, len(keys), _KEYS_PER_QUERY):
-            chunk = keys[start : start + _KEYS_PER_QUERY]
-            placeholders = ", ".join("?" * len(chunk))
-            for test_id, key in s.all(
-                f"SELECT id, test_key FROM tests WHERE repo = ? AND test_key IN ({placeholders})",
-                (repo, *chunk),
-            ):
-                ids[key] = int(test_id)
-        if len(ids) != len(keys):  # pragma: no cover - every key was upserted just before
-            raise StoreError("some tests were not recorded")
-        return ids
+        rows = _all_in(
+            s, "SELECT id, test_key FROM tests WHERE repo = ? AND test_key IN ({})", [repo], keys
+        )
+        return {key: int(test_id) for test_id, key in rows}
 
     # -- reads ----------------------------------------------------------------------------
 
@@ -184,6 +228,62 @@ class SqlStore(ABC):
         with self.session(write=False) as s:
             row = s.one("SELECT COUNT(*) FROM runs WHERE repo = ?", (repo,))
         return int(row[0]) if row else 0
+
+    def latest_run_id(self, repo: str) -> int | None:
+        with self.session(write=False) as s:
+            row = s.one("SELECT MAX(id) FROM runs WHERE repo = ?", (repo,))
+        return int(row[0]) if row and row[0] is not None else None
+
+    def shadow_runs(self, repo: str, last_runs: int = 50) -> list[ShadowRun]:
+        """The most recent runs that have a usable recorded ranking, newest first (ADR 0006).
+
+        A run uses the latest ranking recorded for its commit from a history older than the run.
+        """
+        with self.session(write=False) as s:
+            pairs = [
+                (int(run_id), int(prediction_id))
+                for run_id, prediction_id in s.all(
+                    """
+                    SELECT r.id, MAX(p.id)
+                    FROM runs r
+                    JOIN predictions p
+                      ON p.repo = r.repo AND p.commit_sha = r.commit_sha AND p.last_run_id < r.id
+                    WHERE r.repo = ?
+                    GROUP BY r.id
+                    ORDER BY r.id DESC
+                    LIMIT ?
+                    """,
+                    (repo, last_runs),
+                )
+            ]
+            positions: dict[int, dict[str, int]] = {p: {} for _, p in pairs}
+            for prediction_id, key, position in _all_in(
+                s,
+                "SELECT pp.prediction_id, t.test_key, pp.position "
+                "FROM prediction_positions pp JOIN tests t ON t.id = pp.test_id "
+                "WHERE pp.prediction_id IN ({})",
+                [],
+                sorted(positions),
+            ):
+                positions[int(prediction_id)][key] = int(position)
+            results: dict[int, list[ShadowResult]] = {r: [] for r, _ in pairs}
+            for run_id, key, status, flaky, duration_ms in _all_in(
+                s,
+                "SELECT res.run_id, t.test_key, res.status, res.flaky, res.duration_ms "
+                "FROM results res JOIN tests t ON t.id = res.test_id "
+                "WHERE res.run_id IN ({})",
+                [],
+                sorted(results),
+            ):
+                results[int(run_id)].append(
+                    ShadowResult(
+                        key=key,
+                        status=Status(status),
+                        flaky=bool(flaky),
+                        duration_ms=None if duration_ms is None else int(duration_ms),
+                    )
+                )
+        return [ShadowRun(r, positions[p], tuple(results[r])) for r, p in pairs]
 
     def run_changes(self, run_id: int) -> list[FileChange]:
         with self.session(write=False) as s:
