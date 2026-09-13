@@ -129,13 +129,13 @@ L'Action de ce dépôt classe les tests avant qu'ils tournent, enregistre leurs 
   with:
     fetch-depth: 0 # testhunch compare avec la branche de base de la pull request
 - id: testhunch
-  uses: amazing-source/testhunch@main
+  uses: amazing-source/testhunch@v0.2.0
   with:
     command: prioritize
     database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
 - run: pytest --junitxml=junit.xml
 - if: ${{ !cancelled() }}
-  uses: amazing-source/testhunch@main
+  uses: amazing-source/testhunch@v0.2.0
   with:
     command: ingest
     reports: junit.xml
@@ -162,8 +162,8 @@ mieux classés. Rien n'est jamais sauté.
 
 Sans `database-url`, l'historique ne survit pas d'une exécution de CI à l'autre : pour un vrai
 usage, passez l'URL d'une base Postgres depuis un secret, ou envoyez les rapports à une API
-auto-hébergée (ci-dessous). Pour figer la version de l'Action, remplacez `@main` par le SHA d'un
-commit.
+auto-hébergée (ci-dessous). `@v0.2.0` exécute testhunch 0.2.0 ; pour une garantie plus forte qu'un tag, utilisez le SHA de
+son commit.
 
 ### Sauter vraiment des tests
 
