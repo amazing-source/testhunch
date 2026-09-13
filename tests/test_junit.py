@@ -143,6 +143,28 @@ class TestRealReports:
         assert (failing.status, failing.occurrences) == (Status.FAILED, 1)
         assert failing.message == "empty cart on purpose ==> expected: <1> but was: <0>"
 
+    def test_nextest(self) -> None:
+        cases = by_key(parse_report((FIXTURES / "nextest.xml").read_bytes()))
+
+        # The #[ignore] test is not in the report at all, although nextest counts it as skipped.
+        assert len(cases) == 6
+        assert cases["shop::tests::sums_prices"].status is Status.PASSED
+        assert cases["shop::tests::panics_as_expected"].status is Status.PASSED
+        assert cases["shop::tests::nested::keeps_total_for_one_item"].status is Status.PASSED
+        assert cases["shop::checkout::checkout_total"].status is Status.PASSED  # tests/checkout.rs
+        assert {case.file for case in cases.values()} == {None}
+
+    def test_nextest_retries_stay_inside_one_testcase(self) -> None:
+        cases = by_key(parse_report((FIXTURES / "nextest.xml").read_bytes()))
+
+        flaky = cases["shop::tests::flaky_first_attempt"]
+        assert (flaky.status, flaky.occurrences, flaky.message) == (Status.PASSED, 1, None)
+
+        failing = cases["shop::tests::fails_on_purpose"]
+        assert (failing.status, failing.occurrences) == (Status.FAILED, 1)
+        assert failing.message is not None
+        assert failing.message.startswith("thread 'tests::fails_on_purpose' (256) panicked at")
+
 
 class TestDialectEdges:
     def test_root_can_be_a_single_testsuite(self) -> None:

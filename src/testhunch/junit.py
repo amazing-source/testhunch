@@ -24,6 +24,9 @@ Dialect notes, each backed by a real report in tests/fixtures/junit:
   inside the one <testcase>: a test that failed then passed has only <flakyFailure> or
   <flakyError> children (so it passed), and one that failed every attempt has <failure> or
   <error> followed by one <rerunFailure> or <rerunError> per rerun.
+- cargo-nextest: classname is the test binary ("shop" for unit tests, "shop::checkout" for
+  tests/checkout.rs) and name is the module path ("tests::nested::keeps_total"). Ignored tests
+  are left out of the report entirely. Retries use Surefire's <flakyFailure> and <rerunFailure>.
 
 Reports are untrusted input when they arrive through the API, so XML is parsed with
 defusedxml, which refuses entity expansion and external references.
