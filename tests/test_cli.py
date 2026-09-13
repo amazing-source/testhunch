@@ -268,6 +268,25 @@ def test_select_for_surefire_prints_exclusions_without_a_line_ending(
     assert "leaving out" in out.err
 
 
+def test_select_for_nextest_uses_the_recorded_binary_ids(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (workdir / "nextest.xml").write_bytes((FIXTURES / "nextest.xml").read_bytes())
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "nextest.xml", *common]) == 0
+    capsys.readouterr()
+
+    # 10% of the 6 known tests keeps only the failing one, so checkout_total is left out.
+    select = ["select", "--budget", "10%", "--runner", "nextest", "--learning-runs", "0%"]
+    assert main([*select, *common]) == 0
+    out = capsys.readouterr()
+    assert out.out.startswith("not ((binary_id(=")
+    assert not out.out.endswith(("\n", "\r"))
+    # shop::checkout::checkout_total is in binary "shop::checkout", not "shop".
+    assert "(binary_id(=shop::checkout) & test(=checkout_total))" in out.out
+    assert "test(=tests::fails_on_purpose)" not in out.out
+
+
 def test_select_for_go_needs_the_test_list(
     workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:

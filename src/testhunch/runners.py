@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
@@ -149,6 +149,44 @@ def _jvm_source_changed(cls: str, changed_paths: Sequence[str]) -> bool:
     stem = cls.split("$", 1)[0].replace(".", "/")
     sources = [stem + extension for extension in _JVM_SOURCE_EXTENSIONS]
     return any(path == src or path.endswith("/" + src) for path in changed_paths for src in sources)
+
+
+@dataclass(frozen=True, slots=True)
+class NextestSkip:
+    expression: str  # for `cargo nextest run -E`; "all()" leaves nothing out
+    left_out: tuple[str, ...]
+
+
+# Escapes the equality matcher accepts (nexte.st, filterset DSL reference).
+_NEXTEST_ESCAPES = str.maketrans({"\\": "\\\\", "/": "\\/", ")": "\\)", ",": "\\,"})
+
+
+def nextest_filterset(left_out: Iterable[str], suites: Mapping[str, str | None]) -> NextestSkip:
+    """A `cargo nextest run -E` expression leaving out each test of `left_out` precisely.
+
+    A nextest key is "<binary id>::<test name>", and both parts may contain "::", so the binary
+    id comes from the recorded suite (the report's classname). `binary_id(=id) & test(=name)` names
+    one test: the equality matcher is exact, where the defaults (glob for binary ids, contains for
+    test names) would match more. Checked with real cargo-nextest 0.9.144 runs. A key whose suite
+    is unknown or does not prefix it is not aimed at.
+    """
+    chosen: list[tuple[str, str, str]] = []
+    for key in sorted(left_out):
+        binary = suites.get(key)
+        if not binary or not key.startswith(binary + "::"):
+            continue
+        chosen.append((key, binary, key[len(binary) + 2 :]))
+    if not chosen:
+        return NextestSkip("all()", ())
+    terms = " | ".join(
+        f"(binary_id(={_nextest_escape(binary)}) & test(={_nextest_escape(name)}))"
+        for _, binary, name in chosen
+    )
+    return NextestSkip(f"not ({terms})", tuple(key for key, _, _ in chosen))
+
+
+def _nextest_escape(name: str) -> str:
+    return name.translate(_NEXTEST_ESCAPES)
 
 
 def _go_quote(name: str) -> str:

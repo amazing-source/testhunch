@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="8" skipped="0" failures="1" errors="0" uuid="279e6fbb-c639-4376-b74c-53a3305980a4" timestamp="2026-09-13T18:44:56.129+00:00" time="0.057">
+    <testsuite name="shop" tests="5" skipped="0" errors="0" failures="1">
+        <testcase name="tests::nested::keeps_total_for_one_item" classname="shop" timestamp="2026-09-13T18:44:56.130+00:00" time="0.048"/>
+        <testcase name="tests::flaky_first_attempt" classname="shop" timestamp="2026-09-13T18:44:56.130+00:00" time="0.048"/>
+        <testcase name="tests::sums_prices" classname="shop" timestamp="2026-09-13T18:44:56.130+00:00" time="0.048"/>
+        <testcase name="tests::panics_as_expected" classname="shop" timestamp="2026-09-13T18:44:56.130+00:00" time="0.049"/>
+        <testcase name="tests::fails_on_purpose" classname="shop" timestamp="2026-09-13T18:44:56.130+00:00" time="0.050">
+            <failure message="thread &apos;tests::fails_on_purpose&apos; (313) panicked at src/lib.rs:16:9" type="test failure with exit code 101">thread &apos;tests::fails_on_purpose&apos; (313) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace</failure>
+            <system-out>
+running 1 test
+test tests::fails_on_purpose ... FAILED
+
+failures:
+
+failures:
+    tests::fails_on_purpose
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.01s
+
+</system-out>
+            <system-err>
+thread &apos;tests::fails_on_purpose&apos; (313) panicked at src/lib.rs:16:9:
+assertion `left == right` failed: empty cart on purpose
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="shop::billing" tests="2" skipped="0" errors="0" failures="0">
+        <testcase name="checkout_total" classname="shop::billing" timestamp="2026-09-13T18:44:56.130+00:00" time="0.049"/>
+        <testcase name="tests::sums_prices" classname="shop::billing" timestamp="2026-09-13T18:44:56.130+00:00" time="0.051"/>
+    </testsuite>
+    <testsuite name="shop::checkout" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="checkout_total" classname="shop::checkout" timestamp="2026-09-13T18:44:56.130+00:00" time="0.056"/>
+    </testsuite>
+</testsuites>

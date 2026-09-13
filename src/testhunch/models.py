@@ -115,6 +115,9 @@ class CaseHistory:
     failures: int
     executions: int
     runs_since_failure: int | None  # 0 = failed in the newest run; None = no failure in window
+    # The group before "::" in the key (classname, binary id...), which the key alone cannot give
+    # back when the group itself contains "::", as nextest's binary ids do.
+    suite: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
