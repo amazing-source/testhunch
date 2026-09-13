@@ -30,12 +30,10 @@ def sqlite_url(tmp_path: Path) -> str:
 
 
 @pytest.fixture(params=["sqlite", "postgres"])
-def store(request: pytest.FixtureRequest, sqlite_url: str) -> Iterator[SqlStore]:
-    """A migrated, empty store. Every contract test runs once per database."""
+def unmigrated_store(request: pytest.FixtureRequest, sqlite_url: str) -> Iterator[SqlStore]:
+    """An empty store without any schema. Every contract test runs once per database."""
     if request.param == "sqlite":
-        s = open_store(sqlite_url)
-        s.migrate()
-        yield s
+        yield open_store(sqlite_url)
         return
 
     url = _postgres_url()
@@ -47,12 +45,17 @@ def store(request: pytest.FixtureRequest, sqlite_url: str) -> Iterator[SqlStore]
     separator = "&" if "?" in url else "?"
     scoped = f"{url}{separator}options={quote(f'-c search_path={schema}')}"
     try:
-        s = open_store(scoped)
-        s.migrate()
-        yield s
+        yield open_store(scoped)
     finally:
         with psycopg.connect(url, autocommit=True) as admin:
             admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
+
+
+@pytest.fixture
+def store(unmigrated_store: SqlStore) -> SqlStore:
+    """A migrated, empty store."""
+    unmigrated_store.migrate()
+    return unmigrated_store
 
 
 @pytest.fixture

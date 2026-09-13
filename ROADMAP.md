@@ -18,7 +18,7 @@ permet pas de la mesurer.
 - [x] Un vrai rapport de test pour Go (gotestsum), relances comprises
 - [x] Un vrai rapport de test pour JUnit/Surefire (dont `flakyFailure` et `rerunFailure`)
 - [x] Un vrai rapport de test pour cargo-nextest
-- [ ] Enregistrer les relances au sein d'une exécution comme indice d'instabilité (demande d'abord ces vrais rapports avec relances)
+- [x] Enregistrer les relances au sein d'une exécution comme indice d'instabilité ([ADR 0005](docs/adr/0005-retries-within-a-run-are-flakiness-evidence.md))
 - [x] Regrouper les insertions par test dans `ingest` (auparavant une requête par test)
 - [ ] Publier sur PyPI avec la publication de confiance (*trusted publishing*)
 

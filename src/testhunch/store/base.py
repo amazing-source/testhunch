@@ -141,8 +141,9 @@ class SqlStore(ABC):
             )
             test_ids = self._test_ids(s, run.repo, keys)
             s.many(
-                "INSERT INTO results (run_id, test_id, status, duration_ms, occurrences, message) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO results "
+                "(run_id, test_id, status, duration_ms, occurrences, message, flaky) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [
                     (
                         run_id,
@@ -151,6 +152,7 @@ class SqlStore(ABC):
                         case.duration_ms,
                         case.occurrences,
                         case.message,
+                        case.flaky,
                     )
                     for case in run.results
                 ],
@@ -193,7 +195,10 @@ class SqlStore(ABC):
         return [FileChange(path, change_type, old_path) for path, change_type, old_path in rows]
 
     def flaky_tests(self, repo: str, limit: int = 10) -> list[FlakyTest]:
-        """Tests that passed and failed on the same commit, most often first."""
+        """Tests that passed and failed on the same commit, most often first.
+
+        Either across runs of the commit (ADR 0004) or within one run's retries (ADR 0005).
+        """
         with self.session(write=False) as s:
             rows = s.all(
                 f"""
@@ -201,7 +206,8 @@ class SqlStore(ABC):
                     SELECT res.test_id,
                            r.commit_sha,
                            SUM(CASE WHEN res.status = 'passed' THEN 1 ELSE 0 END) AS passes,
-                           SUM(CASE WHEN res.status IN {_FAILED} THEN 1 ELSE 0 END) AS failures
+                           SUM(CASE WHEN res.status IN {_FAILED} THEN 1 ELSE 0 END) AS failures,
+                           SUM(CASE WHEN res.flaky THEN 1 ELSE 0 END) AS flaky_results
                     FROM results res
                     JOIN runs r ON r.id = res.run_id
                     WHERE r.repo = ?
@@ -210,7 +216,7 @@ class SqlStore(ABC):
                 SELECT t.test_key, COUNT(*) AS flaky_commits
                 FROM per_commit pc
                 JOIN tests t ON t.id = pc.test_id
-                WHERE pc.passes > 0 AND pc.failures > 0
+                WHERE (pc.passes > 0 AND pc.failures > 0) OR pc.flaky_results > 0
                 GROUP BY t.test_key
                 ORDER BY flaky_commits DESC, t.test_key
                 LIMIT ?

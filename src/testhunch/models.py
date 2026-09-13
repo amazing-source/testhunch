@@ -38,6 +38,8 @@ class CaseResult:
     duration_ms: int | None
     message: str | None
     occurrences: int = 1
+    # Failed and passed within this one run, e.g. on a retry (docs/adr/0005).
+    flaky: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +71,10 @@ class IngestOutcome:
 
 @dataclass(frozen=True, slots=True)
 class FlakyTest:
-    """A test that both passed and failed on the same commit, i.e. with identical code."""
+    """A test that both passed and failed on the same commit, i.e. with identical code.
+
+    Across runs of the commit, or within one run when a retry passed (docs/adr/0005).
+    """
 
     key: str
     flaky_commits: int
