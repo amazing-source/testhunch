@@ -11,6 +11,11 @@ case "${TESTHUNCH_COMMAND}" in
   ingest | prioritize) ;;
   *) fail "the command input must be ingest or prioritize, not '${TESTHUNCH_COMMAND}'" ;;
 esac
+case "${TESTHUNCH_RECORD}" in
+  true) record="--record" ;;
+  false) record="" ;;
+  *) fail "the record input must be true or false, not '${TESTHUNCH_RECORD}'" ;;
+esac
 
 # Run the package from this action's own checkout, so the action and the CLI are one version.
 # It is built into a new directory every time: uv reuses a cached build of a source directory
@@ -53,7 +58,11 @@ case "${TESTHUNCH_COMMAND}" in
 
     # Patterns are passed quoted: testhunch expands them itself, the same way on every runner.
     testhunch ingest "${reports[@]}" ${base:+--base "${base}"}
-    testhunch report --last "${TESTHUNCH_LAST}" --format markdown >> "${GITHUB_STEP_SUMMARY}"
+    {
+      testhunch report --last "${TESTHUNCH_LAST}" --format markdown
+      echo
+      testhunch shadow --last "${TESTHUNCH_LAST}" --format markdown
+    } >> "${GITHUB_STEP_SUMMARY}"
     ;;
 
   prioritize)
@@ -62,7 +71,8 @@ case "${TESTHUNCH_COMMAND}" in
     rank() {
       testhunch prioritize --last "${TESTHUNCH_LAST}" ${base:+--base "${base}"} "$@"
     }
-    rank --format json > "${out}/ranking.json"
+    # Recorded once, with the first of the three identical rankings.
+    rank ${record:+"${record}"} --format json > "${out}/ranking.json"
     rank --format keys > "${out}/ranking.txt"
     rank --format markdown --limit "${TESTHUNCH_SUMMARY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
     {

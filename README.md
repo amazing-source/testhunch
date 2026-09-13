@@ -131,10 +131,15 @@ L'Action de ce dépôt classe les tests avant qu'ils tournent, enregistre leurs 
 | `database-url` | Où garder l'historique ; par défaut un fichier SQLite qui disparaît à la fin du job |
 | `last` | Nombre d'exécutions récentes prises en compte (50) |
 | `summary-limit` | Nombre de tests affichés dans le résumé de `prioritize` (20) |
+| `record` | Pour `prioritize` : enregistrer le classement pour le mode fantôme (`true` par défaut) |
 
 `prioritize` a deux sorties : `ranking-json`, le chemin d'un fichier JSON avec le score et les
 raisons de chaque test, et `ranking-keys`, le chemin d'un fichier avec une clé de test par ligne, du
 plus au moins susceptible d'échouer.
+
+Le mode fantôme est actif par défaut : `prioritize` enregistre son classement, tous les tests
+tournent, et le résumé d'`ingest` indique ce qu'aurait manqué le fait de ne lancer que les tests les
+mieux classés. Rien n'est jamais sauté.
 
 Sans `database-url`, l'historique ne survit pas d'une exécution de CI à l'autre : pour un vrai
 usage, passez l'URL d'une base Postgres depuis un secret, ou envoyez les rapports à une API
