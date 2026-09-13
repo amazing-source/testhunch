@@ -9,4 +9,6 @@ RUN apt-get update \
 USER runner
 WORKDIR /home/runner
 # The image's Python, never one uv would download: a commit needing another cannot be built.
-ENV UV_PYTHON_DOWNLOADS=never UV_NO_PROGRESS=1
+# No bytecode files: a mutant the same size as the original, written within the second, could
+# otherwise run from the original's cached bytecode (docs/adr/0012).
+ENV UV_PYTHON_DOWNLOADS=never UV_NO_PROGRESS=1 PYTHONDONTWRITEBYTECODE=1

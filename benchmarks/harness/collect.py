@@ -1,27 +1,38 @@
-"""Run the test suite of each commit of a project's window in its pinned image (docs/adr/0011)."""
+"""Run the test suite of each commit of a project's window in its pinned image (docs/adr/0011).
+
+After the commit's own suite, the same container runs it once per mutant of the lines the commit
+changed (docs/adr/0012).
+"""
 
 from __future__ import annotations
 
 import io
 import json
+import re
 import shutil
 import subprocess
 import tarfile
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from benchmarks.harness.mutate import GO, MUTANTS_PER_COMMIT, PYTHON, Language, Mutant, mutants
+
 IMAGES = Path(__file__).parent / "images"
+# Candidates sent per commit, in their drawn order: the container tries them until
+# MUTANTS_PER_COMMIT have compiled, since only a build can tell that a Go `+` joins strings.
+MUTANT_CANDIDATES = 10
 TIMEOUT_S = 1800  # per step, far above the suites' under a minute: a hang, not a slow test
 
-# Runs in the container: the commit's files arrive as a tar on stdin, the outputs leave as a tar on
-# stdout, so nothing depends on bind mounts or on the host's user ids.
+# Runs in the container: the commit's files (src/) and its mutants (mutants/) arrive as a tar on
+# stdin, the outputs leave as a tar on stdout, so nothing depends on bind mounts or host user ids.
 CONTAINER_SCRIPT = """
 set -eu
 out="$PWD/out"
-mkdir src "$out"
-tar -x -C src
+mutants="$PWD/mutants"
+mkdir "$out"
+tar -x
 cd src
 set +e
 timeout "$TIMEOUT_S" sh -c "$SETUP" > "$out/setup.log" 2>&1
@@ -35,6 +46,30 @@ if [ "$(cat "$out/setup-exit")" = 0 ]; then
         echo "$?" > "$out/retry-exit"
     fi
 fi
+# Candidates in their drawn order, until $MUTANTS of them compiled and ran (ADR 0012).
+index=0
+tested=0
+while [ -s "$out/report.xml" ] && [ -d "$mutants/$index" ] && [ "$tested" -lt "$MUTANTS" ]; do
+    mutant="$mutants/$index"
+    result="$out/mutants/$index"
+    index=$((index + 1))
+    mkdir -p "$result"
+    path="$(cat "$mutant/path")"
+    cp "$path" "$mutant/original"
+    cp "$mutant/file" "$path"
+    checked=0
+    if [ -n "$CHECK" ]; then
+        timeout "$TIMEOUT_S" sh -c "$CHECK" > "$result/check.log" 2>&1
+        checked=$?
+        echo "$checked" > "$result/check-exit"
+    fi
+    if [ "$checked" = 0 ]; then
+        REPORT="$result/report.xml" timeout "$TIMEOUT_S" sh -c "$TEST" > "$result/test.log" 2>&1
+        echo "$?" > "$result/test-exit"
+        tested=$((tested + 1))
+    fi
+    cp "$mutant/original" "$path"
+done
 tar -c -C "$out" .
 """
 
@@ -47,6 +82,9 @@ class Project:
     setup: str  # shell run in the checkout: installs the locked dependencies
     test: str  # shell run in the checkout: runs the whole suite, writing JUnit XML to $REPORT
     window: int = 200
+    sources: str = ""  # a regular expression of the paths mutants may change; empty: no mutants
+    language: str = "python"
+    check: str = ""  # shell run in the checkout before a mutant's tests: non-zero, not compiled
 
     @property
     def slug(self) -> str:
@@ -56,6 +94,11 @@ class Project:
     def url(self) -> str:
         return f"https://github.com/{self.name}.git"
 
+    def is_source(self, path: str) -> bool:
+        return bool(self.sources) and re.fullmatch(self.sources, path) is not None
+
+
+LANGUAGES: dict[str, Language] = {"python": PYTHON, "go": GO}
 
 PROJECTS = {
     project.name: project
@@ -66,6 +109,7 @@ PROJECTS = {
             image="click",
             setup="uv sync --locked --group tests",
             test='uv run --no-sync pytest -p no:cacheprovider --junitxml="$REPORT"',
+            sources=r"src/click/.*\.py",
         ),
         Project(
             "spf13/cobra",
@@ -74,9 +118,29 @@ PROJECTS = {
             setup="go mod download",
             # -count=1: a result from Go's test cache would not be a run of the commit's tests.
             test='gotestsum --junitfile "$REPORT" -- -count=1 ./...',
+            sources=r"(?!.*_test\.go$).*\.go",
+            language="go",
+            check="go build ./...",
         ),
     )
 }
+
+
+@dataclass(frozen=True, slots=True)
+class MutantRun:
+    index: int
+    path: str
+    line: int
+    column: int
+    original: str
+    replacement: str
+    check_exit: int | None  # None when the project has no check
+    test_exit: int | None  # None when the check failed and the tests never ran
+    report: Path | None
+
+    @property
+    def compiled(self) -> bool:
+        return self.check_exit in (None, 0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +152,7 @@ class CommitRun:
     seconds: float
     report: Path | None  # None when no report was written: the commit was not built
     retry: Path | None = None  # the second run's report, when the first run failed
+    mutants: tuple[MutantRun, ...] = ()
 
     @property
     def built(self) -> bool:
@@ -142,6 +207,41 @@ def build_image(project: Project, run: Docker = docker) -> str:
     return run(["image", "inspect", "--format", "{{.Id}}", tag], b"").decode().strip()
 
 
+def container_input(repository: Path, sha: str, commit_mutants: Sequence[Mutant]) -> bytes:
+    """A tar of the commit's files under src/ and of each mutant under mutants/<index>/."""
+    # Files as committed, as a Linux CI checkout has them: Git for Windows sets core.autocrlf, and
+    # git archive would then write CRLF line endings.
+    as_committed = ("-c", "core.autocrlf=false", "-c", "core.eol=lf")
+    archive = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository),
+            *as_committed,
+            "archive",
+            "--format=tar",
+            "--prefix=src/",
+            sha,
+        ],
+        capture_output=True,
+        check=True,
+    ).stdout
+    buffer = io.BytesIO()
+    with (
+        tarfile.open(fileobj=io.BytesIO(archive)) as commit,
+        tarfile.open(fileobj=buffer, mode="w") as combined,
+    ):
+        for member in commit:
+            combined.addfile(member, commit.extractfile(member) if member.isfile() else None)
+        for index, mutant in enumerate(commit_mutants):
+            for name, text in (("path", mutant.path), ("file", mutant.content)):
+                data = text.encode("utf-8")
+                info = tarfile.TarInfo(f"mutants/{index}/{name}")
+                info.size = len(data)
+                combined.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
 def run_commit(
     project: Project,
     repository: Path,
@@ -150,15 +250,22 @@ def run_commit(
     image_id: str,
     run: Docker = docker,
 ) -> CommitRun:
-    """Run one commit's suite, unless its outputs are already in `runs/<sha>`."""
+    """Run one commit's suite and its mutants', unless their outputs are already in `runs/<sha>`."""
     target = runs / sha
     if (target / "run.json").exists():
         return read_run(target)
-    archive = subprocess.run(
-        ["git", "-C", str(repository), "archive", "--format=tar", sha],
-        capture_output=True,
-        check=True,
-    ).stdout
+    commit_mutants = (
+        mutants(
+            repository,
+            project.name,
+            sha,
+            project.is_source,
+            LANGUAGES[project.language],
+            count=MUTANT_CANDIDATES,
+        )
+        if project.sources
+        else []
+    )
     started = time.monotonic()
     output = run(
         [
@@ -170,6 +277,10 @@ def run_commit(
             "--env",
             f"TEST={project.test}",
             "--env",
+            f"CHECK={project.check}",
+            "--env",
+            f"MUTANTS={MUTANTS_PER_COMMIT}",
+            "--env",
             f"TIMEOUT_S={TIMEOUT_S}",
             "--volume",
             f"testhunch-harness-{project.image}-cache:/home/runner/.cache",
@@ -178,7 +289,7 @@ def run_commit(
             "-c",
             CONTAINER_SCRIPT,
         ],
-        archive,
+        container_input(repository, sha, commit_mutants),
     )
     seconds = time.monotonic() - started
 
@@ -187,13 +298,19 @@ def run_commit(
     partial.mkdir(parents=True)
     with tarfile.open(fileobj=io.BytesIO(output)) as outputs:
         outputs.extractall(partial, filter="data")
-    setup_exit = int((partial / "setup-exit").read_text())
+    # The candidates the container tried, a prefix of the drawn order; the rest were not needed.
+    tried = [m for i, m in enumerate(commit_mutants) if (partial / "mutants" / str(i)).is_dir()]
+    for index, mutant in enumerate(tried):
+        described = {key: value for key, value in asdict(mutant).items() if key != "content"}
+        path = partial / "mutants" / str(index) / "mutant.json"
+        path.write_text(json.dumps(described) + "\n", encoding="utf-8")
     record = {
         "sha": sha,
         "image_id": image_id,
-        "setup_exit": setup_exit,
+        "setup_exit": int((partial / "setup-exit").read_text()),
         "test_exit": _exit_code(partial / "test-exit"),
         "retry_exit": _exit_code(partial / "retry-exit"),
+        "mutants": len(tried),
         "seconds": round(seconds, 1),
     }
     (partial / "run.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
@@ -202,19 +319,36 @@ def run_commit(
     return read_run(target)
 
 
-def _exit_code(path: Path) -> int | None:
-    return int(path.read_text()) if path.exists() else None
-
-
 def read_run(directory: Path) -> CommitRun:
     record = json.loads((directory / "run.json").read_text(encoding="utf-8"))
-    report, retry = directory / "report.xml", directory / "retry.xml"
+    runs = []
+    for index in range(record.get("mutants", 0)):
+        mutant = directory / "mutants" / str(index)
+        described = json.loads((mutant / "mutant.json").read_text(encoding="utf-8"))
+        runs.append(
+            MutantRun(
+                index=index,
+                check_exit=_exit_code(mutant / "check-exit"),
+                test_exit=_exit_code(mutant / "test-exit"),
+                report=_report(mutant / "report.xml"),
+                **described,
+            )
+        )
     return CommitRun(
         sha=record["sha"],
         image_id=record["image_id"],
         setup_exit=record["setup_exit"],
         test_exit=record["test_exit"],
         seconds=record["seconds"],
-        report=report if report.exists() and report.stat().st_size else None,
-        retry=retry if retry.exists() and retry.stat().st_size else None,
+        report=_report(directory / "report.xml"),
+        retry=_report(directory / "retry.xml"),
+        mutants=tuple(runs),
     )
+
+
+def _exit_code(path: Path) -> int | None:
+    return int(path.read_text()) if path.exists() else None
+
+
+def _report(path: Path) -> Path | None:
+    return path if path.exists() and path.stat().st_size else None
