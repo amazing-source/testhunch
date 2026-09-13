@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import threading
+import urllib.error
 import zipfile
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -74,13 +75,30 @@ def test_jobs_come_in_job_id_order_with_their_commits_and_changed_files() -> Non
 class _ArchiveHandler(BaseHTTPRequestHandler):
     payload = b""
     honour_ranges = True
+    failures = 0  # how many of the next requests get `failure_status`
+    failure_status = 504
+    requests = 0
+
+    def _failed(self) -> bool:
+        type(self).requests += 1
+        if type(self).failures <= 0:
+            return False
+        type(self).failures -= 1
+        self.send_response(self.failure_status)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return True
 
     def do_HEAD(self) -> None:
+        if self._failed():
+            return
         self.send_response(200)
         self.send_header("Content-Length", str(len(self.payload)))
         self.end_headers()
 
     def do_GET(self) -> None:
+        if self._failed():
+            return
         requested = self.headers.get("Range")
         if requested and self.honour_ranges:
             first, last = (int(n) for n in requested.removeprefix("bytes=").split("-"))
@@ -139,6 +157,12 @@ def test_a_project_is_fetched_with_range_requests_and_cached(
     assert (directory / "results.csv").read_bytes() == (EXTRACT / "results.csv").read_bytes()
     commits = (directory / "commits.csv").read_text(encoding="utf-8")
     assert commits == (EXTRACT / "commits.csv").read_text(encoding="utf-8")  # 999 is not ours
+    # The commits of every project are kept once, for the next project to fetch.
+    assert (
+        (tmp_path / "tr_all_built_commits.csv")
+        .read_text(encoding="utf-8")
+        .endswith("999,deadbeef\n")
+    )
     source = json.loads((directory / "source.json").read_text(encoding="utf-8"))
     assert f"rtp-torrent/{PROJECT}/{PROJECT}.csv" in source["members_crc32"]
     # Strategies the archive does not hold are listed, not silently dropped.
@@ -147,6 +171,35 @@ def test_a_project_is_fetched_with_range_requests_and_cached(
 
     # A second call reads the cache and never contacts the server.
     fetch_project(PROJECT, tmp_path, "http://127.0.0.1:9/unreachable")
+
+
+def test_gateway_timeouts_are_retried(server: tuple[str, type[_ArchiveHandler]]) -> None:
+    url, handler = server
+    handler.failures = 3  # the HEAD request and the first read, twice
+
+    remote = HttpRangeFile(url, retry_delays=(0, 0, 0))
+
+    assert remote.read(4) == handler.payload[:4]
+    assert handler.requests == 5
+
+
+def test_a_request_still_failing_after_the_last_retry_raises(
+    server: tuple[str, type[_ArchiveHandler]],
+) -> None:
+    url, handler = server
+    handler.failures = 3
+
+    with pytest.raises(urllib.error.HTTPError, match="504"):
+        HttpRangeFile(url, retry_delays=(0, 0))
+
+
+def test_a_missing_file_is_not_retried(server: tuple[str, type[_ArchiveHandler]]) -> None:
+    url, handler = server
+    handler.failures, handler.failure_status = 1, 404
+
+    with pytest.raises(urllib.error.HTTPError, match="404"):
+        HttpRangeFile(url, retry_delays=(0, 0))
+    assert handler.requests == 1
 
 
 def test_a_server_that_ignores_ranges_is_refused(
