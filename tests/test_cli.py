@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from testhunch.cli import main, markdown_code, parse_budget
+from testhunch.cli import main, markdown_code, parse_budget, parse_share
 from testhunch.store import open_store
 
 FIXTURES = Path(__file__).parent / "fixtures" / "junit"
@@ -30,6 +30,12 @@ def workdir(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         monkeypatch.delenv(variable, raising=False)
     shutil.copy(FIXTURES / "pytest.xml", git_repo / "junit.xml")
     return git_repo
+
+
+def next_commit(workdir: Path, git: Git) -> None:
+    """A new commit to test, after one whose results are already recorded."""
+    (workdir / "kept.py").write_text("x = 5\n")
+    git(workdir, "commit", "--quiet", "-am", "next")
 
 
 def test_ingest_then_report_then_prioritize(
@@ -139,8 +145,7 @@ def test_shadow_mode_from_recorded_ranking_to_report(
     assert main(["ingest", "junit.xml", *common]) == 0
 
     # The next commit: rank before its tests run, then record its results.
-    (workdir / "kept.py").write_text("x = 5\n")
-    git(workdir, "commit", "--quiet", "-am", "next")
+    next_commit(workdir, git)
     capsys.readouterr()
     assert main(["prioritize", "--record", "--format", "keys", *common]) == 0
     recorded = capsys.readouterr()
@@ -178,7 +183,7 @@ def test_select_leaves_out_the_known_tests_below_the_budget(
     capsys.readouterr()
 
     args = ["select", "--budget", "50%", "--runner", "pytest", "--changed", "src/other.py"]
-    assert main([*args, *common]) == 0
+    assert main([*args, "--learning-runs", "0%", *common]) == 0
     out = capsys.readouterr()
     # 8 known tests: the 4 that failed rank first and run; the 4 that passed are left out.
     assert sorted(out.out.splitlines()) == [
@@ -190,6 +195,40 @@ def test_select_leaves_out_the_known_tests_below_the_budget(
     assert "leaving out 4 of 8 known tests" in out.err
 
 
+def test_a_build_that_leaves_tests_out_records_no_ranking(
+    workdir: Path, sqlite_url: str, git: Git, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    next_commit(workdir, git)
+    select = ["select", "--budget", "50%", "--runner", "pytest", "--learning-runs", "0%"]
+    assert main([*select, *common]) == 0
+    assert "recorded" not in capsys.readouterr().err
+    assert main(["ingest", "junit.xml", *common]) == 0
+
+    assert open_store(sqlite_url).shadow_runs("acme/shop") == []
+
+
+def test_a_learning_run_leaves_nothing_out_and_records_the_ranking(
+    workdir: Path, sqlite_url: str, git: Git, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    next_commit(workdir, git)
+    capsys.readouterr()
+    select = ["select", "--budget", "10%", "--runner", "pytest", "--learning-runs", "100%"]
+    assert main([*select, *common]) == 0
+    out = capsys.readouterr()
+    assert out.out == ""
+    assert "learning run" in out.err
+    assert "recorded the ranking of 8 tests" in out.err
+    assert main(["ingest", "junit.xml", *common]) == 0
+
+    # The next results are measured against the ranking, as in shadow mode.
+    (shadow,) = open_store(sqlite_url).shadow_runs("acme/shop")
+    assert len(shadow.positions) == 8
+
+
 def test_select_without_history_leaves_nothing_out(
     workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -198,6 +237,17 @@ def test_select_without_history_leaves_nothing_out(
     out = capsys.readouterr()
     assert out.out == ""
     assert "nothing is left out" in out.err
+
+
+@pytest.mark.parametrize(("share", "fraction"), [("0%", 0.0), ("25%", 0.25), ("1", 1.0)])
+def test_learning_run_shares_may_be_zero(share: str, fraction: float) -> None:
+    assert parse_share(share) == fraction
+
+
+@pytest.mark.parametrize("share", ["-1%", "101%", "nan", "often"])
+def test_learning_run_shares_outside_zero_to_one_hundred_percent_are_refused(share: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_share(share)
 
 
 @pytest.mark.parametrize(("budget", "fraction"), [("25%", 0.25), ("0.25", 0.25), ("100%", 1.0)])

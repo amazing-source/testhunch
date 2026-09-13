@@ -1,7 +1,7 @@
 # 7. Selections leave out known, low-ranked tests
 
 Date: 2026-09-13
-Status: accepted
+Status: accepted, extended by [0009](0009-learning-runs-keep-measuring-while-skipping.md)
 
 ## Context
 

@@ -179,14 +179,21 @@ testhunch select --budget 25% --runner pytest --base origin/main > skip.txt
 pytest -p testhunch.pytest_plugin --testhunch-skip=skip.txt
 ```
 
+Sur environ un build sur quatre, `select` ne laisse rien de côté : c'est un *learning run*, qui lance
+toute la suite et enregistre le classement, pour que le mode fantôme continue de mesurer ce que la
+sélection manque ([ADR 0009](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0009-learning-runs-keep-measuring-while-skipping.md)).
+Le tirage dépend du commit : tous les jobs d'un même build prennent la même décision. Réglez la part
+avec `--learning-runs` (25 % par défaut, `0%` pour désactiver).
+
 Deux règles pour que ce soit sûr :
 
 - **Gardez un filet de sécurité** : ne sautez des tests que sur les pull requests, et lancez toute la
   suite sur la branche principale après chaque fusion, pour rattraper ce qu'une sélection a laissé
   passer.
-- **N'enregistrez pas le classement d'un build qui saute des tests** (`record: false` dans l'Action) :
-  les tests sautés n'ont pas de résultat, et le rapport du mode fantôme paraîtrait meilleur que la
-  réalité.
+- **N'enregistrez pas vous-même le classement d'un build qui saute des tests** (pas de
+  `prioritize --record`, et `record: false` dans l'Action) : les tests sautés n'ont pas de résultat,
+  et le rapport du mode fantôme paraîtrait meilleur que la réalité. `select` n'enregistre que ses
+  learning runs.
 
 Seul pytest est pris en charge pour l'instant ; les autres lanceurs arrivent un par un, chacun vérifié
 en le faisant vraiment tourner.

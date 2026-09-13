@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from testhunch.models import ShadowResult, ShadowRun, Status
-from testhunch.shadow import evaluate
+from testhunch.shadow import evaluate, is_learning_run
 
 
 def result(
@@ -132,6 +132,32 @@ def test_unknown_attempts_and_flaky_results_are_never_confirmed() -> None:
     )
     (point,) = evaluate([run], fractions=(1.0,))
     assert (point.failures, point.confirmed_failures, point.confirmed_failing_runs) == (1, 0, 0)
+
+
+def test_the_learning_run_draw_is_the_same_for_every_job_of_a_commit() -> None:
+    commit = "3ac647550134d5d2c9b1f0e8a7d6c5b4a3928170"
+    draws = {is_learning_run("acme/shop", commit, 0.25) for _ in range(5)}
+    assert len(draws) == 1
+
+
+def test_no_learning_runs_at_zero_and_only_learning_runs_at_one_hundred_percent() -> None:
+    commits = [f"{n:040x}" for n in range(200)]
+    assert not any(is_learning_run("acme/shop", c, 0.0) for c in commits)
+    assert all(is_learning_run("acme/shop", c, 1.0) for c in commits)
+
+
+def test_about_the_requested_share_of_commits_are_learning_runs() -> None:
+    # Deterministic: the same 10 000 commit ids always give the same count.
+    commits = [f"{n:040x}" for n in range(10_000)]
+    learning = sum(is_learning_run("acme/shop", c, 0.25) for c in commits)
+    assert 2300 <= learning <= 2700
+
+
+def test_the_draw_depends_on_the_repository_too() -> None:
+    commits = [f"{n:040x}" for n in range(200)]
+    shop = [is_learning_run("acme/shop", c, 0.5) for c in commits]
+    blog = [is_learning_run("acme/blog", c, 0.5) for c in commits]
+    assert shop != blog
 
 
 def test_no_runs_means_nothing_measured() -> None:

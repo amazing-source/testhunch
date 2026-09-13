@@ -6,6 +6,7 @@ A recorded ranking is evaluated after the fact, for several budgets: running onl
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -34,6 +35,16 @@ class ShadowPoint:
     tests_total: int
     time_run_ms: int
     time_total_ms: int  # results with a known duration only
+
+
+def is_learning_run(repo: str, commit_sha: str, share: float) -> bool:
+    """Whether this commit's build runs every test and records its ranking (docs/adr/0009).
+
+    A hash of the repository and the commit, so every job of a build agrees and a re-run build
+    gets the same answer, independently of what the change contains.
+    """
+    digest = hashlib.sha256(f"{repo}\0{commit_sha}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") < share * 2**64
 
 
 def budget_size(fraction: float, known_tests: int) -> int:
