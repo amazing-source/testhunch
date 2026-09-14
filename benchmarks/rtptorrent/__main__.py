@@ -1,6 +1,8 @@
 """Run the RTPTorrent benchmark on projects (docs/adr/0010).
 
-uv run python -m benchmarks.rtptorrent adamfisk@LittleProxy brettwooldridge@HikariCP
+uv run python -m benchmarks.rtptorrent dynjs@dynjs brettwooldridge@HikariCP
+uv run python -m benchmarks.rtptorrent              # every development project (docs/adr/0013)
+uv run python -m benchmarks.rtptorrent --held-out   # every held-out project, frozen versions only
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from benchmarks.replay import HISTORY_RUNS, add_points, apfd, failing_tests, rep
 from benchmarks.rtptorrent.data import STRATEGIES, fetch_project, iter_jobs
 from benchmarks.rtptorrent.schedules import read_schedules
 from benchmarks.rtptorrent.summary import summary
+from benchmarks.split import RTPTORRENT_DEVELOPMENT, RTPTORRENT_HELD_OUT
 from testhunch import __version__
 from testhunch.gitinfo import GitError, rev_parse
 from testhunch.shadow import BUDGETS, evaluate
@@ -133,12 +136,26 @@ def markdown(result: dict[str, Any]) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m benchmarks.rtptorrent")
-    parser.add_argument("projects", nargs="+", help="e.g. adamfisk@LittleProxy")
+    parser.add_argument(
+        "projects", nargs="*", help="e.g. dynjs@dynjs; default: every development project"
+    )
+    parser.add_argument(
+        "--held-out",
+        action="store_true",
+        help="allow held-out projects, by default all of them: only for versions frozen before "
+        "the replay (docs/adr/0013)",
+    )
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args(argv)
+    projects = args.projects or (RTPTORRENT_HELD_OUT if args.held_out else RTPTORRENT_DEVELOPMENT)
+    held_out = [project for project in projects if project in RTPTORRENT_HELD_OUT]
+    if held_out and not args.held_out:
+        parser.error(
+            f"held out, measured only with --held-out (docs/adr/0013): {', '.join(held_out)}"
+        )
     args.out.mkdir(parents=True, exist_ok=True)
-    for project in args.projects:
+    for project in projects:
         result = run_project(fetch_project(project, args.cache))
         (args.out / f"{project}.json").write_text(
             json.dumps(result, indent=2) + "\n", encoding="utf-8"
