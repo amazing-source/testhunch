@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -44,7 +45,12 @@ def scores(trial: Trial, order: Sequence[str], known: int) -> dict[str, float | 
     raw = [trial.durations[test] for test in order]
     if any(duration is None for duration in raw):
         result.update(
-            {"apfdc_one_fault": None, "apfdc": None, **{f"time_{f}": None for f in BUDGETS}}
+            {
+                "apfdc_one_fault": None,
+                "apfdc": None,
+                "red_at": None,
+                **{f"time_{f}": None for f in BUDGETS},
+            }
         )
         return result
     costs = [duration + EPSILON_MS for duration in raw if duration is not None]
@@ -57,6 +63,16 @@ def scores(trial: Trial, order: Sequence[str], known: int) -> dict[str, float | 
     result["apfdc"] = sum(
         total - before[position] - costs[position] / 2 for position in positions
     ) / (total * len(positions))
+    # The share of the test time spent when the first failing test ends: the build is red.
+    result["red_at"] = (before[first] + costs[first]) / total
     for fraction in BUDGETS:
         result[f"time_{fraction}"] = float(before[first] + costs[first] <= fraction * total)
     return result
+
+
+def time_to_catch(red_at: Sequence[float], share: float) -> float:
+    """The smallest share of test time that turns at least `share` of the failing jobs red."""
+    if not red_at:
+        raise ValueError("no failing job to catch")
+    ordered = sorted(red_at)
+    return ordered[max(math.ceil(share * len(ordered)) - 1, 0)]

@@ -13,7 +13,7 @@ from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups, replay
 from benchmarks.rtptorrent.data import load_jobs
 from benchmarks.study.engine import PRIMARY, compare, study
 from benchmarks.study.history import ALPHA, BuildHistory, RunWindow
-from benchmarks.study.metrics import Trial, scores
+from benchmarks.study.metrics import Trial, scores, time_to_catch
 from benchmarks.study.projects import STEPS
 from benchmarks.study.rankings import (
     SIGNALS,
@@ -332,3 +332,17 @@ def test_a_steady_but_negligible_improvement_does_not_beat() -> None:
 
     assert verdict["interval"][0] > 0 and verdict["higher_on"] == 10
     assert not verdict["beats"]
+
+
+def test_red_at_is_the_share_of_time_spent_when_the_first_failure_ends() -> None:
+    measured = scores(trial("abc", "b", {"a": 9, "b": 19, "c": 29}), ["a", "b", "c"], known=3)
+
+    assert measured["red_at"] == pytest.approx(30 / 60)
+
+
+def test_the_time_to_catch_a_share_of_failing_jobs_is_a_nearest_rank_quantile() -> None:
+    red_at = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+    assert time_to_catch(red_at, 0.9) == 0.9
+    assert time_to_catch(red_at, 0.95) == 1.0
+    assert time_to_catch([0.3], 0.5) == 0.3

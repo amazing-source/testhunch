@@ -90,7 +90,8 @@ def study(
             name: {
                 "means": {kind: means(values, kinds, kind) for kind in sorted(set(kinds))},
                 "per_trial": {
-                    measure: [value[measure] for value in values] for measure in ("apfd", PRIMARY)
+                    measure: [value[measure] for value in values]
+                    for measure in ("apfd", PRIMARY, "red_at")
                 },
             }
             for name, values in per_ranking.items()
