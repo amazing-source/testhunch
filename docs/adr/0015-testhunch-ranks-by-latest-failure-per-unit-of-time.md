@@ -45,6 +45,15 @@ after later builds of other commits updates the priority exactly: the priority a
 failure is the sum of α (1 − α)^(last − b) over the builds b it failed in. Migration 0005 creates
 the tables in both databases and rebuilds them from the runs already stored.
 
+**An ingest holds a lock on its repository**, so that two jobs uploading at the same time cannot
+read the same aggregates and write one over the other, or give two builds the same number. SQLite's
+write transactions already serialize; Postgres takes an advisory transaction lock keyed by the
+repository's name, which leaves other repositories free. The lock is taken before the run is
+inserted, so it also covers the `tests` upserts.
+
+**The API ranks for a commit too.** `POST /v1/prioritize` takes an optional `commit_sha`, which
+seeds ties as the CLI's `--commit` does, and no longer takes `last_runs`.
+
 **The history has no window.** The `--last` option keeps its meaning for the reports; ranking and
 selection read every build.
 
