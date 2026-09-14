@@ -1,0 +1,95 @@
+{
+  "project": "Graylog2@graylog2-server",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "Graylog2@graylog2-server",
+    "members_crc32": {
+      "rtp-torrent/Graylog2@graylog2-server/Graylog2@graylog2-server.csv": "b80d79bc",
+      "rtp-torrent/Graylog2@graylog2-server/Graylog2@graylog2-server-patches.csv": "4084e5eb",
+      "rtp-torrent/Graylog2@graylog2-server/Graylog2@graylog2-server-offenders.csv": "7e20ae52",
+      "rtp-torrent/Graylog2@graylog2-server/baseline/graylog2-server@untreated.csv": "df913c85",
+      "rtp-torrent/Graylog2@graylog2-server/baseline/graylog2-server@random.csv": "ad947a28",
+      "rtp-torrent/Graylog2@graylog2-server/baseline/graylog2-server@recently-failed.csv": "996c7128",
+      "rtp-torrent/Graylog2@graylog2-server/baseline/graylog2-server@matrix-naive.csv": "7eb07635",
+      "rtp-torrent/Graylog2@graylog2-server/baseline/graylog2-server@matrix-conditional-prob.csv": "57dd1430",
+      "rtp-torrent/Graylog2@graylog2-server/baseline/graylog2-server@optimal-failure.csv": "5d6e9e9c",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 10622,
+    "concurrent_groups": 5108,
+    "ranked_from_empty_history": 1,
+    "without_commit": 2238,
+    "evaluated": 10621,
+    "evaluated_failing": 190
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 10621,
+      "failing_runs": 190,
+      "caught_runs": 181,
+      "failures": 357,
+      "caught_failures": 330,
+      "confirmed_failing_runs": 1,
+      "caught_confirmed_runs": 1,
+      "confirmed_failures": 1,
+      "caught_confirmed_failures": 1,
+      "tests_run": 96491,
+      "tests_total": 894702,
+      "time_run_ms": 1376030382,
+      "time_total_ms": 9423031108
+    },
+    {
+      "fraction": 0.25,
+      "runs": 10621,
+      "failing_runs": 190,
+      "caught_runs": 187,
+      "failures": 357,
+      "caught_failures": 347,
+      "confirmed_failing_runs": 1,
+      "caught_confirmed_runs": 1,
+      "confirmed_failures": 1,
+      "caught_confirmed_failures": 1,
+      "tests_run": 231455,
+      "tests_total": 894702,
+      "time_run_ms": 3506260251,
+      "time_total_ms": 9423031108
+    },
+    {
+      "fraction": 0.5,
+      "runs": 10621,
+      "failing_runs": 190,
+      "caught_runs": 187,
+      "failures": 357,
+      "caught_failures": 353,
+      "confirmed_failing_runs": 1,
+      "caught_confirmed_runs": 1,
+      "confirmed_failures": 1,
+      "caught_confirmed_failures": 1,
+      "tests_run": 456450,
+      "tests_total": 894702,
+      "time_run_ms": 5713936325,
+      "time_total_ms": 9423031108
+    }
+  ],
+  "apfd": {
+    "jobs": 247,
+    "mean": {
+      "testhunch": 0.835964682740273,
+      "untreated": 0.4767554792445517,
+      "random": 0.5125436338455294,
+      "recently-failed": 0.8129983600972858,
+      "matrix-naive": 0.7306987359905142,
+      "matrix-conditional-prob": 0.6399608356528628,
+      "optimal-failure": 0.8684367847759242
+    }
+  }
+}

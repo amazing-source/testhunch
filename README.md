@@ -13,9 +13,8 @@ Jest, Go (gotestsum), Java (Maven Surefire) et Rust (cargo-nextest).
 
 > **Statut : pré-alpha.** Le pipeline de données (ingestion, stockage, rapports sur les tests
 > instables et en échec) et un classement de référence simple et explicable fonctionnent dès
-> aujourd'hui. Le modèle appris et le benchmark public qui prouvera son efficacité sont prévus dans
-> la [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md). Aucune promesse de précision n'est faite tant que ce benchmark
-> n'existe pas.
+> aujourd'hui, et le benchmark public mesure ce classement ([résultats](#ce-qui-a-été-mesuré)). Le
+> modèle appris est prévu dans la [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md).
 
 ## Pourquoi
 
@@ -66,6 +65,35 @@ flowchart LR
    combien d'exécutions en échec seraient restées en échec, combien d'échecs auraient été vus, et
    la part de tests et de temps économisée. Un classement n'est jamais comparé à une exécution qu'il
    a déjà vue ([ADR 0006](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0006-shadow-mode-measures-misses-without-skipping.md)).
+
+## Ce qui a été mesuré
+
+Le classement de référence a été rejoué sur de vrais historiques de CI : chaque exécution est
+classée uniquement à partir de celles terminées avant elle, avec le vrai code de testhunch. Tous les
+chiffres, projet par projet, y compris ceux où testhunch s'en sort mal, sont dans
+[benchmarks/results](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md).
+
+**RTPTorrent**, 20 projets Java et 110 126 jobs Travis CI réels, résultats par classe de test. En ne
+lançant que 25 % des classes connues (les inconnues tournent toujours), le projet médian :
+
+- garde rouges **87 %** de ses jobs en échec (73 % pour le pire projet) ;
+- lance **75 %** de ses classes en échec ;
+- pour **44 %** de son temps de test (67 % pour le pire).
+
+Comme ordre d'exécution, testhunch fait mieux que l'ordre d'origine et l'aléatoire sur les 20
+projets. Il reste en revanche **derrière la simple stratégie « lancer d'abord les tests qui ont
+échoué récemment »** : APFD moyen de 0,832 contre 0,847, et devant elle sur seulement 10 projets
+sur 20.
+
+**Banc d'essai**, 200 commits de pallets/click (pytest) et 200 de spf13/cobra (Go), résultats par
+test :
+
+- Des mutants d'un seul jeton ont été glissés dans les lignes que chaque commit a changées. À 25 %
+  des tests, testhunch rattrape **92 %** des mutants détectés sur click (pour 23 % du temps de test)
+  et **84 %** sur cobra.
+- La seule vraie régression de ces historiques, un commit de click annulé le jour même, est
+  **manquée à tous les budgets** : les tests cassés n'avaient jamais échoué, et leur nom ne
+  ressemble pas au fichier modifié.
 
 ## Démarrage rapide
 

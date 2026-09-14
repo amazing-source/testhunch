@@ -1,0 +1,95 @@
+{
+  "project": "dynjs@dynjs",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "dynjs@dynjs",
+    "members_crc32": {
+      "rtp-torrent/dynjs@dynjs/dynjs@dynjs.csv": "86e3de9b",
+      "rtp-torrent/dynjs@dynjs/dynjs@dynjs-patches.csv": "12ab7010",
+      "rtp-torrent/dynjs@dynjs/dynjs@dynjs-offenders.csv": "ed7167db",
+      "rtp-torrent/dynjs@dynjs/baseline/dynjs@untreated.csv": "a04f3312",
+      "rtp-torrent/dynjs@dynjs/baseline/dynjs@random.csv": "c5efd206",
+      "rtp-torrent/dynjs@dynjs/baseline/dynjs@recently-failed.csv": "e7b00a92",
+      "rtp-torrent/dynjs@dynjs/baseline/dynjs@matrix-naive.csv": "35926262",
+      "rtp-torrent/dynjs@dynjs/baseline/dynjs@matrix-conditional-prob.csv": "86c956ee",
+      "rtp-torrent/dynjs@dynjs/baseline/dynjs@optimal-failure.csv": "c717bd93",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 1020,
+    "concurrent_groups": 402,
+    "ranked_from_empty_history": 2,
+    "without_commit": 85,
+    "evaluated": 1018,
+    "evaluated_failing": 55
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 1018,
+      "failing_runs": 55,
+      "caught_runs": 42,
+      "failures": 510,
+      "caught_failures": 100,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 7685,
+      "tests_total": 72576,
+      "time_run_ms": 4409950,
+      "time_total_ms": 15797764
+    },
+    {
+      "fraction": 0.25,
+      "runs": 1018,
+      "failing_runs": 55,
+      "caught_runs": 48,
+      "failures": 510,
+      "caught_failures": 189,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 18420,
+      "tests_total": 72576,
+      "time_run_ms": 8909089,
+      "time_total_ms": 15797764
+    },
+    {
+      "fraction": 0.5,
+      "runs": 1018,
+      "failing_runs": 55,
+      "caught_runs": 53,
+      "failures": 510,
+      "caught_failures": 320,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 36508,
+      "tests_total": 72576,
+      "time_run_ms": 10512490,
+      "time_total_ms": 15797764
+    }
+  ],
+  "apfd": {
+    "jobs": 41,
+    "mean": {
+      "testhunch": 0.8270924154215409,
+      "untreated": 0.40037357941557533,
+      "random": 0.5148013427039918,
+      "recently-failed": 0.6531263819632408,
+      "matrix-naive": 0.5652660352674347,
+      "matrix-conditional-prob": 0.5105805195130524,
+      "optimal-failure": 0.9111768918947281
+    }
+  }
+}

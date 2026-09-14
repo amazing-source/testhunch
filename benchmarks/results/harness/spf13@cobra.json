@@ -1,0 +1,131 @@
+{
+  "project": "spf13/cobra",
+  "end": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+  "window": 200,
+  "images": [
+    "sha256:375a1ea44bd6314878949a5050bea700335b55c8e417c3a93bdb6c96f34e8d38",
+    "sha256:6f30c6f4e643ca4f19e0a943880195ad6fb979f26379848c7e3feaa85179bb81",
+    "sha256:dc683cde19d990fca56c70a50071311b8a597b78ac21206e624a0e10f653e9a8"
+  ],
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "a4a2b885e64e79221c6f6efa6d088f902a9967c1"
+  },
+  "history_runs": 50,
+  "commits": {
+    "collected": 200,
+    "built": 200,
+    "not_built": [],
+    "ranked_from_empty_history": 1,
+    "evaluated": 199,
+    "evaluated_failing": 0
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 199,
+      "failing_runs": 0,
+      "caught_runs": 0,
+      "failures": 0,
+      "caught_failures": 0,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 6995,
+      "tests_total": 66967,
+      "time_run_ms": 310,
+      "time_total_ms": 10750
+    },
+    {
+      "fraction": 0.25,
+      "runs": 199,
+      "failing_runs": 0,
+      "caught_runs": 0,
+      "failures": 0,
+      "caught_failures": 0,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 17068,
+      "tests_total": 66967,
+      "time_run_ms": 370,
+      "time_total_ms": 10750
+    },
+    {
+      "fraction": 0.5,
+      "runs": 199,
+      "failing_runs": 0,
+      "caught_runs": 0,
+      "failures": 0,
+      "caught_failures": 0,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 33739,
+      "tests_total": 66967,
+      "time_run_ms": 10630,
+      "time_total_ms": 10750
+    }
+  ],
+  "mutants": {
+    "tried": 111,
+    "ranked_from_empty_history": 0,
+    "not_compiled": 23,
+    "no_report": 0,
+    "survived": 26,
+    "detected": 62
+  },
+  "mutant_shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 62,
+      "failing_runs": 62,
+      "caught_runs": 42,
+      "failures": 1125,
+      "caught_failures": 203,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 2085,
+      "tests_total": 17059,
+      "time_run_ms": 710,
+      "time_total_ms": 2970
+    },
+    {
+      "fraction": 0.25,
+      "runs": 62,
+      "failing_runs": 62,
+      "caught_runs": 52,
+      "failures": 1125,
+      "caught_failures": 353,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 4661,
+      "tests_total": 17059,
+      "time_run_ms": 720,
+      "time_total_ms": 2970
+    },
+    {
+      "fraction": 0.5,
+      "runs": 62,
+      "failing_runs": 62,
+      "caught_runs": 57,
+      "failures": 1125,
+      "caught_failures": 742,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 8759,
+      "tests_total": 17059,
+      "time_run_ms": 2960,
+      "time_total_ms": 2970
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "project": "jcabi@jcabi-github",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "jcabi@jcabi-github",
+    "members_crc32": {
+      "rtp-torrent/jcabi@jcabi-github/jcabi@jcabi-github.csv": "31c91127",
+      "rtp-torrent/jcabi@jcabi-github/jcabi@jcabi-github-patches.csv": "7c504176",
+      "rtp-torrent/jcabi@jcabi-github/jcabi@jcabi-github-offenders.csv": "4ef628fd",
+      "rtp-torrent/jcabi@jcabi-github/baseline/jcabi-github@untreated.csv": "785ef2bb",
+      "rtp-torrent/jcabi@jcabi-github/baseline/jcabi-github@random.csv": "20b0284f",
+      "rtp-torrent/jcabi@jcabi-github/baseline/jcabi-github@recently-failed.csv": "f7fb8639",
+      "rtp-torrent/jcabi@jcabi-github/baseline/jcabi-github@matrix-naive.csv": "5bed5993",
+      "rtp-torrent/jcabi@jcabi-github/baseline/jcabi-github@matrix-conditional-prob.csv": "b0c31ae6",
+      "rtp-torrent/jcabi@jcabi-github/baseline/jcabi-github@optimal-failure.csv": "116523b9",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 3241,
+    "concurrent_groups": 758,
+    "ranked_from_empty_history": 1,
+    "without_commit": 931,
+    "evaluated": 3240,
+    "evaluated_failing": 429
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 3240,
+      "failing_runs": 429,
+      "caught_runs": 304,
+      "failures": 735,
+      "caught_failures": 421,
+      "confirmed_failing_runs": 149,
+      "caught_confirmed_runs": 149,
+      "confirmed_failures": 149,
+      "caught_confirmed_failures": 149,
+      "tests_run": 45948,
+      "tests_total": 444632,
+      "time_run_ms": 179299781,
+      "time_total_ms": 2284756763
+    },
+    {
+      "fraction": 0.25,
+      "runs": 3240,
+      "failing_runs": 429,
+      "caught_runs": 319,
+      "failures": 735,
+      "caught_failures": 478,
+      "confirmed_failing_runs": 149,
+      "caught_confirmed_runs": 149,
+      "confirmed_failures": 149,
+      "caught_confirmed_failures": 149,
+      "tests_run": 112247,
+      "tests_total": 444632,
+      "time_run_ms": 538716562,
+      "time_total_ms": 2284756763
+    },
+    {
+      "fraction": 0.5,
+      "runs": 3240,
+      "failing_runs": 429,
+      "caught_runs": 404,
+      "failures": 735,
+      "caught_failures": 620,
+      "confirmed_failing_runs": 149,
+      "caught_confirmed_runs": 149,
+      "confirmed_failures": 149,
+      "caught_confirmed_failures": 149,
+      "tests_run": 223071,
+      "tests_total": 444632,
+      "time_run_ms": 1220522831,
+      "time_total_ms": 2284756763
+    }
+  ],
+  "apfd": {
+    "jobs": 337,
+    "mean": {
+      "testhunch": 0.6707057191423282,
+      "untreated": 0.2938609569645087,
+      "random": 0.5065614079304346,
+      "recently-failed": 0.7189559764552926,
+      "matrix-naive": 0.4719456946485016,
+      "matrix-conditional-prob": 0.45951522444583653,
+      "optimal-failure": 0.8489720887353114
+    }
+  }
+}

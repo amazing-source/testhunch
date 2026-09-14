@@ -21,39 +21,43 @@ def summary(results: Sequence[dict[str, Any]]) -> str:
         "project next to this one. Results are per test class, from Travis CI builds of Java "
         "projects, without retries.",
         "",
-        "## Failing jobs still caught when running a share of the known test classes",
+        "## What running a share of the known test classes would have kept",
         "",
-        "A job is caught when at least one of its failing classes runs. Classes the ranking does "
-        "not know always run.",
+        "Per change: failing jobs still caught, where a job is caught when at least one of its "
+        "failing classes runs. Per test: failing classes that run. Classes the ranking does not "
+        "know always run, so more than the budget runs.",
         "",
-        f"| Project | Jobs | Failing | Caught at {budgets} | Test time run at {budgets} |",
-        "|---|---:|---:|---:|---:|",
+        f"| Project | Jobs | Failing | Failing jobs caught at {budgets} "
+        f"| Failing classes caught at {budgets} | Test time run at {budgets} |",
+        "|---|---:|---:|---:|---:|---:|",
     ]
-    totals: dict[float, list[int]] = {fraction: [0, 0, 0, 0] for fraction in fractions}
+    pairs = (
+        ("caught_runs", "failing_runs"),
+        ("caught_failures", "failures"),
+        ("time_run_ms", "time_total_ms"),
+    )
+    totals = {pair: {fraction: [0, 0] for fraction in fractions} for pair in pairs}
     for result in results:
         points = result["shadow"]
-        for point in points:
-            total = totals[point["fraction"]]
-            total[0] += point["caught_runs"]
-            total[1] += point["failing_runs"]
-            total[2] += point["time_run_ms"]
-            total[3] += point["time_total_ms"]
+        cells = []
+        for part, whole in pairs:
+            for point in points:
+                total = totals[(part, whole)][point["fraction"]]
+                total[0] += point[part]
+                total[1] += point[whole]
+            cells.append(" / ".join(_share(point[part], point[whole]) for point in points))
         lines.append(
             f"| {result['project']} | {result['jobs']['evaluated']} | "
-            f"{result['jobs']['evaluated_failing']} | "
-            + " / ".join(_share(p["caught_runs"], p["failing_runs"]) for p in points)
-            + " | "
-            + " / ".join(_share(p["time_run_ms"], p["time_total_ms"]) for p in points)
-            + " |"
+            f"{result['jobs']['evaluated_failing']} | " + " | ".join(cells) + " |"
         )
     if results:
+        cells = [
+            " / ".join(_share(part, whole) for part, whole in totals[pair].values())
+            for pair in pairs
+        ]
         lines.append(
             f"| **All projects** | {sum(r['jobs']['evaluated'] for r in results)} | "
-            f"{sum(r['jobs']['evaluated_failing'] for r in results)} | "
-            + " / ".join(_share(t[0], t[1]) for t in totals.values())
-            + " | "
-            + " / ".join(_share(t[2], t[3]) for t in totals.values())
-            + " |"
+            f"{sum(r['jobs']['evaluated_failing'] for r in results)} | " + " | ".join(cells) + " |"
         )
 
     compared = [result for result in results if result["apfd"]["jobs"]]

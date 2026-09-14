@@ -1,0 +1,95 @@
+{
+  "project": "brettwooldridge@HikariCP",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "brettwooldridge@HikariCP",
+    "members_crc32": {
+      "rtp-torrent/brettwooldridge@HikariCP/brettwooldridge@HikariCP.csv": "232ee2a8",
+      "rtp-torrent/brettwooldridge@HikariCP/brettwooldridge@HikariCP-patches.csv": "f85c5e60",
+      "rtp-torrent/brettwooldridge@HikariCP/brettwooldridge@HikariCP-offenders.csv": "d3b93734",
+      "rtp-torrent/brettwooldridge@HikariCP/baseline/HikariCP@untreated.csv": "938bda4a",
+      "rtp-torrent/brettwooldridge@HikariCP/baseline/HikariCP@random.csv": "26a19da3",
+      "rtp-torrent/brettwooldridge@HikariCP/baseline/HikariCP@recently-failed.csv": "719b3240",
+      "rtp-torrent/brettwooldridge@HikariCP/baseline/HikariCP@matrix-naive.csv": "792c63b3",
+      "rtp-torrent/brettwooldridge@HikariCP/baseline/HikariCP@matrix-conditional-prob.csv": "d668a649",
+      "rtp-torrent/brettwooldridge@HikariCP/baseline/HikariCP@optimal-failure.csv": "d0105e03",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 1662,
+    "concurrent_groups": 1498,
+    "ranked_from_empty_history": 3,
+    "without_commit": 85,
+    "evaluated": 1659,
+    "evaluated_failing": 94
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 1659,
+      "failing_runs": 94,
+      "caught_runs": 61,
+      "failures": 263,
+      "caught_failures": 83,
+      "confirmed_failing_runs": 36,
+      "caught_confirmed_runs": 20,
+      "confirmed_failures": 58,
+      "caught_confirmed_failures": 23,
+      "tests_run": 3523,
+      "tests_total": 23690,
+      "time_run_ms": 21284108,
+      "time_total_ms": 98532999
+    },
+    {
+      "fraction": 0.25,
+      "runs": 1659,
+      "failing_runs": 94,
+      "caught_runs": 69,
+      "failures": 263,
+      "caught_failures": 127,
+      "confirmed_failing_runs": 36,
+      "caught_confirmed_runs": 23,
+      "confirmed_failures": 58,
+      "caught_confirmed_failures": 33,
+      "tests_run": 6802,
+      "tests_total": 23690,
+      "time_run_ms": 33874694,
+      "time_total_ms": 98532999
+    },
+    {
+      "fraction": 0.5,
+      "runs": 1659,
+      "failing_runs": 94,
+      "caught_runs": 84,
+      "failures": 263,
+      "caught_failures": 190,
+      "confirmed_failing_runs": 36,
+      "caught_confirmed_runs": 31,
+      "confirmed_failures": 58,
+      "caught_confirmed_failures": 44,
+      "tests_run": 12544,
+      "tests_total": 23690,
+      "time_run_ms": 69102949,
+      "time_total_ms": 98532999
+    }
+  ],
+  "apfd": {
+    "jobs": 125,
+    "mean": {
+      "testhunch": 0.764604166181256,
+      "untreated": 0.6107381524220534,
+      "random": 0.4774659554068223,
+      "recently-failed": 0.7104786464996992,
+      "matrix-naive": 0.6640333356701777,
+      "matrix-conditional-prob": 0.6397913188634551,
+      "optimal-failure": 0.901784505209273
+    }
+  }
+}

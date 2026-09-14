@@ -1,0 +1,130 @@
+{
+  "project": "pallets/click",
+  "end": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+  "window": 200,
+  "images": [
+    "sha256:0e1ea46dc13d41fbaa7aff8ed2d732918b8a162a4751dd742b7f2c62f42e8fcb",
+    "sha256:8885a35e9d9681cf2daae37d7e9253523dfc33e583ad3d6f948050205ba53ee0"
+  ],
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "a4a2b885e64e79221c6f6efa6d088f902a9967c1"
+  },
+  "history_runs": 50,
+  "commits": {
+    "collected": 200,
+    "built": 200,
+    "not_built": [],
+    "ranked_from_empty_history": 1,
+    "evaluated": 199,
+    "evaluated_failing": 1
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 199,
+      "failing_runs": 1,
+      "caught_runs": 0,
+      "failures": 4,
+      "caught_failures": 0,
+      "confirmed_failing_runs": 1,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 4,
+      "caught_confirmed_failures": 0,
+      "tests_run": 29044,
+      "tests_total": 269140,
+      "time_run_ms": 22753,
+      "time_total_ms": 233515
+    },
+    {
+      "fraction": 0.25,
+      "runs": 199,
+      "failing_runs": 1,
+      "caught_runs": 0,
+      "failures": 4,
+      "caught_failures": 0,
+      "confirmed_failing_runs": 1,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 4,
+      "caught_confirmed_failures": 0,
+      "tests_run": 71008,
+      "tests_total": 269140,
+      "time_run_ms": 52528,
+      "time_total_ms": 233515
+    },
+    {
+      "fraction": 0.5,
+      "runs": 199,
+      "failing_runs": 1,
+      "caught_runs": 0,
+      "failures": 4,
+      "caught_failures": 0,
+      "confirmed_failing_runs": 1,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 4,
+      "caught_confirmed_failures": 0,
+      "tests_run": 137549,
+      "tests_total": 269140,
+      "time_run_ms": 111595,
+      "time_total_ms": 233515
+    }
+  ],
+  "mutants": {
+    "tried": 132,
+    "ranked_from_empty_history": 0,
+    "not_compiled": 0,
+    "no_report": 1,
+    "survived": 41,
+    "detected": 90
+  },
+  "mutant_shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 90,
+      "failing_runs": 90,
+      "caught_runs": 76,
+      "failures": 13238,
+      "caught_failures": 2237,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 16024,
+      "tests_total": 132610,
+      "time_run_ms": 13651,
+      "time_total_ms": 126939
+    },
+    {
+      "fraction": 0.25,
+      "runs": 90,
+      "failing_runs": 90,
+      "caught_runs": 83,
+      "failures": 13238,
+      "caught_failures": 4435,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 36090,
+      "tests_total": 132610,
+      "time_run_ms": 29302,
+      "time_total_ms": 126939
+    },
+    {
+      "fraction": 0.5,
+      "runs": 90,
+      "failing_runs": 90,
+      "caught_runs": 87,
+      "failures": 13238,
+      "caught_failures": 8440,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 68373,
+      "tests_total": 132610,
+      "time_run_ms": 58903,
+      "time_total_ms": 126939
+    }
+  ]
+}

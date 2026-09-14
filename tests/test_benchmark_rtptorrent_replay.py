@@ -180,13 +180,19 @@ def test_the_benchmark_writes_json_and_markdown_per_project(tmp_path: Path) -> N
 
 def test_the_summary_totals_projects_and_marks_missing_schedules() -> None:
     with_schedules = run_project(EXTRACT)
-    without = {**with_schedules, "project": "square@okhttp", "apfd": {"jobs": 0, "mean": {}}}
+    without = {**with_schedules, "project": "example@no-schedules", "apfd": {"jobs": 0, "mean": {}}}
 
     page = summary([without, with_schedules])
 
     rows = [line for line in page.splitlines() if line.startswith("| ")]
-    assert rows[0].startswith("| Project | Jobs | Failing | Caught at 10% / 25% / 50% |")
-    assert rows[3].startswith("| **All projects** | 158 | 32 |")
+    assert rows[0].split(" | ")[3:6] == [
+        "Failing jobs caught at 10% / 25% / 50%",
+        "Failing classes caught at 10% / 25% / 50%",
+        "Test time run at 10% / 25% / 50% |",
+    ]
+    # The same project twice: the totals have the same shares as the project, per job and per class.
+    assert rows[3].split(" | ")[:3] == ["| **All projects**", "158", "32"]
+    assert rows[3].split(" | ")[3:] == rows[1].split(" | ")[3:]
     # The APFD table lists only the project that has schedules, and its jobs make the total.
     assert [row.split(" | ")[0] for row in rows[4:]] == [
         "| Project",
@@ -194,4 +200,4 @@ def test_the_summary_totals_projects_and_marks_missing_schedules() -> None:
         "| **All jobs**",
     ]
     assert "on 1 of 1 projects" in page
-    assert page.rstrip().endswith("Without any schedule to compare with: square@okhttp.")
+    assert page.rstrip().endswith("Without any schedule to compare with: example@no-schedules.")

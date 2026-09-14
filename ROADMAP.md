@@ -40,11 +40,11 @@ permet pas de la mesurer.
 
 ## Phase 3 : le benchmark public
 
-- [ ] Un banc d'essai qui récupère des projets open source à des commits passés, dans des conteneurs figés, et lance leurs suites
-- [ ] Des tests de mutation pour créer des échecs réalistes là où l'historique en contient trop peu
-- [ ] Évaluer sur RTPTorrent (résultats par classe de test, pas par méthode), avec un découpage temporel pour qu'aucun modèle ne voie le futur : chaque variable (taux d'échec, instabilité, récence) est calculée uniquement à partir des exécutions antérieures à celle qu'on prédit
-- [ ] Mesurer le rappel par test et le rappel par changement, ainsi que le temps de test économisé
-- [ ] Publier les résultats, y compris là où testhunch s'en sort mal
+- [x] Un banc d'essai qui récupère des projets open source à des commits passés, dans des conteneurs figés, et lance leurs suites
+- [x] Des tests de mutation pour créer des échecs réalistes là où l'historique en contient trop peu
+- [x] Évaluer sur RTPTorrent (résultats par classe de test, pas par méthode), avec un découpage temporel pour qu'aucun modèle ne voie le futur : chaque variable (taux d'échec, instabilité, récence) est calculée uniquement à partir des exécutions antérieures à celle qu'on prédit
+- [x] Mesurer le rappel par test et le rappel par changement, ainsi que le temps de test économisé
+- [x] Publier les résultats, y compris là où testhunch s'en sort mal
 
 ## Phase 4 : service hébergé
 
