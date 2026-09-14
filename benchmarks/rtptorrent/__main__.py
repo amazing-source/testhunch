@@ -17,7 +17,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from benchmarks.replay import HISTORY_RUNS, add_points, apfd, failing_tests, replay
+from benchmarks.replay import add_points, apfd, failing_tests, replay
 from benchmarks.rtptorrent.data import STRATEGIES, fetch_project, iter_jobs
 from benchmarks.rtptorrent.schedules import read_schedules
 from benchmarks.rtptorrent.summary import summary
@@ -78,7 +78,6 @@ def run_project(directory: Path) -> dict[str, Any]:
         "project": project,
         "dataset": json.loads(source.read_text(encoding="utf-8")) if source.exists() else None,
         "testhunch": {"version": __version__, "commit": _commit()},
-        "history_runs": HISTORY_RUNS,
         "jobs": {
             "total": total,
             "concurrent_groups": groups,

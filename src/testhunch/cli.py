@@ -77,11 +77,11 @@ def _parser() -> argparse.ArgumentParser:
     report.add_argument("--format", choices=["text", "json", "markdown"], default="text")
     report.set_defaults(handler=_report)
 
+    # Rankings read every recorded build: they have no --last (docs/adr/0015).
     ranking = argparse.ArgumentParser(add_help=False)
     changed = ranking.add_mutually_exclusive_group()
     changed.add_argument("--base", help="rank for the files changed since this ref")
     changed.add_argument("--changed", nargs="+", default=[], help="rank for these changed paths")
-    ranking.add_argument("--last", type=_positive, default=50, help="runs to look back over")
 
     prioritize = commands.add_parser(
         "prioritize", parents=[common, ranking], help="order tests by how likely they are to fail"
@@ -96,7 +96,10 @@ def _parser() -> argparse.ArgumentParser:
         help="store the full ranking for the commit about to be tested, for `testhunch shadow`",
     )
     prioritize.add_argument(
-        "--commit", default="HEAD", help="with --record: the commit about to be tested (HEAD)"
+        "--commit",
+        default="HEAD",
+        help="the commit about to be tested (HEAD): it orders equal scores, and --record stores "
+        "the ranking for it",
     )
     prioritize.set_defaults(handler=_prioritize)
 
@@ -286,9 +289,17 @@ def _changed_paths(args: argparse.Namespace) -> list[str]:
     return [c.path for c in changed_files(args.base)] if args.base else list(args.changed)
 
 
+def _seed(args: argparse.Namespace) -> str:
+    """The commit that orders equal scores: resolved by git when it can, else as given."""
+    try:
+        return rev_parse(args.commit)
+    except GitError:
+        return str(args.commit)
+
+
 def _select(args: argparse.Namespace) -> int:
     store, repo = _store(args), _repo(args)
-    history = store.history(repo, args.last)
+    history = store.history(repo)
     if args.runner == "go" and not args.go_test_list:
         print(
             "testhunch: error: --runner go needs --go-test-list, the output of "
@@ -303,13 +314,14 @@ def _select(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    if not history:
+    if not history.cases:
         print(f"no history for {repo} yet: nothing is left out", file=sys.stderr)
         return 0
     changed = _changed_paths(args)
-    ranked = rank(history, changed)
+    commit = rev_parse(args.commit)
+    ranked = rank(history, changed, seed=commit)
 
-    if is_learning_run(repo, rev_parse(args.commit), args.learning_runs):
+    if is_learning_run(repo, commit, args.learning_runs):
         # Every test runs, so this build's results can measure the ranking (docs/adr/0009).
         print(
             f"learning run (about {args.learning_runs:.0%} of builds): nothing is left out",
@@ -338,7 +350,7 @@ def _select(args: argparse.Namespace) -> int:
         left_out = len(exclusions.left_out)
         unreachable = len(below) - left_out
     elif args.runner == "nextest":
-        suites = {case.key: case.suite for case in history}
+        suites = {case.key: case.suite for case in history.cases}
         filterset = nextest_filterset(below, suites)
         sys.stdout.write(filterset.expression)  # no line ending either, for the same reason
         left_out = len(filterset.left_out)
@@ -354,7 +366,7 @@ def _select(args: argparse.Namespace) -> int:
         left_out = len(vitest.left_out)
         unreachable = len(below) - left_out
     elif args.runner == "jest":
-        files = {case.key: case.file for case in history}
+        files = {case.key: case.file for case in history.cases}
         jest = jest_ignore_pattern(below, [r.key for r in ranked[:cutoff]], files, changed)
         sys.stdout.write(jest.pattern)  # no line ending either, for the same reason
         left_out = len(jest.left_out)
@@ -542,8 +554,8 @@ def _markdown_cell(text: str) -> str:
 
 def _prioritize(args: argparse.Namespace) -> int:
     store, repo = _store(args), _repo(args)
-    history = store.history(repo, args.last)
-    if not history:
+    history = store.history(repo)
+    if not history.cases:
         print(
             f"no history for {repo} yet: run `testhunch ingest` after your test job first",
             file=sys.stderr,
@@ -556,7 +568,7 @@ def _prioritize(args: argparse.Namespace) -> int:
             print("No history yet: run `testhunch ingest` after your test job first.")
         return 0
     paths = _changed_paths(args)
-    ranked = rank(history, paths)
+    ranked = rank(history, paths, seed=_seed(args))
     total = len(ranked)
     if args.record:
         _record(args, store, repo, ranked)
@@ -573,7 +585,7 @@ def _prioritize(args: argparse.Namespace) -> int:
         rows = [
             (
                 str(position),
-                f"{r.score:.3f}",
+                f"{r.score:.3g}",
                 markdown_code(r.key),
                 _markdown_cell("; ".join(r.reasons) if r.reasons else "no signal"),
             )
@@ -583,5 +595,5 @@ def _prioritize(args: argparse.Namespace) -> int:
     else:
         for position, r in enumerate(ranked, start=1):
             why = "; ".join(r.reasons) if r.reasons else "no signal"
-            print(f"{position:>4}. {r.score:6.3f}  {r.key}  ({why})")
+            print(f"{position:>4}. {r.score:>9.3g}  {r.key}  ({why})")
     return 0

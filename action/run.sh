@@ -69,7 +69,7 @@ case "${TESTHUNCH_COMMAND}" in
     out="${RUNNER_TEMP}/testhunch"
     mkdir -p "${out}"
     rank() {
-      testhunch prioritize --last "${TESTHUNCH_LAST}" ${base:+--base "${base}"} "$@"
+      testhunch prioritize ${base:+--base "${base}"} "$@"
     }
     # Recorded once, with the first of the three identical rankings.
     rank ${record:+"${record}"} --format json > "${out}/ranking.json"

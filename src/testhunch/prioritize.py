@@ -63,9 +63,7 @@ def _without_extension(path: str) -> str:
     return f"{head}/{stem}" if head else stem
 
 
-def rank(
-    history: History, changed_paths: Sequence[str] = (), seed: str = ""
-) -> list[RankedTest]:
+def rank(history: History, changed_paths: Sequence[str] = (), seed: str = "") -> list[RankedTest]:
     """Every known test, most likely to fail per unit of time first.
 
     Ties go to the shorter test, the newer failure, the higher priority, then a hash of `seed` and

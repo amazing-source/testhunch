@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -12,6 +13,8 @@ from testhunch.store.base import Params, Row, Session, SqlStore, StoreError
 
 # Arbitrary but fixed: every testhunch process contends for the same advisory lock.
 _MIGRATION_LOCK = 7_265_110_421
+# Also arbitrary: the first key of every repository's ingest lock.
+_REPO_LOCKS = 1_573_202_604
 
 # Without connect_timeout psycopg waits 130 s per address before giving up, which stalls the CLI
 # and /readyz. Applied only when neither the URL nor PGCONNECT_TIMEOUT sets one.
@@ -63,6 +66,14 @@ class PostgresStore(SqlStore):
 
     def _lock_for_migration(self, session: Session) -> None:
         session.one("SELECT pg_advisory_xact_lock(?)", (_MIGRATION_LOCK,))
+
+    def _lock_repo(self, session: Session, repo: str) -> None:
+        # Two 32-bit keys: the class of repository locks, and a hash of the repository's name.
+        key = int.from_bytes(hashlib.sha256(repo.encode()).digest()[:4], "big", signed=True)
+        session.one(
+            "SELECT pg_advisory_xact_lock(CAST(? AS INTEGER), CAST(? AS INTEGER))",
+            (_REPO_LOCKS, key),
+        )
 
     @contextmanager
     def session(self, write: bool = True) -> Iterator[Session]:

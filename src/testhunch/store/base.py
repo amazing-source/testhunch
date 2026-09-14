@@ -19,6 +19,7 @@ from testhunch.models import (
     FailingTest,
     FileChange,
     FlakyTest,
+    History,
     IngestOutcome,
     RankedTest,
     RunInput,
@@ -27,13 +28,19 @@ from testhunch.models import (
     SlowTest,
     Status,
 )
+from testhunch.prioritize import add_failure
 
 Row = tuple[Any, ...]
 Params = Sequence[Any]
 Migration = tuple[int, str]
+# A test's outcome in a run, for its build history: its id, its status and its duration.
+Outcome = tuple[int, Status, int | None]
 
 _MIGRATION_FILE = re.compile(r"(\d{4})_[a-z0-9_]+\.sql")
 _FAILED = "('failed', 'error')"
+
+# The migration that creates the build history, which is then rebuilt from the stored runs.
+BUILD_HISTORY_VERSION = 5
 
 # Values per `IN (...)` list, well below the bound-parameter limits of both databases
 # (32766 for SQLite, 65535 for Postgres).
@@ -89,6 +96,10 @@ class SqlStore(ABC):
     def _lock_for_migration(self, session: Session) -> None:
         """Stop two processes from migrating the same database at the same time."""
 
+    @abstractmethod
+    def _lock_repo(self, session: Session, repo: str) -> None:
+        """Stop two ingests of the same repository from reading its build history at once."""
+
     @property
     @abstractmethod
     def _migrations_table_ddl(self) -> str: ...
@@ -112,6 +123,9 @@ class SqlStore(ABC):
                     raise StoreError(f"migration {version:04d} failed: {exc}") from exc
                 s.run("INSERT INTO schema_migrations (version) VALUES (?)", (version,))
                 applied.append(version)
+            if BUILD_HISTORY_VERSION in applied:
+                # Once every pending migration is in, so that the rebuild reads the schema it knows.
+                self._rebuild_build_history(s)
         return applied
 
     def ping(self) -> None:
@@ -127,6 +141,7 @@ class SqlStore(ABC):
             raise ValueError("run contains duplicate test keys; collapse results first")
 
         with self.session() as s:
+            self._lock_repo(s, run.repo)
             row = s.one(
                 "INSERT INTO runs (repo, commit_sha, branch, base_sha, report_digest) "
                 "VALUES (?, ?, ?, ?, ?) "
@@ -177,7 +192,117 @@ class SqlStore(ABC):
                 "INSERT INTO run_changes (run_id, path, change_type, old_path) VALUES (?, ?, ?, ?)",
                 [(run_id, c.path, c.change_type, c.old_path) for c in run.changes],
             )
+            self._record_build(
+                s,
+                run.repo,
+                run.commit_sha,
+                [(test_ids[case.key], case.status, case.duration_ms) for case in run.results],
+            )
         return IngestOutcome(run_id=run_id, created=True, results=len(run.results))
+
+    @staticmethod
+    def _record_build(s: Session, repo: str, commit_sha: str, outcomes: Sequence[Outcome]) -> None:
+        """Add a run's outcomes to its commit's build and to each test's history (ADR 0015).
+
+        The arithmetic is the study engine's (benchmarks/study/history.py), so that the product
+        replay gives its numbers: a test failed in a build when any of its runs failed it, and its
+        duration in the build is the mean of the known ones, rounded half to even.
+        """
+        build = s.one(
+            "SELECT id, number FROM builds WHERE repo = ? AND commit_sha = ?", (repo, commit_sha)
+        )
+        if build is None:
+            build = s.one(
+                "INSERT INTO builds (repo, commit_sha, number) "
+                "SELECT ?, ?, COALESCE(MAX(number) + 1, 0) FROM builds WHERE repo = ? "
+                "RETURNING id, number",
+                (repo, commit_sha, repo),
+            )
+            if build is None:  # pragma: no cover - INSERT ... RETURNING always returns the row
+                raise StoreError("could not record the build")
+        build_id, number = int(build[0]), int(build[1])
+        ran = [outcome for outcome in outcomes if outcome[1] is not Status.SKIPPED]
+        ids = [test_id for test_id, _, _ in ran]
+        in_build = {
+            int(test_id): (bool(failed), int(duration_sum), int(duration_count))
+            for test_id, failed, duration_sum, duration_count in _all_in(
+                s,
+                "SELECT test_id, failed, duration_sum_ms, duration_count FROM build_tests "
+                "WHERE build_id = ? AND test_id IN ({})",
+                [build_id],
+                ids,
+            )
+        }
+        known = {
+            int(row[0]): row[1:]
+            for row in _all_in(
+                s,
+                "SELECT test_id, builds, failures, last_failure, priority, duration_total_ms, "
+                "duration_builds FROM test_history WHERE test_id IN ({})",
+                [],
+                ids,
+            )
+        }
+        build_rows: list[Params] = []
+        history_rows: list[Params] = []
+        for test_id, status, duration in ran:
+            builds, failures, last_failure, priority, total_ms, timed = known.get(
+                test_id, (0, 0, None, 0.0, 0, 0)
+            )
+            builds, failures, priority = int(builds), int(failures), float(priority)
+            last_failure = None if last_failure is None else int(last_failure)
+            total_ms, timed = int(total_ms), int(timed)
+            if test_id in in_build:
+                failed, duration_sum, duration_count = in_build[test_id]
+            else:
+                failed, duration_sum, duration_count = False, 0, 0
+                builds += 1
+            if status.is_failure and not failed:
+                failed = True
+                failures += 1
+                last_failure, priority = add_failure(last_failure, priority, number)
+            if duration is not None:
+                if duration_count:
+                    total_ms -= round(duration_sum / duration_count)
+                else:
+                    timed += 1
+                duration_sum += duration
+                duration_count += 1
+                total_ms += round(duration_sum / duration_count)
+            build_rows.append((build_id, test_id, failed, duration_sum, duration_count))
+            history_rows.append(
+                (test_id, builds, failures, last_failure, priority, total_ms, timed)
+            )
+        s.many(
+            "INSERT INTO build_tests "
+            "(build_id, test_id, failed, duration_sum_ms, duration_count) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT (build_id, test_id) DO UPDATE SET failed = excluded.failed, "
+            "duration_sum_ms = excluded.duration_sum_ms, duration_count = excluded.duration_count",
+            build_rows,
+        )
+        s.many(
+            "INSERT INTO test_history "
+            "(test_id, builds, failures, last_failure, priority, duration_total_ms, "
+            "duration_builds) VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (test_id) DO UPDATE SET builds = excluded.builds, "
+            "failures = excluded.failures, last_failure = excluded.last_failure, "
+            "priority = excluded.priority, duration_total_ms = excluded.duration_total_ms, "
+            "duration_builds = excluded.duration_builds",
+            history_rows,
+        )
+
+    def _rebuild_build_history(self, s: Session) -> None:
+        """Recompute every build and test history from the stored runs, in the order they came."""
+        for table in ("test_history", "build_tests", "builds"):
+            s.run(f"DELETE FROM {table}")
+        for run_id, repo, commit_sha in s.all("SELECT id, repo, commit_sha FROM runs ORDER BY id"):
+            outcomes = [
+                (int(test_id), Status(status), None if duration is None else int(duration))
+                for test_id, status, duration in s.all(
+                    "SELECT test_id, status, duration_ms FROM results WHERE run_id = ?", (run_id,)
+                )
+            ]
+            self._record_build(s, repo, commit_sha, outcomes)
 
     def record_prediction(
         self,
@@ -367,47 +492,33 @@ class SqlStore(ABC):
             )
         return [FailingTest(key, int(f), int(n)) for key, f, n in rows]
 
-    def history(self, repo: str, last_runs: int = 50) -> list[CaseHistory]:
-        """Per-test failure history over the most recent runs, for the prioritizer."""
-        # Two queries that must agree on which runs are "recent": read sessions are snapshot
-        # transactions in both stores, so a run ingested in between cannot appear in only one.
+    def history(self, repo: str) -> History:
+        """Every test that passed or failed, over every build of the repository (ADR 0015)."""
+        # Two queries that must agree: read sessions are snapshot transactions in both stores, so
+        # a build recorded in between cannot appear in only one.
         with self.session(write=False) as s:
-            recent = [
-                int(row[0])
-                for row in s.all(
-                    "SELECT id FROM runs WHERE repo = ? ORDER BY id DESC LIMIT ?",
-                    (repo, last_runs),
-                )
-            ]
-            if not recent:
-                return []
+            newest = s.one("SELECT MAX(number) FROM builds WHERE repo = ?", (repo,))
             rows = s.all(
-                f"""
-                WITH recent AS (SELECT id FROM runs WHERE repo = ? ORDER BY id DESC LIMIT ?)
-                SELECT t.test_key,
-                       t.file,
-                       t.suite,
-                       SUM(CASE WHEN res.status IN {_FAILED} THEN 1 ELSE 0 END) AS failures,
-                       COUNT(*) AS executions,
-                       MAX(CASE WHEN res.status IN {_FAILED} THEN res.run_id END) AS last_failed
-                FROM results res
-                JOIN recent ON recent.id = res.run_id
-                JOIN tests t ON t.id = res.test_id
-                WHERE res.status <> 'skipped'
-                GROUP BY t.test_key, t.file, t.suite
-                ORDER BY t.test_key
-                """,
-                (repo, last_runs),
+                "SELECT t.test_key, t.file, t.suite, h.builds, h.failures, h.last_failure, "
+                "h.priority, h.duration_total_ms, h.duration_builds "
+                "FROM test_history h JOIN tests t ON t.id = h.test_id "
+                "WHERE t.repo = ?",
+                (repo,),
             )
-        position = {run_id: index for index, run_id in enumerate(recent)}
-        return [
+        cases = [
             CaseHistory(
                 key=key,
                 file=file,
+                builds=int(builds),
                 failures=int(failures),
-                executions=int(executions),
-                runs_since_failure=None if last_failed is None else position[int(last_failed)],
+                last_failure=None if last_failure is None else int(last_failure),
+                priority=float(priority),
+                mean_duration_ms=int(total_ms) / int(timed) if timed else None,
                 suite=suite,
             )
-            for key, file, suite, failures, executions, last_failed in rows
+            for key, file, suite, builds, failures, last_failure, priority, total_ms, timed in rows
         ]
+        # Sorted here rather than in SQL, where Postgres would follow the database's collation.
+        cases.sort(key=lambda case: case.key)
+        builds = 0 if newest is None or newest[0] is None else int(newest[0]) + 1
+        return History(builds=builds, cases=tuple(cases))

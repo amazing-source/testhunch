@@ -9,11 +9,11 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any
 
-from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups
+from benchmarks.replay import Job, concurrent_groups
 from benchmarks.study.history import BuildHistory, RunWindow
 from benchmarks.study.metrics import Trial, best_red_at, scores
 from benchmarks.study.rankings import Context, Ranking
-from benchmarks.study.release_020 import CaseHistory
+from benchmarks.study.release_020 import HISTORY_RUNS, CaseHistory
 from testhunch.junit import collapse
 from testhunch.models import CaseResult
 

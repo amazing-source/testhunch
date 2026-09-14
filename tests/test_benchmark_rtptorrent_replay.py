@@ -85,16 +85,34 @@ def test_classes_the_ranking_does_not_know_run_first(store: SqlStore) -> None:
     assert failing_tests(ranked.run.results) == set()
 
 
-def test_changed_files_pull_up_the_matching_class(store: SqlStore) -> None:
+def test_a_changed_test_file_pulls_up_its_class(store: SqlStore) -> None:
     classes = (result("org.example.CartTest"), result("org.example.UserTest"))
     jobs = [
         job(1, "a", *classes),
-        job(2, "b", *classes, changed=("src/main/java/org/example/User.java",)),
+        job(2, "b", *classes, changed=("src/test/java/org/example/UserTest.java",)),
+        job(3, "c", *classes, changed=("src/test/java/org/example/CartTest.java",)),
     ]
 
-    ranked = list(replay(jobs, store, "repo"))[1]
+    ranked = list(replay(jobs, store, "repo"))
 
-    assert ranked.order == ("org.example.UserTest", "org.example.CartTest")
+    assert ranked[1].order == ("org.example.UserTest", "org.example.CartTest")
+    assert ranked[2].order == ("org.example.CartTest", "org.example.UserTest")
+
+
+def test_every_job_of_a_group_is_one_build(store: SqlStore) -> None:
+    jobs = [
+        job(1, "a", result("A"), result("B", Status.FAILED)),
+        job(2, "a", result("A", Status.FAILED), result("B", Status.FAILED)),
+        job(3, "", result("A")),
+        job(4, "", result("A")),
+        job(5, "a", result("A")),  # the same commits later: a build of its own
+    ]
+
+    list(replay(jobs, store, "repo"))
+
+    history = store.history("repo")
+    assert history.builds == 3
+    assert [(c.key, c.builds, c.failures) for c in history.cases] == [("A", 3, 1), ("B", 1, 1)]
 
 
 def test_scoring_jobs_one_at_a_time_adds_up_to_scoring_them_together(store: SqlStore) -> None:

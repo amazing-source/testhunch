@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from testhunch.models import RankedTest
 
+HISTORY_RUNS = 50  # the window of runs 0.2.0 ranked from, by default
 AFFINITY_WEIGHT = 2.0
 _MIN_STEM_LENGTH = 3
 _GENERIC_STEMS = frozenset({"__init__", "conftest", "index", "main", "mod", "setup", "utils"})
