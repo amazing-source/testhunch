@@ -11,6 +11,7 @@ import pytest
 
 from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups, replay
 from benchmarks.rtptorrent.data import load_jobs
+from benchmarks.study.__main__ import main as study_main
 from benchmarks.study.engine import PRIMARY, compare, study
 from benchmarks.study.history import ALPHA, BuildHistory, RunWindow
 from benchmarks.study.metrics import Trial, best_red_at, scores, time_to_catch
@@ -416,3 +417,29 @@ def test_step_four_tries_every_unused_signal_on_the_version_step_three_kept() ->
     unused = len(HISTORY_SIGNALS) + len(PROXIMITY_SIGNALS) - 1  # all but test_file_changed
     assert len(names) == len(set(names)) == 3 * (unused + 1)  # and three windows
     assert not any("test_file_changed" in name.removeprefix(step.current.name) for name in names)
+
+
+def test_only_the_held_out_step_replays_held_out_projects(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for arguments in (
+        ["held-out", "--out", str(tmp_path)],
+        ["step-4", "--held-out", "--out", str(tmp_path)],
+        ["step-4", "--projects", "apache@sling", "--out", str(tmp_path)],
+        ["held-out", "--held-out", "--projects", "dynjs@dynjs", "--out", str(tmp_path)],
+    ):
+        with pytest.raises(SystemExit) as refused:
+            study_main(arguments)
+        assert refused.value.code == 2
+    assert not any(tmp_path.iterdir())
+
+
+def test_the_held_out_step_replays_the_reference_and_every_kept_version() -> None:
+    step = STEPS["held-out"]
+
+    assert [ranking.name for ranking in step.rankings()] == [
+        "latest-failure",
+        "latest-failure+time^1.0",
+        "latest-failure+time^1.0+test_file_changed*0.5",
+        "testhunch-0.2.0",
+    ]

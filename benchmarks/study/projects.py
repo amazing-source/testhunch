@@ -148,11 +148,12 @@ def run_harness(name: str, step: str) -> dict[str, Any]:
     cache = CACHE / "harness"
     repository = clone(project, cache)
     runs_directory = cache / project.slug / "runs"
-    runs = [
-        read_run(runs_directory / sha)
-        for sha in window(repository, project.end, project.window)
-        if (runs_directory / sha / "run.json").exists()
-    ]
+    shas = window(repository, project.end, project.window)
+    missing = [sha for sha in shas if not (runs_directory / sha / "run.json").exists()]
+    if missing:
+        # A partial window would be scored as if it were the project's history.
+        raise RuntimeError(f"{name}: {len(missing)} of {len(shas)} commits are not collected yet")
+    runs = [read_run(runs_directory / sha) for sha in shas]
 
     def mutants(job: Job, results: tuple[CaseResult, ...]) -> list[Trial]:
         commit = ShadowRun(
@@ -188,3 +189,11 @@ def run(task: tuple[str, str, str]) -> dict[str, Any]:
     if source == "rtptorrent":
         return run_rtptorrent(project, step)
     return run_harness(project, step)
+
+
+# The study stopped at step 4 (benchmarks/results/study/step-4.md): the held-out projects are
+# replayed once, for the reference, testhunch 0.2.0 and every version kept (ADR 0013, 0014).
+HELD_OUT_STEP = "held-out"
+STEPS[HELD_OUT_STEP] = Step(
+    LatestFailure(), (STEP_1_KEPT, STEP_3_KEPT), references=(ProductRanking(),)
+)
