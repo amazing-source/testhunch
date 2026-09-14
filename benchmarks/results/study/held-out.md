@@ -56,3 +56,12 @@ Per project, the smallest share of each failing job's test time within which 90%
 | l0rdn1kk0n@wicket-bootstrap | 342 | 0.635 | 0.657 | 0.649 |
 | neuland@jade4j | 96 | 0.752 | 0.730 | 0.671 |
 | SonarSource@sonarqube | 618 | 0.753 | 0.811 | 0.773 |
+
+## Harness held-out projects: primary measure (reported, not deciding)
+
+| Ranking | fastapi/fastapi mutants (22) | ollama/ollama jobs (3) | ollama/ollama mutants (158) |
+|---|---:|---:|---:|
+| latest-failure | 0.941 | 0.997 | 0.937 |
+| latest-failure+time^1.0 | 0.940 | 0.997 | 0.980 |
+| latest-failure+time^1.0+test_file_changed*0.5 | 0.939 | 0.997 | 0.980 |
+| testhunch-0.2.0 | 0.913 | 0.997 | 0.889 |
