@@ -1,4 +1,4 @@
-"""Replay a CI history through testhunch and score its rankings (docs/adr/0010, 0011).
+"""Replay a CI history through testhunch and score its rankings (docs/adr/0010, 0011, 0015).
 
 Every job is ranked from the history recorded before it, with testhunch's own ranking, then its
 results are recorded, as they would have been in CI.
@@ -10,12 +10,10 @@ from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, fields
 
 from testhunch.junit import collapse
-from testhunch.models import CaseResult, RunInput, ShadowResult, ShadowRun
+from testhunch.models import CaseResult, History, RunInput, ShadowResult, ShadowRun
 from testhunch.prioritize import rank
 from testhunch.shadow import ShadowPoint
 from testhunch.store import SqlStore
-
-HISTORY_RUNS = 50  # the window `testhunch prioritize` and the Action use by default
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,19 +48,27 @@ def concurrent_groups(jobs: Iterable[Job]) -> Iterator[list[Job]]:
 
 
 def replay(jobs: Iterable[Job], store: SqlStore, repo: str) -> Iterator[RankedJob]:
-    """Rank every job from the history before its group, then record the group's results.
+    """Rank every job from the builds before its group, then record the group's results.
 
+    A group is one build, as in the study's engine: the store sees it as a commit of its own. Each
+    job is ranked on its own tests, seeded with its id, as the engine ranks a job (ADR 0015).
     Lazy, so that a project's jobs need not all be in memory: each job is yielded once recorded.
     """
     for number, group in enumerate(concurrent_groups(jobs)):
-        history = store.history(repo, HISTORY_RUNS)
-        rankings = [(job, rank(history, job.changed_files or ())) for job in group]
-        for job, ranking in rankings:
-            results = collapse(job.results)
+        history = store.history(repo)
+        commit = f"group-{number}:{','.join(sorted(group[0].commits))}"
+        collapsed = [collapse(job.results) for job in group]
+        rankings = []
+        for job, results in zip(group, collapsed, strict=True):
+            tests = {result.key for result in results}
+            # Only the job's tests, so that a test with no known duration gets their median.
+            own = History(history.builds, tuple(c for c in history.cases if c.key in tests))
+            rankings.append(rank(own, job.changed_files or (), seed=str(job.job_id)))
+        for job, results, ranking in zip(group, collapsed, rankings, strict=True):
             store.ingest(
                 RunInput(
                     repo=repo,
-                    commit_sha=",".join(sorted(job.commits)) or f"unknown-commit:{job.job_id}",
+                    commit_sha=commit,
                     report_digest=str(job.job_id),
                     results=results,
                 )
@@ -79,7 +85,7 @@ def replay(jobs: Iterable[Job], store: SqlStore, repo: str) -> Iterator[RankedJo
                     for r in results
                 ),
             )
-            yield RankedJob(job, run, tuple(order), cold=not history, group=number)
+            yield RankedJob(job, run, tuple(order), cold=history.builds == 0, group=number)
 
 
 def apfd(order: Sequence[str], failing: Iterable[str]) -> float | None:

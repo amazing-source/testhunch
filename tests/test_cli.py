@@ -6,11 +6,15 @@ import argparse
 import json
 import shutil
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from testhunch.cli import main, markdown_code, parse_budget, parse_share
+from testhunch.junit import parse_reports
+from testhunch.models import RunInput, Status
+from testhunch.prioritize import rank
 from testhunch.store import open_store
 
 FIXTURES = Path(__file__).parent / "fixtures" / "junit"
@@ -58,10 +62,21 @@ def test_ingest_then_report_then_prioritize(
         "tests.test_sample::test_errors_in_teardown",
     }
 
-    assert main(["prioritize", "--format", "json", "--changed", "src/sample.py", *common]) == 0
+    changed = ["--changed", "tests/test_sample.py"]
+    assert main(["prioritize", "--format", "json", *changed, *common]) == 0
     ranked = json.loads(capsys.readouterr().out)
     assert len(ranked) == 8  # the skipped test never ran, so it has no history yet
-    assert ranked[0]["reasons"][0] == "matches changed file sample"
+    # The quickest of the failures in a changed file: 0 ms, where test_fails took 1 ms.
+    assert {r["key"] for r in ranked[:3]} == {
+        "tests.test_sample::test_parametrized[2]",
+        "tests.test_sample::test_errors_in_setup",
+        "tests.test_sample::test_errors_in_teardown",
+    }
+    assert ranked[0]["reasons"] == [
+        "failed in the latest build",
+        "its file changed",
+        "takes about 0 ms",
+    ]
 
 
 def test_ingest_records_changes_against_a_base(
@@ -132,10 +147,35 @@ def test_markdown_formats_for_job_summaries(
         "### testhunch ranking for acme/shop\n\n"
         "Top 2 of 8 tests for 1 changed file(s).\n\n"
         "| # | Score | Test | Why |\n|---:|---:|---|---|\n"
-        "| 1 | 4.000 | `tests.test_sample::test_errors_in_setup` | matches changed file sample; "
-        "failed in the latest run; failed 1 of 1 runs |\n"
+        "| 1 | 0.8 | `tests.test_sample::"
     )
+    # Which of the equal scores comes first follows the commit, which differs at every test run.
+    assert ranking.endswith("` | failed in the latest build; takes about 0 ms |\n")
     assert ranking.count("\n| ") == 3  # header and two rows
+
+
+def test_prioritize_seeds_equal_scores_with_the_commit_about_to_be_tested(
+    workdir: Path, sqlite_url: str, git: Git, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    first = git(workdir, "rev-parse", "HEAD")
+    next_commit(workdir, git)
+    head = git(workdir, "rev-parse", "HEAD")
+    history = open_store(sqlite_url).history("acme/shop")
+    capsys.readouterr()
+
+    def keys(*args: str) -> list[str]:
+        assert main(["prioritize", "--format", "keys", *args, *common]) == 0
+        return capsys.readouterr().out.splitlines()
+
+    def seeded(seed: str) -> list[str]:
+        return [ranked.key for ranked in rank(history, seed=seed)]
+
+    assert keys() == keys("--commit", head[:12]) == seeded(head)
+    assert keys("--commit", first) == seeded(first)
+    # For a commit git cannot resolve, the value given seeds as it is.
+    assert keys("--commit", "not-a-commit") == seeded("not-a-commit")
 
 
 def test_shadow_mode_from_recorded_ranking_to_report(
@@ -296,13 +336,18 @@ def test_select_for_vitest_uses_the_current_test_list(
     common = ["--db", sqlite_url, "--repo", "acme/shop"]
     assert main(["ingest", "vitest.xml", *common]) == 0
     capsys.readouterr()
+    # billing's test then fails in a later build: it ranks first, and is the one test 10% keeps.
+    results, _ = parse_reports([(sample / "full.xml").read_bytes()])
+    (billing,) = [r for r in results if r.key.startswith("src/billing.test.js")]
+    failed = (replace(billing, status=Status.FAILED),)
+    open_store(sqlite_url).ingest(RunInput("acme/shop", "later", "billing-failed", failed))
 
     select = ["select", "--budget", "10%", "--runner", "vitest", "--vitest-list", "list.json"]
     assert main([*select, "--learning-runs", "0%", *common]) == 0
     out = capsys.readouterr()
     assert out.out.startswith("^(?!(?:") and out.out.endswith(")$)")
     names = out.out.removeprefix("^(?!(?:").removesuffix(")$)").split("|")
-    # The same full name exists in two files: it cannot be filtered out alone.
+    # cart's test has the full name of billing's, which runs: it cannot be filtered out alone.
     assert "cart total > sums prices" not in names
     assert "cart total > sums prices twice" in names
     assert "run anyway" in out.err

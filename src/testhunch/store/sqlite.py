@@ -49,6 +49,9 @@ class SQLiteStore(SqlStore):
     def _lock_for_migration(self, session: Session) -> None:
         pass  # write sessions already hold SQLite's write lock (BEGIN IMMEDIATE)
 
+    def _lock_repo(self, session: Session, repo: str) -> None:
+        pass  # the same write lock
+
     @contextmanager
     def session(self, write: bool = True) -> Iterator[Session]:
         self.path.parent.mkdir(parents=True, exist_ok=True)

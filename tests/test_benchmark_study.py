@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import itertools
+import json
 import random
 from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
 
-from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups, replay
+from benchmarks.replay import Job, concurrent_groups, replay
 from benchmarks.rtptorrent.data import load_jobs
 from benchmarks.study.__main__ import main as study_main
-from benchmarks.study.engine import PRIMARY, compare, study
+from benchmarks.study.engine import PRIMARY, compare, job_trial, study
 from benchmarks.study.history import ALPHA, BuildHistory, RunWindow
 from benchmarks.study.metrics import Trial, best_red_at, scores, time_to_catch
 from benchmarks.study.projects import STEPS
@@ -28,6 +29,7 @@ from benchmarks.study.rankings import (
     product_order,
     tie,
 )
+from benchmarks.study.release_020 import HISTORY_RUNS
 from testhunch.junit import collapse
 from testhunch.models import CaseResult, Status
 from testhunch.store import SqlStore, open_store
@@ -162,36 +164,62 @@ def _engine_product_orders(jobs: list[Job]) -> list[list[str]]:
     return orders
 
 
-def test_the_engine_orders_every_extract_job_as_the_product_replay(store: SqlStore) -> None:
+def _engine_final_orders(jobs: list[Job]) -> list[list[str]]:
+    """The order the study's final version gives every job, as the engine replays them."""
+    final = STEPS["step-4"].current
+    builds = BuildHistory()
+    orders = []
+    for group in concurrent_groups(jobs):
+        collapsed = [collapse(job.results) for job in group]
+        context = Context(builds, list)
+        for job, results in zip(group, collapsed, strict=True):
+            orders.append(final.order(job_trial(job, results), context)[0])
+        builds.record(collapsed, [path for job in group for path in job.changed_files or ()])
+    return orders
+
+
+def test_the_product_replay_orders_every_extract_job_as_the_final_version(store: SqlStore) -> None:
     jobs = load_jobs(EXTRACT)
 
-    expected = [list(ranked.order) for ranked in replay(jobs, store, "adamfisk@LittleProxy")]
+    replayed = [list(ranked.order) for ranked in replay(jobs, store, "adamfisk@LittleProxy")]
 
-    assert _engine_product_orders(jobs) == expected
+    assert STEPS["step-4"].current.name == "latest-failure+time^1.0+test_file_changed*0.5"
+    assert replayed == _engine_final_orders(jobs)
 
 
-def test_the_engine_window_forgets_runs_and_keeps_files_as_the_store(store: SqlStore) -> None:
+def test_the_product_replay_orders_a_synthetic_history_as_the_final_version(
+    store: SqlStore,
+) -> None:
     rng = random.Random(11)
     names = ["cart", "user", "store", "restore", "order"]
     jobs = []
-    for index in range(130):  # well past the 50-run window
-        results = tuple(
-            result(
-                f"tests/test_{name}.py::test_{n}",
-                rng.choice([Status.PASSED, Status.PASSED, Status.FAILED, Status.SKIPPED]),
-                file=None if rng.random() < 0.2 else f"tests/test_{name}.py",
-            )
-            for name in names
-            for n in range(2)
-            if rng.random() < 0.7
-        )
-        commits = frozenset({f"c{index // rng.choice([1, 2])}"})
-        changed = (f"src/{rng.choice(names)}.py",)
-        jobs.append(Job(index, commits, changed, results))
+    for index in range(130):
+        results = []
+        for name in names:
+            for n in range(3):
+                if rng.random() < 0.3:
+                    continue
+                status = rng.choice([Status.PASSED, Status.PASSED, Status.FAILED, Status.SKIPPED])
+                # A skipped result carries no file: the engine takes a test's file only from the
+                # builds it ran in, the store from any result (docs/adr/0015).
+                known_file = status is not Status.SKIPPED and rng.random() < 0.8
+                results.append(
+                    result(
+                        f"tests/test_{name}.py::test_{n}",
+                        status,
+                        rng.choice([None, 0, 1, 2, 3, 10, 11, 250]),
+                        file=f"tests/test_{name}.py" if known_file else None,
+                    )
+                )
+        # Consecutive jobs of a commit form one build; some commits come back later.
+        commits = frozenset({f"c{index // rng.choice([1, 2, 3])}"})
+        changed = (f"src/{rng.choice(names)}.py", f"tests/test_{rng.choice(names)}.py")
+        jobs.append(Job(index, commits, changed if rng.random() < 0.8 else None, tuple(results)))
 
-    expected = [list(ranked.order) for ranked in replay(jobs, store, "repo")]
+    replayed = [list(ranked.order) for ranked in replay(jobs, store, "repo")]
 
-    assert _engine_product_orders(jobs) == expected
+    assert replayed == _engine_final_orders(jobs)
+    assert store.history("repo").builds == len(list(concurrent_groups(jobs)))
 
 
 def test_the_study_scores_every_ranking_on_the_same_trials_and_skips_the_cold_group() -> None:
@@ -443,3 +471,16 @@ def test_the_held_out_step_replays_the_reference_and_every_kept_version() -> Non
         "latest-failure+time^1.0+test_file_changed*0.5",
         "testhunch-0.2.0",
     ]
+
+
+def test_the_frozen_copy_orders_the_extract_as_testhunch_0_2_0_did() -> None:
+    recorded = json.loads(
+        (
+            Path(__file__).parent / "fixtures" / "study" / "littleproxy-orders-testhunch-0.2.0.json"
+        ).read_text(encoding="utf-8")
+    )
+    jobs = load_jobs(EXTRACT)
+
+    orders = _engine_product_orders(jobs)
+
+    assert {str(job.job_id): order for job, order in zip(jobs, orders, strict=True)} == recorded

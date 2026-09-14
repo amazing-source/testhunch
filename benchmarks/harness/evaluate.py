@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from benchmarks.harness.collect import CommitRun, MutantRun, Project
-from benchmarks.replay import HISTORY_RUNS, Job, RankedJob, add_points, replay
+from benchmarks.replay import Job, RankedJob, add_points, replay
 from testhunch import __version__
 from testhunch.gitinfo import GitError, changed_files, rev_parse
 from testhunch.junit import collapse, parse_report
@@ -103,7 +103,6 @@ def run_project(project: Project, repository: Path, runs: Sequence[CommitRun]) -
         "window": project.window,
         "images": sorted({run.image_id for run in runs}),
         "testhunch": {"version": __version__, "commit": _commit()},
-        "history_runs": HISTORY_RUNS,
         "commits": {
             "collected": len(runs),
             "built": total,

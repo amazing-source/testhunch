@@ -27,7 +27,9 @@ inputs:
     required: false
     default: ""
   last:
-    description: How many recent runs to learn from.
+    description: >-
+      For `ingest`: how many recent runs the report and shadow summaries look back over. The
+      ranking learns from every recorded build.
     required: false
     default: "50"
   summary-limit:

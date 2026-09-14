@@ -12,9 +12,9 @@ n'est donc lié à aucun langage ni framework. Il est testé sur de vrais rappor
 Jest, Go (gotestsum), Java (Maven Surefire) et Rust (cargo-nextest).
 
 > **Statut : pré-alpha.** Le pipeline de données (ingestion, stockage, rapports sur les tests
-> instables et en échec) et un classement de référence simple et explicable fonctionnent dès
-> aujourd'hui, et le benchmark public mesure ce classement ([résultats](#ce-qui-a-été-mesuré)). Le
-> modèle appris est prévu dans la [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md).
+> instables et en échec) et un classement simple et explicable fonctionnent dès aujourd'hui, et le
+> benchmark public le mesure ([résultats](#ce-qui-a-été-mesuré)). Le modèle appris est prévu dans la
+> [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md).
 
 ## Pourquoi
 
@@ -58,7 +58,13 @@ flowchart LR
    compris quand une relance réussit dans la même exécution), les tests lents et les tests en
    échec.
 3. `testhunch prioritize` classe les tests selon les fichiers que vous avez modifiés, et explique
-   pourquoi chacun arrive à cette place.
+   pourquoi chacun arrive à cette place. Le score est celui qu'une étude comparative a retenu
+   ([ADR 0014](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0014-the-ranking-study-measures-time-to-red-against-latest-failure.md),
+   [ADR 0015](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0015-testhunch-ranks-by-latest-failure-per-unit-of-time.md)) :
+   la récence des échecs du test, plus un bonus si le changement touche son propre fichier, le tout
+   **divisé par sa durée habituelle**. Un test rapide qui peut échouer passe donc devant un test
+   lent qui peut échouer autant. Tout est compté en builds, pas en exécutions : les nombreux jobs
+   d'un même build ne pèsent qu'une fois.
 4. **Mode fantôme** : avec `prioritize --record` avant les tests, le classement est enregistré
    pour ce commit ; tous les tests tournent quand même. Ensuite, `testhunch shadow` mesure ce
    qu'aurait manqué le fait de ne lancer que les 10 %, 25 % ou 50 % de tests les mieux classés :
@@ -68,10 +74,41 @@ flowchart LR
 
 ## Ce qui a été mesuré
 
-Le classement de référence a été rejoué sur de vrais historiques de CI : chaque exécution est
-classée uniquement à partir de celles terminées avant elle, avec le vrai code de testhunch. Tous les
-chiffres, projet par projet, y compris ceux où testhunch s'en sort mal, sont dans
+Le classement a été rejoué sur de vrais historiques de CI : chaque exécution est classée uniquement
+à partir de celles terminées avant elle, avec le vrai code de testhunch. Tous les chiffres, projet
+par projet, y compris ceux où testhunch s'en sort mal, sont dans
 [benchmarks/results](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md).
+
+Deux campagnes, avec deux classements différents : lisez bien lequel est mesuré.
+
+### Le classement actuel, face à « les tests qui ont échoué récemment d'abord »
+
+Le vrai risque de ce projet était que testhunch n'apporte rien de plus que cette stratégie très
+simple. Une étude par ajouts successifs l'a mesuré ([ADR 0014](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0014-the-ranking-study-measures-time-to-red-against-latest-failure.md)) :
+réglages sur 10 projets RTPTorrent, puis **une seule mesure** sur 10 autres projets, jamais regardés
+pendant les réglages ([ADR 0013](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0013-development-projects-tune-held-out-projects-measure.md)).
+Mesure principale : l'APFDc d'un job, tous ses échecs comptant pour une faute, c'est-à-dire la
+vitesse à laquelle le build devient rouge. Détail : [held-out.md](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/study/held-out.md).
+
+| Classement, sur les 10 projets mis de côté | APFDc | Temps de test pour rattraper 90 % des builds cassés |
+|---|---:|---:|
+| meilleur ordre possible, connu après coup | – | 49 % |
+| **testhunch, classement actuel** | **0,840** | **58 %** |
+| les tests qui ont échoué récemment d'abord | 0,812 | 66 % |
+| testhunch 0.2.0 | 0,797 | 70 % |
+
+Face à « échoué récemment », l'écart est de **+0,028** (intervalle de confiance à 95 % :
+[+0,012, +0,051], meilleur sur 9 projets sur 10). La durée des tests apporte l'essentiel du gain :
++0,019 à elle seule, meilleure sur les 10 projets. Le bonus « le fichier du test est modifié » n'a
+été retenu que de justesse, pendant les réglages : +0,012, intervalle [+0,000, +0,028], meilleur sur
+6 projets sur 10 ([étape 3](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/study/step-3.md)).
+Sur le banc d'essai mis de côté, le classement actuel obtient 0,980 contre 0,937 sur les 158 mutants
+d'ollama/ollama, et fait jeu égal sur les 22 mutants de fastapi/fastapi.
+
+### Les budgets, mesurés avec le classement de la 0.2.0
+
+Ces chiffres-là datent de la phase 3 et n'ont **pas encore été refaits** avec le classement actuel ;
+c'est la prochaine étape de la [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md).
 
 **RTPTorrent**, 20 projets Java et 110 126 jobs Travis CI réels, résultats par classe de test. En ne
 lançant que 25 % des classes connues (les inconnues tournent toujours), le projet médian :
@@ -80,16 +117,11 @@ lançant que 25 % des classes connues (les inconnues tournent toujours), le proj
 - lance **75 %** de ses classes en échec ;
 - pour **44 %** de son temps de test (67 % pour le pire).
 
-Comme ordre d'exécution, testhunch fait mieux que l'ordre d'origine et l'aléatoire sur les 20
-projets. Il reste en revanche **derrière la simple stratégie « lancer d'abord les tests qui ont
-échoué récemment »** : APFD moyen de 0,832 contre 0,847, et devant elle sur seulement 10 projets
-sur 20.
-
 **Banc d'essai**, 200 commits de pallets/click (pytest) et 200 de spf13/cobra (Go), résultats par
 test :
 
 - Des mutants d'un seul jeton ont été glissés dans les lignes que chaque commit a changées. À 25 %
-  des tests, testhunch rattrape **92 %** des mutants détectés sur click (pour 23 % du temps de test)
+  des tests, la 0.2.0 rattrape **92 %** des mutants détectés sur click (pour 23 % du temps de test)
   et **84 %** sur cobra.
 - La seule vraie régression de ces historiques, un commit de click annulé le jour même, est
   **manquée à tous les budgets** : les tests cassés n'avaient jamais échoué, et leur nom ne
@@ -107,15 +139,21 @@ uvx testhunch prioritize --base origin/main
 L'historique est conservé dans `.testhunch/history.db` (SQLite), sauf si vous indiquez une autre
 base avec `--db` ou `TESTHUNCH_DATABASE_URL`, par exemple `postgresql://user@host/db`.
 
-Sortie réelle, obtenue avec deux exécutions de l'exemple pytest de
-[`tests/fixtures`](https://github.com/amazing-source/testhunch/tree/main/tests/fixtures/junit) :
+Sortie réelle, obtenue en ingérant l'exemple pytest de
+[`tests/fixtures`](https://github.com/amazing-source/testhunch/tree/main/tests/fixtures/junit) sur
+deux commits :
 
 ```text
-$ testhunch prioritize --changed src/sample/parametrized.py --limit 3
-   1.  4.000  tests.test_sample::test_parametrized[2]  (matches changed file parametrized; failed in the latest run; failed 2 of 2 runs)
-   2.  2.000  tests.test_sample::test_errors_in_setup  (failed in the latest run; failed 2 of 2 runs)
-   3.  2.000  tests.test_sample::test_errors_in_teardown  (failed in the latest run; failed 2 of 2 runs)
+$ testhunch prioritize --changed tests/test_sample.py --limit 4
+   1.      1.46  tests.test_sample::test_parametrized[2]  (failed in the latest build; its file changed; takes about 0 ms)
+   2.      1.46  tests.test_sample::test_errors_in_setup  (failed in the latest build; its file changed; takes about 0 ms)
+   3.      1.46  tests.test_sample::test_errors_in_teardown  (failed in the latest build; its file changed; takes about 0 ms)
+   4.      0.73  tests.test_sample::test_fails  (failed in the latest build; its file changed; takes about 1 ms)
 ```
+
+Ces quatre tests ont le même historique ; seule leur durée les sépare, et `test_fails`, deux fois
+plus lent, passe après. À score égal, l'ordre suit le commit sur le point d'être testé (`--commit`,
+`HEAD` par défaut), pour ne pas toujours favoriser les mêmes tests.
 
 ### Obtenir du JUnit XML depuis votre lanceur de tests
 
@@ -176,7 +214,7 @@ L'Action de ce dépôt classe les tests avant qu'ils tournent, enregistre leurs 
 | `reports` | Pour `ingest` : fichiers JUnit XML ou motifs glob, un par ligne |
 | `base` | Référence à comparer pour trouver les fichiers modifiés ; par défaut, la branche de base de la pull request |
 | `database-url` | Où garder l'historique ; par défaut un fichier SQLite qui disparaît à la fin du job |
-| `last` | Nombre d'exécutions récentes prises en compte (50) |
+| `last` | Pour `ingest` : nombre d'exécutions récentes couvertes par les résumés (50). Le classement, lui, apprend de tous les builds enregistrés |
 | `summary-limit` | Nombre de tests affichés dans le résumé de `prioritize` (20) |
 | `record` | Pour `prioritize` : enregistrer le classement pour le mode fantôme (`true` par défaut) |
 
@@ -288,7 +326,7 @@ curl http://localhost:8000/readyz
 |---|---|
 | `POST /v1/runs` | Envoyer des rapports : fichiers `reports` en multipart et JSON `metadata` (`repo`, `commit_sha`, et en option `branch`, `base_sha`, `changes`) |
 | `GET /v1/report?repo=owner/name` | Tests instables, les plus lents et en échec |
-| `POST /v1/prioritize` | Tests classés pour `repo` et `changed_paths` |
+| `POST /v1/prioritize` | Tests classés pour `repo` et `changed_paths` ; `commit_sha` départage les scores égaux, `limit` tronque |
 | `GET /healthz`, `GET /readyz` | Vivacité, et disponibilité (base de données comprise) |
 
 Définissez `TESTHUNCH_API_TOKEN` pour exiger `Authorization: Bearer <token>` sur `/v1`. Sans jeton,

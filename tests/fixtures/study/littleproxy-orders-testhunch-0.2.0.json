@@ -1,0 +1,803 @@
+{
+ "1053609": [
+  "org.littleshoot.proxy.HttpProxyTest"
+ ],
+ "1141195": [
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.HttpProxyTest"
+ ],
+ "1141198": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1272242": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1272352": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1278918": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1470069": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1470094": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.ProxyChainTest"
+ ],
+ "1470168": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.ProxyChainTest"
+ ],
+ "1585831": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1585873": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1716613": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "1975205": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2276086": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2276228": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2286063": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2288526": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2290276": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2290433": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2291195": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2291223": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2328628": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2334284": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2334345": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest"
+ ],
+ "2334497": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest"
+ ],
+ "2334867": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2336884": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2337643": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2337818": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2363072": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2363457": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2363506": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2373545": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2415598": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2826445": [
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2827091": [
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2856725": [
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2856867": [
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "2889118": [
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3060468": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3613936": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3614023": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3614170": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3710969": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3716744": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3716958": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3775941": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3776291": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3867256": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3876289": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3941768": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "3942134": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4115616": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4178615": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4222062": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4222300": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4289459": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4299784": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4299909": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4399638": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4419242": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4420247": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4420253": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4526854": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4584981": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4595977": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4628724": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4685934": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4685952": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "4868236": [
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "5264201": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "5395832": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "5395932": [
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "5777519": [
+  "org.littleshoot.proxy.HttpsFilterTest",
+  "proxy",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest"
+ ],
+ "5898406": [
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest"
+ ],
+ "6029914": [
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest"
+ ],
+ "6029924": [
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest"
+ ],
+ "6198567": [
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest"
+ ],
+ "6198678": [
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest"
+ ],
+ "6199329": [
+  "org.littleshoot.proxy.HttpProxyTest",
+  "org.littleshoot.proxy.EndToEndStoppingTest",
+  "org.littleshoot.proxy.HttpFilterTest",
+  "org.littleshoot.proxy.DefaultProxyCacheManagerTest",
+  "org.littleshoot.proxy.HttpRequestPathMatcherTest",
+  "org.littleshoot.proxy.ProxyChainTest",
+  "org.littleshoot.proxy.ProxyUtilsTest",
+  "org.littleshoot.proxy.RegexHttpRequestFilterTest",
+  "org.littleshoot.proxy.VariableSpeedClientServerTest"
+ ]
+}

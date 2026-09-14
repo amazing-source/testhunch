@@ -60,7 +60,8 @@ class IngestResponse(BaseModel):
 class PrioritizeRequest(BaseModel):
     repo: str = Field(min_length=1, max_length=200)
     changed_paths: list[str] = Field(default_factory=list, max_length=100_000)
-    last_runs: int = Field(default=50, ge=1, le=1000)
+    # The commit about to be tested, which orders equal scores as `testhunch prioritize` does.
+    commit_sha: str | None = Field(default=None, pattern=_SHA)
     limit: int | None = Field(default=None, ge=1)
 
 
@@ -154,7 +155,7 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
 
     @v1.post("/prioritize")
     def prioritize(body: PrioritizeRequest) -> list[dict[str, Any]]:
-        ranked = rank(store.history(body.repo, body.last_runs), body.changed_paths)
+        ranked = rank(store.history(body.repo), body.changed_paths, seed=body.commit_sha or "")
         return [asdict(r) for r in ranked[: body.limit]]
 
     app.include_router(v1)
