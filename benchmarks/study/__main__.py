@@ -62,8 +62,8 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
         "only (docs/adr/0013). Primary measure: APFDc with a job's failures as one fault, averaged "
         "per project over its failing jobs ranked from a non-empty history, then over the "
         f"{len(rtptorrent)} RTPTorrent projects. A candidate beats the current version when the "
-        "95% bootstrap interval of the mean difference is above 0 and it scores higher on at least "
-        "6 of 10 projects.",
+        "95% bootstrap interval of the mean difference is above 0, the mean difference is at least "
+        "0.005, and it scores higher on at least 6 of 10 projects.",
         "",
         "| Ranking | Role | Primary | Difference | 95% interval | Higher on | Beats current |",
         "|---|---|---:|---:|---|---:|---|",

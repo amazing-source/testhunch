@@ -17,6 +17,8 @@ from testhunch.junit import collapse
 from testhunch.models import CaseHistory, CaseResult
 
 PRIMARY = "apfdc_one_fault"
+# The smallest mean improvement that counts (ADR 0014, amended after step 2).
+MIN_DIFFERENCE = 0.005
 MutantTrials = Callable[[Job, tuple[CaseResult, ...]], list[Trial]]
 
 
@@ -118,8 +120,9 @@ def compare(
 ) -> dict[str, Any]:
     """Whether `after` beats `before` over the same projects (ADR 0014).
 
-    The mean of the per-project differences needs a 95% percentile bootstrap interval above 0,
-    and `after` must score higher on at least 60% of the projects (6 of 10).
+    The mean of the per-project differences needs a 95% percentile bootstrap interval above 0 and
+    a value of at least `MIN_DIFFERENCE`, and `after` must score higher on at least 60% of the
+    projects (6 of 10).
     """
     if set(before) != set(after) or not before:
         raise ValueError("both need scores for the same projects")
@@ -137,6 +140,8 @@ def compare(
         "interval": [low, high],
         "higher_on": wins,
         "projects": len(projects),
-        "beats": low > 0 and wins >= math.ceil(0.6 * len(projects)),
+        "beats": low > 0
+        and wins >= math.ceil(0.6 * len(projects))
+        and statistics.fmean(differences) >= MIN_DIFFERENCE,
         "differences": dict(zip(projects, differences, strict=True)),
     }

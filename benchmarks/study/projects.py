@@ -74,6 +74,11 @@ STEPS = {
         references=(ProductRanking(),),
     ),
 }
+# Kept by step 1 (benchmarks/results/study/step-1.md).
+STEP_1_KEPT = Candidate("latest-failure+time^1.0", time_exponent=1.0)
+STEPS["step-2"] = Step(
+    STEP_1_KEPT, additions(STEP_1_KEPT), references=(LatestFailure(), ProductRanking())
+)
 
 
 def rankings(step: str) -> list[Ranking]:
