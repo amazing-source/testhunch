@@ -1,0 +1,95 @@
+{
+  "project": "adamfisk@LittleProxy",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "adamfisk@LittleProxy",
+    "members_crc32": {
+      "rtp-torrent/adamfisk@LittleProxy/adamfisk@LittleProxy.csv": "4c452750",
+      "rtp-torrent/adamfisk@LittleProxy/adamfisk@LittleProxy-patches.csv": "bf54f21c",
+      "rtp-torrent/adamfisk@LittleProxy/adamfisk@LittleProxy-offenders.csv": "dc29ee77",
+      "rtp-torrent/adamfisk@LittleProxy/baseline/LittleProxy@untreated.csv": "c07133cd",
+      "rtp-torrent/adamfisk@LittleProxy/baseline/LittleProxy@random.csv": "2e306728",
+      "rtp-torrent/adamfisk@LittleProxy/baseline/LittleProxy@recently-failed.csv": "1e121854",
+      "rtp-torrent/adamfisk@LittleProxy/baseline/LittleProxy@matrix-naive.csv": "20e2bb96",
+      "rtp-torrent/adamfisk@LittleProxy/baseline/LittleProxy@matrix-conditional-prob.csv": "fde99569",
+      "rtp-torrent/adamfisk@LittleProxy/baseline/LittleProxy@optimal-failure.csv": "e5ea6577",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 581,
+    "concurrent_groups": 293,
+    "ranked_from_empty_history": 1,
+    "without_commit": 150,
+    "evaluated": 580,
+    "evaluated_failing": 77
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 580,
+      "failing_runs": 77,
+      "caught_runs": 46,
+      "failures": 187,
+      "caught_failures": 59,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 1842,
+      "tests_total": 14753,
+      "time_run_ms": 13399715,
+      "time_total_ms": 76810511
+    },
+    {
+      "fraction": 0.25,
+      "runs": 580,
+      "failing_runs": 77,
+      "caught_runs": 59,
+      "failures": 187,
+      "caught_failures": 103,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 4192,
+      "tests_total": 14753,
+      "time_run_ms": 26280073,
+      "time_total_ms": 76810511
+    },
+    {
+      "fraction": 0.5,
+      "runs": 580,
+      "failing_runs": 77,
+      "caught_runs": 69,
+      "failures": 187,
+      "caught_failures": 162,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 7809,
+      "tests_total": 14753,
+      "time_run_ms": 53921559,
+      "time_total_ms": 76810511
+    }
+  ],
+  "apfd": {
+    "jobs": 62,
+    "mean": {
+      "testhunch": 0.6663773003236338,
+      "untreated": 0.46096354782886884,
+      "random": 0.47311510696732895,
+      "recently-failed": 0.7049999737349261,
+      "matrix-naive": 0.6635119463738295,
+      "matrix-conditional-prob": 0.6477690379364238,
+      "optimal-failure": 0.9102588933123149
+    }
+  }
+}

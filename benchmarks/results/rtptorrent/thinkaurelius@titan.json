@@ -1,0 +1,95 @@
+{
+  "project": "thinkaurelius@titan",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "thinkaurelius@titan",
+    "members_crc32": {
+      "rtp-torrent/thinkaurelius@titan/thinkaurelius@titan.csv": "31b817f1",
+      "rtp-torrent/thinkaurelius@titan/thinkaurelius@titan-patches.csv": "6daeaf69",
+      "rtp-torrent/thinkaurelius@titan/thinkaurelius@titan-offenders.csv": "fa753b77",
+      "rtp-torrent/thinkaurelius@titan/baseline/titan@untreated.csv": "182487c4",
+      "rtp-torrent/thinkaurelius@titan/baseline/titan@random.csv": "c89c4a5d",
+      "rtp-torrent/thinkaurelius@titan/baseline/titan@recently-failed.csv": "57b34a2b",
+      "rtp-torrent/thinkaurelius@titan/baseline/titan@matrix-naive.csv": "d90389ff",
+      "rtp-torrent/thinkaurelius@titan/baseline/titan@matrix-conditional-prob.csv": "79937c94",
+      "rtp-torrent/thinkaurelius@titan/baseline/titan@optimal-failure.csv": "360fe3ee",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 1075,
+    "concurrent_groups": 425,
+    "ranked_from_empty_history": 1,
+    "without_commit": 134,
+    "evaluated": 1074,
+    "evaluated_failing": 280
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 1074,
+      "failing_runs": 280,
+      "caught_runs": 205,
+      "failures": 660,
+      "caught_failures": 405,
+      "confirmed_failing_runs": 2,
+      "caught_confirmed_runs": 1,
+      "confirmed_failures": 2,
+      "caught_confirmed_failures": 1,
+      "tests_run": 4488,
+      "tests_total": 45038,
+      "time_run_ms": 574541043,
+      "time_total_ms": 2628428458
+    },
+    {
+      "fraction": 0.25,
+      "runs": 1074,
+      "failing_runs": 280,
+      "caught_runs": 239,
+      "failures": 660,
+      "caught_failures": 516,
+      "confirmed_failing_runs": 2,
+      "caught_confirmed_runs": 1,
+      "confirmed_failures": 2,
+      "caught_confirmed_failures": 1,
+      "tests_run": 10628,
+      "tests_total": 45038,
+      "time_run_ms": 1152253395,
+      "time_total_ms": 2628428458
+    },
+    {
+      "fraction": 0.5,
+      "runs": 1074,
+      "failing_runs": 280,
+      "caught_runs": 257,
+      "failures": 660,
+      "caught_failures": 594,
+      "confirmed_failing_runs": 2,
+      "caught_confirmed_runs": 1,
+      "confirmed_failures": 2,
+      "caught_confirmed_failures": 1,
+      "tests_run": 21355,
+      "tests_total": 45038,
+      "time_run_ms": 2105330084,
+      "time_total_ms": 2628428458
+    }
+  ],
+  "apfd": {
+    "jobs": 254,
+    "mean": {
+      "testhunch": 0.8559399723905659,
+      "untreated": 0.25788864351834495,
+      "random": 0.49300533858299855,
+      "recently-failed": 0.7847931865903811,
+      "matrix-naive": 0.45948697974722585,
+      "matrix-conditional-prob": 0.36194884560646257,
+      "optimal-failure": 0.9698953500845796
+    }
+  }
+}

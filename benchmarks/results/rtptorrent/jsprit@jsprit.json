@@ -1,0 +1,95 @@
+{
+  "project": "jsprit@jsprit",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "jsprit@jsprit",
+    "members_crc32": {
+      "rtp-torrent/jsprit@jsprit/jsprit@jsprit.csv": "cf6eefc8",
+      "rtp-torrent/jsprit@jsprit/jsprit@jsprit-patches.csv": "0feffc11",
+      "rtp-torrent/jsprit@jsprit/jsprit@jsprit-offenders.csv": "f78228ce",
+      "rtp-torrent/jsprit@jsprit/baseline/jsprit@untreated.csv": "4d778cd9",
+      "rtp-torrent/jsprit@jsprit/baseline/jsprit@random.csv": "710285df",
+      "rtp-torrent/jsprit@jsprit/baseline/jsprit@recently-failed.csv": "3cd5232f",
+      "rtp-torrent/jsprit@jsprit/baseline/jsprit@matrix-naive.csv": "735afa4a",
+      "rtp-torrent/jsprit@jsprit/baseline/jsprit@matrix-conditional-prob.csv": "76595f57",
+      "rtp-torrent/jsprit@jsprit/baseline/jsprit@optimal-failure.csv": "0c91698a",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 1089,
+    "concurrent_groups": 266,
+    "ranked_from_empty_history": 4,
+    "without_commit": 28,
+    "evaluated": 1085,
+    "evaluated_failing": 59
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 1085,
+      "failing_runs": 59,
+      "caught_runs": 50,
+      "failures": 135,
+      "caught_failures": 86,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 9633,
+      "tests_total": 93445,
+      "time_run_ms": 7445996,
+      "time_total_ms": 25127982
+    },
+    {
+      "fraction": 0.25,
+      "runs": 1085,
+      "failing_runs": 59,
+      "caught_runs": 51,
+      "failures": 135,
+      "caught_failures": 103,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 23727,
+      "tests_total": 93445,
+      "time_run_ms": 12805967,
+      "time_total_ms": 25127982
+    },
+    {
+      "fraction": 0.5,
+      "runs": 1085,
+      "failing_runs": 59,
+      "caught_runs": 55,
+      "failures": 135,
+      "caught_failures": 123,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 47018,
+      "tests_total": 93445,
+      "time_run_ms": 16555367,
+      "time_total_ms": 25127982
+    }
+  ],
+  "apfd": {
+    "jobs": 51,
+    "mean": {
+      "testhunch": 0.8454633284713697,
+      "untreated": 0.47347929925053206,
+      "random": 0.5391506098841634,
+      "recently-failed": 0.6238196522749924,
+      "matrix-naive": 0.6098787366626277,
+      "matrix-conditional-prob": 0.5213820046364839,
+      "optimal-failure": 0.9861958993987547
+    }
+  }
+}

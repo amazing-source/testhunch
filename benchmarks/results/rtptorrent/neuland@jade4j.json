@@ -1,0 +1,95 @@
+{
+  "project": "neuland@jade4j",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "neuland@jade4j",
+    "members_crc32": {
+      "rtp-torrent/neuland@jade4j/neuland@jade4j.csv": "263655bf",
+      "rtp-torrent/neuland@jade4j/neuland@jade4j-patches.csv": "b259b2a4",
+      "rtp-torrent/neuland@jade4j/neuland@jade4j-offenders.csv": "81bca69c",
+      "rtp-torrent/neuland@jade4j/baseline/jade4j@untreated.csv": "dbbfa67d",
+      "rtp-torrent/neuland@jade4j/baseline/jade4j@random.csv": "d23ccb13",
+      "rtp-torrent/neuland@jade4j/baseline/jade4j@recently-failed.csv": "a245ccda",
+      "rtp-torrent/neuland@jade4j/baseline/jade4j@matrix-naive.csv": "03c8183a",
+      "rtp-torrent/neuland@jade4j/baseline/jade4j@matrix-conditional-prob.csv": "fe24bf6d",
+      "rtp-torrent/neuland@jade4j/baseline/jade4j@optimal-failure.csv": "5849c82e",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 932,
+    "concurrent_groups": 323,
+    "ranked_from_empty_history": 1,
+    "without_commit": 1,
+    "evaluated": 931,
+    "evaluated_failing": 96
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 931,
+      "failing_runs": 96,
+      "caught_runs": 77,
+      "failures": 1323,
+      "caught_failures": 254,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 3380,
+      "tests_total": 30887,
+      "time_run_ms": 931840,
+      "time_total_ms": 4093868
+    },
+    {
+      "fraction": 0.25,
+      "runs": 931,
+      "failing_runs": 96,
+      "caught_runs": 85,
+      "failures": 1323,
+      "caught_failures": 560,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 7851,
+      "tests_total": 30887,
+      "time_run_ms": 1900890,
+      "time_total_ms": 4093868
+    },
+    {
+      "fraction": 0.5,
+      "runs": 931,
+      "failing_runs": 96,
+      "caught_runs": 94,
+      "failures": 1323,
+      "caught_failures": 980,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 15368,
+      "tests_total": 30887,
+      "time_run_ms": 3275494,
+      "time_total_ms": 4093868
+    }
+  ],
+  "apfd": {
+    "jobs": 96,
+    "mean": {
+      "testhunch": 0.6713114879582937,
+      "untreated": 0.5157850468434882,
+      "random": 0.5150460154464888,
+      "recently-failed": 0.7524851050706615,
+      "matrix-naive": 0.7054288534037338,
+      "matrix-conditional-prob": 0.6130027892545963,
+      "optimal-failure": 0.8220352167308093
+    }
+  }
+}

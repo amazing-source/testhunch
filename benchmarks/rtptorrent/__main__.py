@@ -40,7 +40,7 @@ def run_project(directory: Path) -> dict[str, Any]:
         if path.exists():
             schedule = read_schedules(path)
             schedule_scores[strategy] = {job: apfd(*ordered) for job, ordered in schedule.items()}
-    # Without any schedule there is nothing to compare with (square@okhttp has none).
+    # Without any schedule there is nothing to compare with.
     covered = set.intersection(*map(set, schedule_scores.values())) if schedule_scores else set()
 
     points = evaluate([], BUDGETS)

@@ -1,0 +1,95 @@
+{
+  "project": "deeplearning4j@deeplearning4j",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "deeplearning4j@deeplearning4j",
+    "members_crc32": {
+      "rtp-torrent/deeplearning4j@deeplearning4j/deeplearning4j@deeplearning4j.csv": "3275f51b",
+      "rtp-torrent/deeplearning4j@deeplearning4j/deeplearning4j@deeplearning4j-patches.csv": "8ad83342",
+      "rtp-torrent/deeplearning4j@deeplearning4j/deeplearning4j@deeplearning4j-offenders.csv": "4c882efc",
+      "rtp-torrent/deeplearning4j@deeplearning4j/baseline/deeplearning4j@untreated.csv": "aa6f352d",
+      "rtp-torrent/deeplearning4j@deeplearning4j/baseline/deeplearning4j@random.csv": "5e88c772",
+      "rtp-torrent/deeplearning4j@deeplearning4j/baseline/deeplearning4j@recently-failed.csv": "d0f16c21",
+      "rtp-torrent/deeplearning4j@deeplearning4j/baseline/deeplearning4j@matrix-naive.csv": "66153763",
+      "rtp-torrent/deeplearning4j@deeplearning4j/baseline/deeplearning4j@matrix-conditional-prob.csv": "f1667a7e",
+      "rtp-torrent/deeplearning4j@deeplearning4j/baseline/deeplearning4j@optimal-failure.csv": "f21b03bd",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 1038,
+    "concurrent_groups": 915,
+    "ranked_from_empty_history": 1,
+    "without_commit": 56,
+    "evaluated": 1037,
+    "evaluated_failing": 585
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 1037,
+      "failing_runs": 585,
+      "caught_runs": 499,
+      "failures": 930,
+      "caught_failures": 697,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 1888,
+      "tests_total": 14700,
+      "time_run_ms": 112522974,
+      "time_total_ms": 491776166
+    },
+    {
+      "fraction": 0.25,
+      "runs": 1037,
+      "failing_runs": 585,
+      "caught_runs": 559,
+      "failures": 930,
+      "caught_failures": 837,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 3614,
+      "tests_total": 14700,
+      "time_run_ms": 231932531,
+      "time_total_ms": 491776166
+    },
+    {
+      "fraction": 0.5,
+      "runs": 1037,
+      "failing_runs": 585,
+      "caught_runs": 573,
+      "failures": 930,
+      "caught_failures": 897,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 6947,
+      "tests_total": 14700,
+      "time_run_ms": 391203009,
+      "time_total_ms": 491776166
+    }
+  ],
+  "apfd": {
+    "jobs": 566,
+    "mean": {
+      "testhunch": 0.8537370697098219,
+      "untreated": 0.49576704214812295,
+      "random": 0.4897267904548313,
+      "recently-failed": 0.8617335302228062,
+      "matrix-naive": 0.7678972970737166,
+      "matrix-conditional-prob": 0.6569750801270089,
+      "optimal-failure": 0.9249496014536448
+    }
+  }
+}

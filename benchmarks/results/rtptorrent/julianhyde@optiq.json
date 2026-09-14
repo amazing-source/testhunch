@@ -1,0 +1,95 @@
+{
+  "project": "julianhyde@optiq",
+  "dataset": {
+    "archive": "https://zenodo.org/api/records/4046180/files/rtp-torrent-v11.zip/content",
+    "project": "julianhyde@optiq",
+    "members_crc32": {
+      "rtp-torrent/julianhyde@optiq/julianhyde@optiq.csv": "76706692",
+      "rtp-torrent/julianhyde@optiq/julianhyde@optiq-patches.csv": "4f190830",
+      "rtp-torrent/julianhyde@optiq/julianhyde@optiq-offenders.csv": "09fe4289",
+      "rtp-torrent/julianhyde@optiq/baseline/optiq@untreated.csv": "6084b4aa",
+      "rtp-torrent/julianhyde@optiq/baseline/optiq@random.csv": "c206304e",
+      "rtp-torrent/julianhyde@optiq/baseline/optiq@recently-failed.csv": "76c28fde",
+      "rtp-torrent/julianhyde@optiq/baseline/optiq@matrix-naive.csv": "ef62d687",
+      "rtp-torrent/julianhyde@optiq/baseline/optiq@matrix-conditional-prob.csv": "997bc0e7",
+      "rtp-torrent/julianhyde@optiq/baseline/optiq@optimal-failure.csv": "d2d07c07",
+      "rtp-torrent/tr_all_built_commits.csv": "58b28494"
+    },
+    "missing": []
+  },
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+  },
+  "history_runs": 50,
+  "jobs": {
+    "total": 1808,
+    "concurrent_groups": 558,
+    "ranked_from_empty_history": 2,
+    "without_commit": 502,
+    "evaluated": 1806,
+    "evaluated_failing": 130
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 1806,
+      "failing_runs": 130,
+      "caught_runs": 79,
+      "failures": 174,
+      "caught_failures": 89,
+      "confirmed_failing_runs": 3,
+      "caught_confirmed_runs": 2,
+      "confirmed_failures": 3,
+      "caught_confirmed_failures": 2,
+      "tests_run": 8525,
+      "tests_total": 78056,
+      "time_run_ms": 842202527,
+      "time_total_ms": 3827369113
+    },
+    {
+      "fraction": 0.25,
+      "runs": 1806,
+      "failing_runs": 130,
+      "caught_runs": 103,
+      "failures": 174,
+      "caught_failures": 129,
+      "confirmed_failing_runs": 3,
+      "caught_confirmed_runs": 2,
+      "confirmed_failures": 3,
+      "caught_confirmed_failures": 2,
+      "tests_run": 20202,
+      "tests_total": 78056,
+      "time_run_ms": 2351554880,
+      "time_total_ms": 3827369113
+    },
+    {
+      "fraction": 0.5,
+      "runs": 1806,
+      "failing_runs": 130,
+      "caught_runs": 106,
+      "failures": 174,
+      "caught_failures": 134,
+      "confirmed_failing_runs": 3,
+      "caught_confirmed_runs": 2,
+      "confirmed_failures": 3,
+      "caught_confirmed_failures": 2,
+      "tests_run": 39229,
+      "tests_total": 78056,
+      "time_run_ms": 3265357627,
+      "time_total_ms": 3827369113
+    }
+  ],
+  "apfd": {
+    "jobs": 68,
+    "mean": {
+      "testhunch": 0.7671646257484808,
+      "untreated": 0.18756958491180997,
+      "random": 0.531824370240632,
+      "recently-failed": 0.7225985497994136,
+      "matrix-naive": 0.4580672597396939,
+      "matrix-conditional-prob": 0.26154917674854467,
+      "optimal-failure": 0.8661278028473182
+    }
+  }
+}
