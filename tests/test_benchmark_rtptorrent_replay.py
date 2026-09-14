@@ -192,7 +192,7 @@ def test_the_benchmark_writes_json_and_markdown_per_project(
     # The freeze check and the ledger are the subject of test_benchmark_heldout: here they only
     # have to stay out of the way, and out of the repository's own ledger (docs/adr/0016).
     ledger = tmp_path / "held-out-log.md"
-    monkeypatch.setattr(heldout, "frozen_commit", lambda: "0" * 40)
+    monkeypatch.setattr(heldout, "frozen_commit", lambda ledger=None: "0" * 40)
     monkeypatch.setattr(heldout, "LEDGER", ledger)
     arguments = [
         "adamfisk@LittleProxy",
