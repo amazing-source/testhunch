@@ -323,3 +323,12 @@ def test_step_two_adds_the_remaining_signals_to_the_version_step_one_kept() -> N
     assert step.current.name == "latest-failure+time^1.0"
     assert len(names) == len(set(names)) == 3 * (len(SIGNALS) + 1)
     assert not any("time^" in name.removeprefix(step.current.name) for name in names)
+
+
+def test_a_steady_but_negligible_improvement_does_not_beat() -> None:
+    before = {f"p{index}": 0.5 for index in range(10)}
+
+    verdict = compare(before, {p: 0.5002 for p in before})
+
+    assert verdict["interval"][0] > 0 and verdict["higher_on"] == 10
+    assert not verdict["beats"]

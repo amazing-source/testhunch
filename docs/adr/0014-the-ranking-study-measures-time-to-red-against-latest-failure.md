@@ -76,8 +76,9 @@ unknown duration is left out of every time measure, and counted.
 the project's failing jobs, the same jobs for every candidate: jobs ranked from an empty history and
 jobs with an unknown duration are left out for all. Candidate B beats A when, over the 10 RTPTorrent
 development projects, the mean of the per-project differences B − A has a 95% percentile bootstrap
-interval (10 000 resamples of the projects, with replacement, seed 0) entirely above 0, **and** B
-scores higher on at least 6 of the 10 projects. click and cobra are reported but do not decide: two
+interval (10 000 resamples of the projects, with replacement, seed 0) entirely above 0, B scores
+higher on at least 6 of the 10 projects, **and** the mean difference is at least 0.005 (amended, see
+below). click and cobra are reported but do not decide: two
 projects, whose failures are almost all mutants, which favour name matching (benchmarks/results).
 
 **The study adds one signal at a time.** Before a step runs, its candidates are committed: the
@@ -98,3 +99,14 @@ the latest failure, testhunch 0.2.0 and every version kept.
   product replay of the version kept, keep the two from drifting apart.
 - If the kept version needs more history than a window of runs, the store will have to keep
   per-test aggregates, which the hosted service will have to account for.
+
+## Amendment, 2026-09-14, after step 2
+
+As first written, the rule had no minimum effect. In step 2, adding verdict changes with weight 0.1
+to `latest-failure+time^1.0` met both conditions with a mean difference of +0.0002: the interval was
+[+0.00001, +0.00046], and "higher on 6 projects" counted differences of a few hundred-thousandths.
+Such a change does not make any build red sooner in a way anyone would notice, and keeping it would
+add a signal to compute and explain for nothing. A candidate must now also improve the mean by at
+least 0.005, half a percent of a job's test time. The threshold only makes the rule stricter, and it
+changes no other verdict of steps 1 and 2: every other candidate that met both conditions improved
+the mean by at least 0.014.
