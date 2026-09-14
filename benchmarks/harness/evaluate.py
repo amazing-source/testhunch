@@ -75,7 +75,9 @@ def mutant_outcome(mutant: MutantRun, commit: ShadowRun) -> str | ShadowRun:
         results.append(ShadowResult(result.key, status, False, result.duration_ms, 1))
     if not detected:
         return "survived"
-    return ShadowRun(commit.run_id, commit.positions, tuple(results))
+    # The commit's ranking, with what it expected each test to cost: the mutant is judged by the
+    # budget that ranking would have spent, not by the mutant run's own durations (ADR 0017).
+    return ShadowRun(commit.run_id, commit.positions, tuple(results), commit.expected_ms)
 
 
 def run_project(project: Project, repository: Path, runs: Sequence[CommitRun]) -> dict[str, Any]:

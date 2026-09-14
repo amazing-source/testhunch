@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 
@@ -135,6 +135,10 @@ class RankedTest:
     key: str
     score: float
     reasons: tuple[str, ...]
+    # What the ranking expects the test to cost, in ms: its mean duration per build, the median of
+    # the others when it has none, plus the epsilon of ADR 0014. A time budget spends exactly this
+    # number, so a test is never ranked by one duration and paid for by another (docs/adr/0017).
+    expected_ms: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,3 +161,6 @@ class ShadowRun:
     run_id: int
     positions: dict[str, int]  # test key -> 1-based position in the ranking
     results: tuple[ShadowResult, ...]
+    # What the ranking expected each test to cost when it was recorded, for time budgets
+    # (docs/adr/0017). Empty for rankings recorded before migration 0006.
+    expected_ms: dict[str, float] = field(default_factory=dict)

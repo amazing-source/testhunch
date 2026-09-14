@@ -11,7 +11,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from testhunch.models import ShadowRun, Status
+from testhunch.models import RankedTest, ShadowRun, Status
 
 BUDGETS = (0.1, 0.25, 0.5)
 
@@ -35,6 +35,9 @@ class ShadowPoint:
     tests_total: int
     time_run_ms: int
     time_total_ms: int  # results with a known duration only
+    # Runs whose ranking was recorded before expected durations were stored, so a time budget
+    # cannot be cut for them: they are left out of every count above (docs/adr/0017).
+    runs_without_expected_time: int = 0
 
 
 def is_learning_run(repo: str, commit_sha: str, share: float) -> bool:
@@ -48,9 +51,37 @@ def is_learning_run(repo: str, commit_sha: str, share: float) -> bool:
 
 
 def budget_size(fraction: float, known_tests: int) -> int:
-    """How many of the top-ranked known tests a budget runs; `testhunch select` cuts the same."""
+    """How many of the top-ranked known tests a budget of tests runs (`--budget-unit tests`)."""
     # Rounded first so that 0.7 * 10 == 7.000000000000001 runs 7 tests, not 8.
     return math.ceil(round(fraction * known_tests, 9))
+
+
+def time_budget_size(fraction: float, expected_ms: Sequence[float]) -> int:
+    """How many top-ranked tests fit in a share of their expected time (docs/adr/0017).
+
+    `expected_ms` is the ranking's own expected duration per test, in ranked order. The cut is the
+    longest prefix that fits, never a better-packed set: the order is what the ranking promises.
+    At least one test runs, as with a budget of tests.
+    """
+    if not expected_ms:
+        return 0
+    # Rounded like budget_size, so that a budget meant to fit exactly is not lost to floating point.
+    allowed = round(fraction * sum(expected_ms), 9)
+    spent = 0.0
+    size = 0
+    for duration in expected_ms:
+        if round(spent + duration, 9) > allowed:
+            break
+        spent += duration
+        size += 1
+    return max(size, 1)
+
+
+def budget_cut(fraction: float, ranked: Sequence[RankedTest], by_time: bool = True) -> int:
+    """How many of `ranked` a budget runs, by expected time (ADR 0017) or by count (ADR 0007)."""
+    if not by_time:
+        return budget_size(fraction, len(ranked))
+    return time_budget_size(fraction, [test.expected_ms for test in ranked])
 
 
 def evaluate(runs: Sequence[ShadowRun], fractions: Sequence[float] = BUDGETS) -> list[ShadowPoint]:
@@ -61,8 +92,13 @@ def _evaluate(runs: Sequence[ShadowRun], fraction: float) -> ShadowPoint:
     failing_runs = caught_runs = failures = caught_failures = 0
     confirmed_runs = caught_confirmed_runs = confirmed = caught_confirmed = 0
     tests_run = tests_total = time_run = time_total = 0
+    without_expected = 0
     for run in runs:
-        cutoff = budget_size(fraction, len(run.positions))
+        cutoff = _cutoff(run, fraction)
+        if cutoff is None:
+            # Recorded before expected durations were stored: no time budget can be cut for it.
+            without_expected += 1
+            continue
         run_failures = run_caught = run_confirmed = run_caught_confirmed = 0
         for result in run.results:
             if result.status is Status.SKIPPED:
@@ -90,7 +126,7 @@ def _evaluate(runs: Sequence[ShadowRun], fraction: float) -> ShadowPoint:
         caught_confirmed += run_caught_confirmed
     return ShadowPoint(
         fraction=fraction,
-        runs=len(runs),
+        runs=len(runs) - without_expected,
         failing_runs=failing_runs,
         caught_runs=caught_runs,
         failures=failures,
@@ -103,4 +139,19 @@ def _evaluate(runs: Sequence[ShadowRun], fraction: float) -> ShadowPoint:
         tests_total=tests_total,
         time_run_ms=time_run,
         time_total_ms=time_total,
+        runs_without_expected_time=without_expected,
     )
+
+
+def _cutoff(run: ShadowRun, fraction: float) -> int | None:
+    """The position the budget cuts this run's ranking at, or None if it cannot be cut.
+
+    The expected durations are the ones recorded with the ranking, before the run happened: cutting
+    with the run's own durations would report a budget nobody could have spent (docs/adr/0017).
+    """
+    if not run.positions:
+        return 0
+    if not run.expected_ms:
+        return None
+    ordered = sorted(run.positions, key=lambda key: run.positions[key])
+    return time_budget_size(fraction, [run.expected_ms.get(key, 0.0) for key in ordered])

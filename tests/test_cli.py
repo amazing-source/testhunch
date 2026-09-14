@@ -196,16 +196,19 @@ def test_shadow_mode_from_recorded_ranking_to_report(
 
     assert main(["shadow", "--format", "json", *common]) == 0
     report = json.loads(capsys.readouterr().out)
-    # The 4 failures of the first run rank first and fail again. Of the 8 ranked tests, the
-    # top 10% is 1 test, 25% is 2 and 50% is 4.
+    # The 4 failures of the first run rank first and fail again. The 8 ranked tests are expected to
+    # take 9 ms in all, so 10% of that time runs 1 test, 25% runs 2 and 50% runs 3 (docs/adr/0017).
     assert (report["runs"], report["failing_runs"]) == (1, 1)
     budgets = {p["fraction"]: (p["caught_runs"], p["caught_failures"]) for p in report["budgets"]}
-    assert budgets == {0.1: (1, 1), 0.25: (1, 2), 0.5: (1, 4)}
+    assert budgets == {0.1: (1, 1), 0.25: (1, 2), 0.5: (1, 3)}
+    assert all(p["runs_without_expected_time"] == 0 for p in report["budgets"])
 
     assert main(["shadow", *common]) == 0
     text = capsys.readouterr().out
     assert "1 run with a recorded ranking, 1 with failures" in text
-    assert "top 25% of ranked tests: caught 1 of 1 failing runs, 2 of 4 failures;" in text
+    assert (
+        "25% of the ranked tests' expected time: caught 1 of 1 failing runs, 2 of 4 failures;"
+    ) in text
     # The sample report has no retries, so no failure is confirmed (docs/adr/0008).
     assert "4 of 4 failures ran only once" in text
 
@@ -225,14 +228,32 @@ def test_select_leaves_out_the_known_tests_below_the_budget(
     args = ["select", "--budget", "50%", "--runner", "pytest", "--changed", "src/other.py"]
     assert main([*args, "--learning-runs", "0%", *common]) == 0
     out = capsys.readouterr()
-    # 8 known tests: the 4 that failed rank first and run; the 4 that passed are left out.
+    # The budget is half of the 9 ms the 8 known tests are expected to take (docs/adr/0017), so the
+    # three 0 ms failures run, and test_fails, twice as slow, no longer fits: it is left out too.
     assert sorted(out.out.splitlines()) == [
         "tests.test_sample.TestGrouped::test_in_class",
+        "tests.test_sample::test_fails",
         "tests.test_sample::test_parametrized[1]",
         "tests.test_sample::test_parametrized[3]",
         "tests.test_sample::test_passes",
     ]
-    assert "leaving out 4 of 8 known tests" in out.err
+    assert "leaving out 5 of 8 known tests: 50% of their expected 9 ms (3 ms, 3 tests)" in out.err
+
+
+def test_select_by_number_of_tests_keeps_the_old_meaning(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    capsys.readouterr()
+
+    args = ["select", "--budget", "50%", "--runner", "pytest", "--budget-unit", "tests"]
+    assert main([*args, "--learning-runs", "0%", *common]) == 0
+    out = capsys.readouterr()
+
+    # Half the known tests by count: the 4 that failed run, whatever they cost.
+    assert len(out.out.splitlines()) == 4
+    assert "leaving out 4 of 8 known tests: the top 50% of them (4 tests)" in out.err
 
 
 def test_a_build_that_leaves_tests_out_records_no_ranking(
@@ -300,12 +321,14 @@ def test_select_for_surefire_prints_exclusions_without_a_line_ending(
     assert main(["ingest", "TEST-*.xml", *common]) == 0
     capsys.readouterr()
 
-    select = ["select", "--budget", "50%", "--runner", "surefire", "--learning-runs", "0%"]
+    # 10% of the 190 ms these 8 tests are expected to take: one slow test eats most of the budget,
+    # so a larger share would leave out only tests Surefire cannot exclude on their own.
+    select = ["select", "--budget", "10%", "--runner", "surefire", "--learning-runs", "0%"]
     assert main([*select, *common]) == 0
     out = capsys.readouterr()
     assert out.out.startswith("!com.example.shop.")
     assert not out.out.endswith(("\n", "\r"))
-    assert "leaving out" in out.err
+    assert "leaving out 6 of 8 known tests" in out.err
 
 
 def test_select_for_nextest_uses_the_recorded_binary_ids(

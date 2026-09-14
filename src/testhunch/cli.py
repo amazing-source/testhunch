@@ -26,7 +26,7 @@ from testhunch.runners import (
     surefire_exclusions,
     vitest_skip,
 )
-from testhunch.shadow import ShadowPoint, budget_size, evaluate, is_learning_run
+from testhunch.shadow import ShadowPoint, budget_cut, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
 
 
@@ -112,7 +112,15 @@ def _parser() -> argparse.ArgumentParser:
         "--budget",
         type=parse_budget,
         required=True,
-        help="share of the known tests to run, top-ranked first, e.g. 25%%",
+        help="share of the expected test time to spend on the known tests, top-ranked first, "
+        "e.g. 25%%. Tests testhunch has never seen run on top of it (docs/adr/0017)",
+    )
+    select.add_argument(
+        "--budget-unit",
+        choices=["time", "tests"],
+        default="time",
+        help="what --budget is a share of: the expected test time (default) or the number of "
+        "known tests, for a runner that reports no usable duration",
     )
     select.add_argument(
         "--runner",
@@ -331,7 +339,7 @@ def _select(args: argparse.Namespace) -> int:
         return 0
 
     # Tests are left out, so the ranking is not recorded: shadow mode needs full runs (ADR 0007).
-    cutoff = budget_size(args.budget, len(ranked))
+    cutoff = budget_cut(args.budget, ranked, by_time=args.budget_unit == "time")
     below = [r.key for r in ranked[cutoff:]]
     unreachable = 0
     if args.runner == "go":
@@ -381,9 +389,16 @@ def _select(args: argparse.Namespace) -> int:
         if below:
             print("\n".join(below))
         left_out = len(below)
+    spent = sum(r.expected_ms for r in ranked[:cutoff])
+    total = sum(r.expected_ms for r in ranked)
+    of = (
+        f"{args.budget:.0%} of their expected {total:.0f} ms ({spent:.0f} ms, {cutoff} tests)"
+        if args.budget_unit == "time"
+        else f"the top {args.budget:.0%} of them ({cutoff} tests)"
+    )
     print(
-        f"leaving out {left_out} of {len(ranked)} known tests: the top {args.budget:.0%} run, "
-        "and so does every test testhunch has no result for",
+        f"leaving out {left_out} of {len(ranked)} known tests: {of} run, and so does every test "
+        "testhunch has no result for",
         file=sys.stderr,
     )
     if unreachable:
@@ -444,7 +459,8 @@ def _shadow(args: argparse.Namespace) -> int:
 
     plural = "" if len(runs) == 1 else "s"
     counts = f"{len(runs)} run{plural} with a recorded ranking, {failing_runs} with failures"
-    unconfirmed = _unconfirmed_note(points[0])
+    notes = [note for note in (_left_out_note(points[0]), _unconfirmed_note(points[0])) if note]
+    unconfirmed = "\n\n".join(notes)
     if args.format == "markdown":
         print(f"### {title}\n\n{counts}.")
         _print_markdown_table(
@@ -490,13 +506,25 @@ def _shadow(args: argparse.Namespace) -> int:
             )
         time = f"{_time_share(p)} of test time" if p.time_total_ms else "test time unknown"
         print(
-            f"  top {p.fraction:.0%} of ranked tests: {caught}; "
+            f"  {p.fraction:.0%} of the ranked tests' expected time: {caught}; "
             f"ran {p.tests_run} of {p.tests_total} tests ({_percent(p.tests_run, p.tests_total)}) "
             f"and {time}"
         )
     if unconfirmed:
         print(f"\n{unconfirmed}")
     return 0
+
+
+def _left_out_note(point: ShadowPoint) -> str | None:
+    """Rankings recorded before expected durations were stored cannot be cut by time (ADR 0017)."""
+    if not point.runs_without_expected_time:
+        return None
+    runs = point.runs_without_expected_time
+    return (
+        f"{runs} run(s) are left out above: their ranking was recorded before testhunch stored how "
+        "long it expected each test to take, so no time budget can be cut for them. Rankings "
+        "recorded from now on carry it."
+    )
 
 
 def _unconfirmed_note(point: ShadowPoint) -> str | None:

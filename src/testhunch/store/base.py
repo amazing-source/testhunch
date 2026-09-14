@@ -332,10 +332,10 @@ class SqlStore(ABC):
                 raise StoreError("could not record the ranking")
             prediction_id = int(row[0])
             s.many(
-                "INSERT INTO prediction_positions (prediction_id, test_id, position, score) "
-                "VALUES (?, ?, ?, ?)",
+                "INSERT INTO prediction_positions "
+                "(prediction_id, test_id, position, score, expected_ms) VALUES (?, ?, ?, ?, ?)",
                 [
-                    (prediction_id, test_ids[r.key], position, r.score)
+                    (prediction_id, test_ids[r.key], position, r.score, r.expected_ms)
                     for position, r in enumerate(ranked, start=1)
                 ],
             )
@@ -383,15 +383,18 @@ class SqlStore(ABC):
                 )
             ]
             positions: dict[int, dict[str, int]] = {p: {} for _, p in pairs}
-            for prediction_id, key, position in _all_in(
+            expected: dict[int, dict[str, float]] = {p: {} for _, p in pairs}
+            for prediction_id, key, position, expected_ms in _all_in(
                 s,
-                "SELECT pp.prediction_id, t.test_key, pp.position "
+                "SELECT pp.prediction_id, t.test_key, pp.position, pp.expected_ms "
                 "FROM prediction_positions pp JOIN tests t ON t.id = pp.test_id "
                 "WHERE pp.prediction_id IN ({})",
                 [],
                 sorted(positions),
             ):
                 positions[int(prediction_id)][key] = int(position)
+                if expected_ms is not None:
+                    expected[int(prediction_id)][key] = float(expected_ms)
             results: dict[int, list[ShadowResult]] = {r: [] for r, _ in pairs}
             for run_id, key, status, flaky, duration_ms, attempts in _all_in(
                 s,
@@ -411,7 +414,7 @@ class SqlStore(ABC):
                         attempts=None if attempts is None else int(attempts),
                     )
                 )
-        return [ShadowRun(r, positions[p], tuple(results[r])) for r, p in pairs]
+        return [ShadowRun(r, positions[p], tuple(results[r]), expected[p]) for r, p in pairs]
 
     def run_changes(self, run_id: int) -> list[FileChange]:
         with self.session(write=False) as s:

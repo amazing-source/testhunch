@@ -176,7 +176,53 @@ def test_results_recorded_before_attempts_were_stored_have_unknown_attempts(
 
 
 def ranking(*keys: str) -> list[RankedTest]:
-    return [RankedTest(key, float(len(keys) - i), ()) for i, key in enumerate(keys)]
+    return [RankedTest(key, float(len(keys) - i), (), float(i + 1)) for i, key in enumerate(keys)]
+
+
+def test_a_recorded_ranking_keeps_what_it_expected_each_test_to_cost(store: SqlStore) -> None:
+    history = store.ingest(run("c0", "d0", case("a", Status.PASSED), case("b", Status.PASSED)))
+    store.record_prediction(REPO, "c1", ranking("b", "a"), last_run_id=history.run_id)
+    store.ingest(run("c1", "d1", case("a", Status.PASSED), case("b", Status.FAILED)))
+
+    (shadow,) = store.shadow_runs(REPO)
+
+    # Stored with the ranking, so a time budget is cut with what was known before the run ran.
+    assert shadow.expected_ms == {"b": 1.0, "a": 2.0}
+
+
+def test_rankings_recorded_before_expected_times_were_stored_have_none(
+    unmigrated_store: SqlStore,
+) -> None:
+    before = [m for m in bundled_migrations(unmigrated_store.dialect) if m[0] < 6]
+    unmigrated_store.migrate(before)
+    with unmigrated_store.session() as s:
+        s.run(
+            "INSERT INTO runs (repo, commit_sha, report_digest) VALUES (?, ?, ?)",
+            (REPO, "c0", "d0"),
+        )
+        s.run("INSERT INTO tests (repo, test_key, name) VALUES (?, ?, ?)", (REPO, "a", "a"))
+        s.run(
+            "INSERT INTO predictions (repo, commit_sha, last_run_id) "
+            "SELECT ?, ?, runs.id FROM runs",
+            (REPO, "c1"),
+        )
+        s.run(
+            "INSERT INTO prediction_positions (prediction_id, test_id, position, score) "
+            "SELECT predictions.id, tests.id, 1, 1.0 FROM predictions, tests"
+        )
+        s.run(
+            "INSERT INTO runs (repo, commit_sha, report_digest) VALUES (?, ?, ?)",
+            (REPO, "c1", "d1"),
+        )
+        s.run(
+            "INSERT INTO results (run_id, test_id, status) "
+            "SELECT runs.id, tests.id, 'failed' FROM runs, tests WHERE runs.commit_sha = 'c1'"
+        )
+
+    assert 6 in unmigrated_store.migrate()
+    (shadow,) = unmigrated_store.shadow_runs(REPO)
+    # Unknown, not guessed: shadow mode leaves this run out of its time budgets (docs/adr/0017).
+    assert shadow.positions == {"a": 1} and shadow.expected_ms == {}
 
 
 def test_latest_run_id(store: SqlStore) -> None:

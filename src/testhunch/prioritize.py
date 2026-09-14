@@ -87,7 +87,9 @@ def rank(history: History, changed_paths: Sequence[str] = (), seed: str = "") ->
         last = -1 if case.last_failure is None else case.last_failure
         tie = hashlib.sha256(f"{seed}\0{case.key}".encode()).digest()
         order = (-score, duration, -last, -case.priority, tie)
-        entries.append((order, RankedTest(case.key, score, _reasons(case, history, file_changed))))
+        # `duration` is what a time budget spends on this test: the same number the score used.
+        ranked = RankedTest(case.key, score, _reasons(case, history, file_changed), duration)
+        entries.append((order, ranked))
     entries.sort(key=lambda entry: entry[0])
     return [ranked for _, ranked in entries]
 
