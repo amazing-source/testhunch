@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 import random
 from collections.abc import Mapping
 from pathlib import Path
@@ -443,3 +444,16 @@ def test_the_held_out_step_replays_the_reference_and_every_kept_version() -> Non
         "latest-failure+time^1.0+test_file_changed*0.5",
         "testhunch-0.2.0",
     ]
+
+
+def test_the_frozen_copy_orders_the_extract_as_testhunch_0_2_0_did() -> None:
+    recorded = json.loads(
+        (
+            Path(__file__).parent / "fixtures" / "study" / "littleproxy-orders-testhunch-0.2.0.json"
+        ).read_text(encoding="utf-8")
+    )
+    jobs = load_jobs(EXTRACT)
+
+    orders = _engine_product_orders(jobs)
+
+    assert {str(job.job_id): order for job, order in zip(jobs, orders, strict=True)} == recorded

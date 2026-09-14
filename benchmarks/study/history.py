@@ -10,7 +10,8 @@ from collections import deque
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from testhunch.models import CaseHistory, CaseResult, Status
+from benchmarks.study.release_020 import CaseHistory
+from testhunch.models import CaseResult, Status
 
 # RTPTorrent's weight of the newest build in a test's failure priority (Mattis et al., section 4).
 ALPHA = 0.8

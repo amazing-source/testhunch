@@ -108,16 +108,26 @@ class FailingTest:
 
 @dataclass(frozen=True, slots=True)
 class CaseHistory:
-    """What the prioritizer knows about a test over the recent window of runs."""
+    """What the prioritizer knows about a test over every earlier build (docs/adr/0015)."""
 
     key: str
     file: str | None
-    failures: int
-    executions: int
-    runs_since_failure: int | None  # 0 = failed in the newest run; None = no failure in window
+    builds: int  # builds the test passed or failed in
+    failures: int  # builds it failed in
+    last_failure: int | None  # the newest build it failed in, numbered from 0; None if never
+    priority: float  # RTPTorrent's failure priority as of `last_failure`, 0 if it never failed
+    mean_duration_ms: float | None  # over the builds with a known duration; None if none
     # The group before "::" in the key (classname, binary id...), which the key alone cannot give
     # back when the group itself contains "::", as nextest's binary ids do.
     suite: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class History:
+    """Every known test's history, and how many builds of the repository are recorded."""
+
+    builds: int
+    cases: tuple[CaseHistory, ...]
 
 
 @dataclass(frozen=True, slots=True)

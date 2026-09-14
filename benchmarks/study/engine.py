@@ -13,8 +13,9 @@ from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups
 from benchmarks.study.history import BuildHistory, RunWindow
 from benchmarks.study.metrics import Trial, best_red_at, scores
 from benchmarks.study.rankings import Context, Ranking
+from benchmarks.study.release_020 import CaseHistory
 from testhunch.junit import collapse
-from testhunch.models import CaseHistory, CaseResult
+from testhunch.models import CaseResult
 
 PRIMARY = "apfdc_one_fault"
 # The smallest mean improvement that counts (ADR 0014, amended after step 2).

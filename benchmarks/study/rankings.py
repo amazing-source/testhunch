@@ -17,8 +17,7 @@ from rapidfuzz.distance import Levenshtein
 
 from benchmarks.study.history import BuildHistory, CaseRecord
 from benchmarks.study.metrics import EPSILON_MS, Trial
-from testhunch.models import CaseHistory
-from testhunch.prioritize import changed_stems, rank
+from benchmarks.study.release_020 import CaseHistory, changed_stems, rank
 
 
 @dataclass(frozen=True, slots=True)
