@@ -206,7 +206,8 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
         ]
         lines += [
             "",
-            "## Harness development projects: primary measure (reported, not deciding)",
+            f"## Harness {'held-out' if name == HELD_OUT_STEP else 'development'} projects: "
+            "primary measure (reported, not deciding)",
             "",
             "| Ranking | " + " | ".join(headers) + " |",
             "|---|" + "---:|" * len(columns),
