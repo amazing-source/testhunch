@@ -47,9 +47,43 @@ development side, 5 962 on the held-out side, most of them SonarQube's.
 | 1 946 and 3 131 | square@okhttp | SonarSource@sonarqube |
 
 **click and cobra are development projects**: every harness result so far was measured on them.
-The harness's held-out projects are new ones, one for each runner of the development projects
-(pytest and go test), chosen for ADR 0011's reasons only and pinned in this ADR before the study
-measures anything.
+
+**The harness's held-out projects are fastapi/fastapi (pytest) and ollama/ollama (go test)**, one
+for each runner of the development projects. So that they are not picked by taste, each is the
+first project of GitHub's most-starred projects of its language (the searches `language:Python`
+and `language:Go` sorted by stars, read on 2026-09-14) to meet ADR 0011's reasons, checked in this
+order:
+
+1. a permissive licence (MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or ISC), not archived, not a
+   fork;
+2. its lockfile at the root of each of the 200 most recent first-parent commits: `uv.lock`, with
+   pytest in `pyproject.toml`, for Python; `go.mod` for Go;
+3. its whole suite passes at the newest commit, in a harness image with what GitHub's runners
+   provide, in under a minute once caches are warm, as they are in a collection after its first
+   commit (the cache volume of ADR 0011).
+
+Every project that passed the first two checks, in star order, until one also passed the third:
+
+| Language | Project | Stars | Outcome |
+|---|---|---:|---|
+| Python | NousResearch/hermes-agent | 245 300 | Out: its CI splits the tests into 6 jobs of about 4 minutes each (not run here) |
+| Python | TheAlgorithms/Python | 224 557 | Out, see below |
+| Python | langflow-ai/langflow | 154 775 | Out: its CI splits the unit tests into 5 jobs of 17 to 24 minutes each (not run here) |
+| Python | harry0703/MoneyPrinterTurbo | 123 429 | Out: 330 seconds |
+| Python | Graphify-Labs/graphify | 116 563 | Out: 423 seconds and 11 failures, once a C compiler was added to install it |
+| Python | **fastapi/fastapi** | 102 323 | **Held out**: 3 348 tests pass in 34 seconds at `50113da` |
+| Go | avelino/awesome-go | 184 084 | Out: still running after 25 minutes, stopped |
+| Go | **ollama/ollama** | 180 866 | **Held out**: 7 931 tests, 305 of them skipped, pass in 23 seconds warm (over 100 cold) at `53fed26` |
+
+TheAlgorithms/Python is the one project left out for a reason ADR 0011 does not give. Only 22 of
+its 1 507 Python files are test files; its other tests are doctests inside the algorithm files
+(`--doctest-modules`), so the tests of a change sit in the changed file, found by name without
+predicting anything. Kept, it would have made name matching look better than it is.
+
+fastapi runs the commit's own `scripts/test.sh` (pytest-xdist); its image adds `git`, which one
+test calls. ollama uses the same toolchain as cobra. Both windows were read for what the setup
+needs: fastapi's `tests` group and `all` extra, and ollama's `go 1.26.0`, are in all 200 commits.
+Collecting a held-out project ranks nothing, so it needs no flag.
 
 **Every choice of the study is made on development projects.** Held-out projects are replayed
 only for versions that are committed and listed before the replay, and the held-out numbers of

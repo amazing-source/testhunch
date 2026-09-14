@@ -133,6 +133,26 @@ PROJECTS = {
             language="go",
             check="go build ./...",
         ),
+        # Held out (docs/adr/0013): evaluated only for versions frozen before the replay.
+        Project(
+            "fastapi/fastapi",
+            end="50113da16fec53b66b80d75e80a89296de4fa5a5",
+            image="fastapi",
+            setup="uv sync --locked --no-dev --group tests --extra all",
+            # The commit's own script: it sets PYTHONPATH for docs_src and runs pytest-xdist.
+            test='uv run --no-sync bash scripts/test.sh -p no:cacheprovider --junitxml="$REPORT"',
+            sources=r"fastapi/.*\.py",
+        ),
+        Project(
+            "ollama/ollama",
+            end="53fed26112817f7c55f664efb9e3f65f06cab7db",
+            image="ollama",
+            setup="go mod download",
+            test='gotestsum --junitfile "$REPORT" -- -count=1 ./...',
+            sources=r"(?!.*_test\.go$).*\.go",
+            language="go",
+            check="go build ./...",
+        ),
     )
 }
 
