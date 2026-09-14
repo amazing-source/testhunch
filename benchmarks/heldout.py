@@ -48,14 +48,35 @@ def _git(*args: str) -> str:
     return done.stdout.strip()
 
 
-def frozen_commit() -> str:
+def _uncommitted(ledger: Path) -> str:
+    """Uncommitted changes, except the ledger's own rows.
+
+    A campaign is often two commands: the second would refuse because the first appended its row.
+    The ledger is the one file a held-out run is meant to change, and what protects it is git
+    history, not this check, so a row of its own never blocks the next look.
+    """
+    try:
+        allowed = (
+            ledger.resolve().relative_to(Path(_git("rev-parse", "--show-toplevel"))).as_posix()
+        )
+    except ValueError:  # a ledger outside the repository, as the tests use
+        allowed = None
+    lines = [
+        line
+        for line in _git("status", "--porcelain").splitlines()
+        if line[3:].strip().strip('"') != allowed
+    ]
+    return "\n".join(lines)
+
+
+def frozen_commit(ledger: Path | None = None) -> str:
     """The commit being replayed, once it is certain that it is public and unmodified.
 
     ADR 0013 asks for a version committed and listed before a held-out replay. Checking it here
     turns that promise into a refusal: nothing uncommitted, and the commit already on a remote, so
     the code that produced a held-out number cannot be edited afterwards.
     """
-    dirty = _git("status", "--porcelain")
+    dirty = _uncommitted(LEDGER if ledger is None else ledger)
     if dirty:
         raise NotFrozen(
             "the working tree has uncommitted changes, so the version replayed could not be "
@@ -83,7 +104,7 @@ def record_peek(
     leaves its row. Hiding a look then means deleting a line someone can find in git history.
     """
     ledger = LEDGER if ledger is None else ledger
-    commit = frozen_commit()
+    commit = frozen_commit(ledger)
     ledger.parent.mkdir(parents=True, exist_ok=True)
     if not ledger.exists():
         ledger.write_text(_HEADER, encoding="utf-8")

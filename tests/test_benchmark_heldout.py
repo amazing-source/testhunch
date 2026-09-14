@@ -32,7 +32,7 @@ def rows(ledger: Path) -> list[str]:
 def test_the_ledger_is_created_with_its_header_and_one_row_per_look(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(heldout, "frozen_commit", lambda: "0" * 40)
+    monkeypatch.setattr(heldout, "frozen_commit", lambda ledger=None: "0" * 40)
     ledger = tmp_path / "log.md"
 
     record_peek("benchmarks.study held-out", ["a@b"], "candidate-x", "9.9.9", ledger)
@@ -48,6 +48,32 @@ def test_a_dirty_working_tree_refuses_to_replay(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(heldout, "_git", lambda *a: " M src/testhunch/prioritize.py")
 
     with pytest.raises(NotFrozen, match="uncommitted changes"):
+        frozen_commit()
+
+
+def test_the_ledgers_own_row_does_not_block_the_next_look(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A campaign is often two commands: the first appends its row, and the second must still run.
+    answers = {
+        ("status", "--porcelain"): " M benchmarks/results/held-out-log.md",
+        ("rev-parse", "--show-toplevel"): str(Path(heldout.__file__).resolve().parents[1]),
+        ("rev-parse", "HEAD"): "c" * 40,
+        ("branch", "--remotes", "--contains", "c" * 40): "  origin/main",
+    }
+    monkeypatch.setattr(heldout, "_git", lambda *a: answers.get(a, ""))
+
+    assert frozen_commit() == "c" * 40
+
+
+def test_another_change_beside_the_ledger_still_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    answers = {
+        ("status", "--porcelain"): (
+            " M benchmarks/results/held-out-log.md\n M src/testhunch/prioritize.py"
+        ),
+        ("rev-parse", "--show-toplevel"): str(Path(heldout.__file__).resolve().parents[1]),
+    }
+    monkeypatch.setattr(heldout, "_git", lambda *a: answers.get(a, ""))
+
+    with pytest.raises(NotFrozen, match=r"prioritize\.py"):
         frozen_commit()
 
 
@@ -99,7 +125,7 @@ def test_a_loose_checkout_stops_every_held_out_command(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    def loose() -> str:
+    def loose(ledger: Path | None = None) -> str:
         raise NotFrozen("the working tree has uncommitted changes")
 
     monkeypatch.setattr(heldout, "frozen_commit", loose)
@@ -117,12 +143,15 @@ def test_a_loose_checkout_stops_every_held_out_command(
     assert not (tmp_path / "log.md").exists()
 
 
-def test_the_ledger_in_the_repository_holds_every_look_so_far() -> None:
+def test_no_row_is_ever_removed_from_the_ledger_in_the_repository() -> None:
     text = LEDGER.read_text(encoding="utf-8")
 
-    # The three runs that read held-out projects before the ledger existed (docs/adr/0016).
-    assert len(rows(LEDGER)) == 3
+    # The ledger only grows. These three runs read held-out projects before it existed
+    # (docs/adr/0016); a look that disappears from it is the one thing that breaks the guarantee.
     assert "bc417f1d84d6" in text and "ed36f46629c1" in text and "3ed027a61a5c" in text
+    assert len(rows(LEDGER)) >= 3
+    # Every row carries its six columns, so counting them means something.
+    assert all(row.count("|") == 7 for row in rows(LEDGER))
 
 
 def test_phase_six_chooses_its_model_away_from_the_held_out_projects() -> None:
