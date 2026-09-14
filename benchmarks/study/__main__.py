@@ -3,7 +3,7 @@
 uv run python -m benchmarks.study baseline          # latest failure and testhunch 0.2.0
 uv run python -m benchmarks.study step-1 --jobs 2   # fewer projects at once, less memory
 
-Held-out projects are not accepted: they are replayed once, after the study stops (ADR 0013).
+uv run python -m benchmarks.study held-out --held-out  # once, after the study stopped (ADR 0013)
 """
 
 from __future__ import annotations
@@ -17,10 +17,15 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from benchmarks.split import HARNESS_DEVELOPMENT, RTPTORRENT_DEVELOPMENT
+from benchmarks.split import (
+    HARNESS_DEVELOPMENT,
+    HARNESS_HELD_OUT,
+    RTPTORRENT_DEVELOPMENT,
+    RTPTORRENT_HELD_OUT,
+)
 from benchmarks.study.engine import PRIMARY, compare
 from benchmarks.study.metrics import BUDGETS, time_to_catch
-from benchmarks.study.projects import AUTHORS_SCHEDULE, CACHE, STEPS, Step, run
+from benchmarks.study.projects import AUTHORS_SCHEDULE, CACHE, HELD_OUT_STEP, STEPS, Step, run
 from testhunch import __version__
 from testhunch.gitinfo import GitError, rev_parse
 
@@ -89,6 +94,16 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
     lines.append("")
     if not complete:
         lines.append("Some projects are missing: no verdict.")
+    elif name == HELD_OUT_STEP:
+        lines.append(
+            "Held-out projects, replayed once with the versions the study kept (ADR 0013): "
+            + (
+                ", ".join(f"**{c} beats {current}**" for c in winners)
+                if winners
+                else f"**no kept version beats {current}**"
+            )
+            + "."
+        )
     elif winners:
         kept = max(winners, key=lambda c: verdicts[c]["mean_difference"])
         lines.append(f"**Kept: {kept}**, the candidate that beats {current} by the most.")
@@ -210,13 +225,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--projects",
         nargs="+",
-        choices=[*RTPTORRENT_DEVELOPMENT, *HARNESS_DEVELOPMENT],
-        help="a subset of the development projects",
+        choices=[
+            *RTPTORRENT_DEVELOPMENT,
+            *HARNESS_DEVELOPMENT,
+            *RTPTORRENT_HELD_OUT,
+            *HARNESS_HELD_OUT,
+        ],
+        help="a subset of the step's projects",
+    )
+    parser.add_argument(
+        "--held-out",
+        action="store_true",
+        help=f"required by the {HELD_OUT_STEP} step, the only one that replays held-out projects",
     )
     args = parser.parse_args(argv)
-    chosen = args.projects or [*RTPTORRENT_DEVELOPMENT, *HARNESS_DEVELOPMENT]
+    if (args.step == HELD_OUT_STEP) != args.held_out:
+        parser.error(f"--held-out goes with the {HELD_OUT_STEP} step, and only with it (ADR 0013)")
+    rtptorrent = RTPTORRENT_HELD_OUT if args.held_out else RTPTORRENT_DEVELOPMENT
+    harness = HARNESS_HELD_OUT if args.held_out else HARNESS_DEVELOPMENT
+    chosen = args.projects or [*rtptorrent, *harness]
+    wrong = [project for project in chosen if project not in (*rtptorrent, *harness)]
+    if wrong:
+        parser.error(f"not projects of the {args.step} step: {', '.join(wrong)}")
     tasks = [
-        ("rtptorrent" if project in RTPTORRENT_DEVELOPMENT else "harness", project, args.step)
+        ("rtptorrent" if project in rtptorrent else "harness", project, args.step)
         for project in chosen
     ]
     out = args.out / args.step
