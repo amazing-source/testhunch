@@ -99,6 +99,18 @@ STEPS["step-3"] = Step(
     additions(STEP_1_KEPT, PROXIMITY_SIGNALS, other_changes=False),
     references=(LatestFailure(), ProductRanking()),
 )
+# Kept by step 3 (benchmarks/results/study/step-3.md). The current version changed, so step 4 tries
+# every signal it does not use yet, history and proximity alike, and windows (ADR 0014).
+STEP_3_KEPT = Candidate(
+    "latest-failure+time^1.0+test_file_changed*0.5",
+    weights=(("test_file_changed", 0.5),),
+    time_exponent=1.0,
+)
+STEPS["step-4"] = Step(
+    STEP_3_KEPT,
+    additions(STEP_3_KEPT, (*HISTORY_SIGNALS, *PROXIMITY_SIGNALS)),
+    references=(STEP_1_KEPT, LatestFailure(), ProductRanking()),
+)
 
 
 def rankings(step: str) -> list[Ranking]:

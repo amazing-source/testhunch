@@ -406,3 +406,13 @@ def test_the_extension_step_tries_only_the_proximity_signals() -> None:
     assert step.current == STEPS["step-2"].current
     assert len(names) == 3 * len(PROXIMITY_SIGNALS)
     assert all(any(signal in name for signal in PROXIMITY_SIGNALS) for name in names)
+
+
+def test_step_four_tries_every_unused_signal_on_the_version_step_three_kept() -> None:
+    step = STEPS["step-4"]
+    names = [ranking.name for ranking in step.candidates]
+
+    assert step.current.name == "latest-failure+time^1.0+test_file_changed*0.5"
+    unused = len(HISTORY_SIGNALS) + len(PROXIMITY_SIGNALS) - 1  # all but test_file_changed
+    assert len(names) == len(set(names)) == 3 * (unused + 1)  # and three windows
+    assert not any("test_file_changed" in name.removeprefix(step.current.name) for name in names)
