@@ -14,7 +14,7 @@ matching over-matches ("store" in "restore"), and a flaky test's failures count 
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from testhunch.models import CaseHistory, RankedTest
 
@@ -29,12 +29,17 @@ def stem(path: str) -> str:
     return name.split(".", 1)[0].lower()
 
 
-def rank(history: Sequence[CaseHistory], changed_paths: Sequence[str] = ()) -> list[RankedTest]:
-    stems = {
+def changed_stems(changed_paths: Iterable[str]) -> set[str]:
+    """The stems of changed files specific enough to look for in test names."""
+    return {
         s
         for s in (stem(path) for path in changed_paths)
         if len(s) >= _MIN_STEM_LENGTH and s not in _GENERIC_STEMS
     }
+
+
+def rank(history: Sequence[CaseHistory], changed_paths: Sequence[str] = ()) -> list[RankedTest]:
+    stems = changed_stems(changed_paths)
     ranked: list[RankedTest] = []
     for case in history:
         score = 0.0
