@@ -49,6 +49,13 @@ versions, the cache only saves time. Test result caches are not used: Go's is tu
 or whose tests write no report, is recorded as not built and counted, never dropped. Runs are
 kept on disk so that collection can stop and resume.
 
+**A setup failure is not taken at its word.** During the first full collection of cobra, a DNS
+outage inside Docker failed 31 commits in a row in under a second each (`lookup proxy.golang.org
+... no such host`), then the network came back: recorded as they were, they would have been
+published as commits of cobra that do not build. A failing setup is therefore tried again after
+30 seconds, and collection stops after 3 commits in a row are not built, so that someone reads
+their logs before they count; `--allow-not-built` goes on when the project itself is at fault.
+
 **Evaluation replays the commits in order**, with the same code and metrics as the RTPTorrent
 replay: each commit is ranked from the history of the commits before it and its own changed
 files, then its results are recorded. The metrics are those of ADR 0006 at budgets of 10%, 25%
