@@ -17,6 +17,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from benchmarks.heldout import NotFrozen, record_peek
 from benchmarks.split import (
     HARNESS_DEVELOPMENT,
     HARNESS_HELD_OUT,
@@ -248,6 +249,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     wrong = [project for project in chosen if project not in (*rtptorrent, *harness)]
     if wrong:
         parser.error(f"not projects of the {args.step} step: {', '.join(wrong)}")
+    if args.held_out:
+        # Written before the replay, from a frozen commit, so the look cannot be hidden (ADR 0016).
+        try:
+            record_peek(
+                f"benchmarks.study {args.step}",
+                chosen,
+                ", ".join(ranking.name for ranking in STEPS[args.step].rankings()),
+                __version__,
+            )
+        except NotFrozen as exc:
+            parser.error(str(exc))
     tasks = [
         ("rtptorrent" if project in rtptorrent else "harness", project, args.step)
         for project in chosen

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from benchmarks import heldout
 from benchmarks.replay import Job, add_points, apfd, concurrent_groups, failing_tests, replay
 from benchmarks.rtptorrent.__main__ import main, markdown, run_project
 from benchmarks.rtptorrent.data import STRATEGIES, load_jobs
@@ -180,12 +181,19 @@ def test_a_project_without_schedules_compares_no_apfd(tmp_path: Path) -> None:
     assert "no schedule" in markdown(report)
 
 
-def test_the_benchmark_writes_json_and_markdown_per_project(tmp_path: Path) -> None:
+def test_the_benchmark_writes_json_and_markdown_per_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     cache = tmp_path / "cache"
     shutil.copytree(EXTRACT, cache / "adamfisk@LittleProxy")
     (cache / "adamfisk@LittleProxy" / "source.json").write_text('{"url": "test"}', encoding="utf-8")
 
     # The extract comes from a held-out project (docs/adr/0013); it tests reading, not ranking.
+    # The freeze check and the ledger are the subject of test_benchmark_heldout: here they only
+    # have to stay out of the way, and out of the repository's own ledger (docs/adr/0016).
+    ledger = tmp_path / "held-out-log.md"
+    monkeypatch.setattr(heldout, "frozen_commit", lambda: "0" * 40)
+    monkeypatch.setattr(heldout, "LEDGER", ledger)
     arguments = [
         "adamfisk@LittleProxy",
         "--held-out",
@@ -195,6 +203,7 @@ def test_the_benchmark_writes_json_and_markdown_per_project(tmp_path: Path) -> N
         str(tmp_path),
     ]
     assert main(arguments) == 0
+    assert "adamfisk@LittleProxy" in ledger.read_text(encoding="utf-8")
 
     report = json.loads((tmp_path / "adamfisk@LittleProxy.json").read_text(encoding="utf-8"))
     assert report["dataset"] == {"url": "test"}
