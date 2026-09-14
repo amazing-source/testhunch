@@ -1,0 +1,218 @@
+"""The ranking study's engine, rankings and measures (docs/adr/0014)."""
+
+from __future__ import annotations
+
+import itertools
+import random
+from collections.abc import Mapping
+from pathlib import Path
+
+import pytest
+
+from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups, replay
+from benchmarks.rtptorrent.data import load_jobs
+from benchmarks.study.engine import PRIMARY, compare, study
+from benchmarks.study.history import ALPHA, BuildHistory, RunWindow
+from benchmarks.study.metrics import Trial, scores
+from benchmarks.study.rankings import Context, LatestFailure, ProductRanking, product_order, tie
+from testhunch.junit import collapse
+from testhunch.models import CaseResult, Status
+from testhunch.store import SqlStore, open_store
+
+EXTRACT = Path(__file__).parent / "fixtures" / "rtptorrent" / "adamfisk@LittleProxy"
+
+
+@pytest.fixture
+def store(tmp_path: Path) -> SqlStore:
+    opened = open_store(f"sqlite:///{tmp_path.as_posix()}/history.db")
+    opened.migrate()
+    return opened
+
+
+def result(
+    key: str, status: Status = Status.PASSED, duration: int | None = 10, file: str | None = None
+) -> CaseResult:
+    return CaseResult(key, key, None, file, status, duration, None)
+
+
+def trial(tests: str, failing: str, durations: Mapping[str, int | None], job_id: int = 1) -> Trial:
+    return Trial(job_id, tuple(tests), frozenset(failing), durations, ())
+
+
+def test_apfdc_with_one_fault_is_how_soon_the_first_failure_ends() -> None:
+    # Costs with the 1 ms epsilon: a 10, b 20, c 30 ms; b starts at 10 and takes 20 of 60.
+    job = trial("abc", "b", {"a": 9, "b": 19, "c": 29})
+
+    measured = scores(job, ["a", "b", "c"], known=3)
+
+    assert measured[PRIMARY] == pytest.approx(1 - (10 + 20 / 2) / 60)
+    assert measured["apfdc"] == pytest.approx(measured[PRIMARY])
+    assert (measured["time_0.25"], measured["time_0.5"]) == (0.0, 1.0)  # b ends at 30 of 60
+
+
+def test_apfdc_per_failure_follows_luo_et_al_equation_3() -> None:
+    job = trial("abc", "bc", {"a": 9, "b": 19, "c": 29})
+
+    measured = scores(job, ["a", "b", "c"], known=3)
+
+    assert measured["apfdc"] == pytest.approx(((60 - 10 - 10) + (60 - 30 - 15)) / (60 * 2))
+    assert measured[PRIMARY] == pytest.approx(1 - (10 + 10) / 60)
+
+
+def test_a_single_failure_placed_at_random_scores_one_half_on_average() -> None:
+    durations = {"a": 0, "b": 4, "c": 99, "d": 12}
+    values = [
+        scores(trial("abcd", "c", durations), list(order), known=4)[PRIMARY]
+        for order in itertools.permutations("abcd")
+    ]
+
+    assert sum(v for v in values if v is not None) / len(values) == pytest.approx(0.5)
+
+
+def test_an_unknown_duration_leaves_time_measures_out_but_not_apfd() -> None:
+    measured = scores(trial("ab", "b", {"a": None, "b": 5}), ["a", "b"], known=2)
+
+    assert measured[PRIMARY] is None and measured["time_0.5"] is None
+    assert measured["apfd"] == pytest.approx(1 - 2 / 2 + 1 / 4)
+
+
+def test_unknown_tests_run_before_the_known_budget_is_cut() -> None:
+    # "u" is unknown; of the 10 known tests, a 10% budget runs 1.
+    tests = "u" + "abcdefghij"
+    durations = {test: 1 for test in tests}
+
+    assert scores(trial(tests, "a", durations), list(tests), known=10)["tests_0.1"] == 1.0
+    assert scores(trial(tests, "b", durations), list(tests), known=10)["tests_0.1"] == 0.0
+
+
+def test_an_order_missing_a_test_is_refused() -> None:
+    with pytest.raises(ValueError, match="does not hold"):
+        scores(trial("ab", "b", {"a": 1, "b": 1}), ["b"], known=1)
+
+
+def test_the_priority_follows_rtptorrents_recurrence_build_by_build() -> None:
+    rng = random.Random(7)
+    tests = [f"T{index}" for index in range(8)]
+    builds = BuildHistory()
+    naive = dict.fromkeys(tests, 0.0)
+    for _ in range(15):
+        failed = {test: rng.random() < 0.3 for test in tests}
+        ran = {test for test in tests if rng.random() < 0.8}
+        builds.record([[result(t, Status.FAILED if failed[t] else Status.PASSED) for t in ran]])
+        # P(n) = alpha F(n) + (1 - alpha) P(n - 1), where a test that did not run did not fail.
+        naive = {t: ALPHA * (t in ran and failed[t]) + (1 - ALPHA) * naive[t] for t in tests}
+        for test, record in builds.records.items():
+            assert record.priority_at(builds.builds) == pytest.approx(naive[test], abs=1e-12)
+
+
+def test_latest_failure_orders_as_the_priority_does() -> None:
+    rng = random.Random(3)
+    tests = [f"T{index}" for index in range(12)]
+    builds = BuildHistory()
+    for _ in range(20):
+        builds.record(
+            [[result(t, Status.FAILED if rng.random() < 0.2 else Status.PASSED) for t in tests]]
+        )
+    job = Trial(99, (*tests, "New"), frozenset({"T0"}), {}, ())
+
+    order, known = LatestFailure().order(job, Context(builds, list))
+
+    by_priority = sorted(
+        tests, key=lambda t: (-builds.records[t].priority_at(builds.builds), tie(99, t))
+    )
+    assert order == ["New", *by_priority]
+    assert known == len(tests)
+
+
+def test_a_build_counts_a_failure_in_any_of_its_jobs_and_its_transitions() -> None:
+    builds = BuildHistory()
+    builds.record([[result("A")], [result("A", Status.FAILED)]])
+    builds.record([[result("A")]])
+    builds.record([[result("A", Status.SKIPPED)]])
+
+    record = builds.records["A"]
+    assert (record.runs, record.failures, record.last_failure) == (2, 1, 0)
+    assert (record.transitions, record.last_transition, record.last_failed) == (1, 1, False)
+
+
+def _engine_product_orders(jobs: list[Job]) -> list[list[str]]:
+    window = RunWindow(HISTORY_RUNS)
+    orders = []
+    for group in concurrent_groups(jobs):
+        collapsed = [collapse(job.results) for job in group]
+        history = window.history()
+        for job, results in zip(group, collapsed, strict=True):
+            tests = [r.key for r in results]
+            orders.append(product_order(tests, history, job.changed_files or ())[0])
+        for results in collapsed:
+            window.record(results)
+    return orders
+
+
+def test_the_engine_orders_every_extract_job_as_the_product_replay(store: SqlStore) -> None:
+    jobs = load_jobs(EXTRACT)
+
+    expected = [list(ranked.order) for ranked in replay(jobs, store, "adamfisk@LittleProxy")]
+
+    assert _engine_product_orders(jobs) == expected
+
+
+def test_the_engine_window_forgets_runs_and_keeps_files_as_the_store(store: SqlStore) -> None:
+    rng = random.Random(11)
+    names = ["cart", "user", "store", "restore", "order"]
+    jobs = []
+    for index in range(130):  # well past the 50-run window
+        results = tuple(
+            result(
+                f"tests/test_{name}.py::test_{n}",
+                rng.choice([Status.PASSED, Status.PASSED, Status.FAILED, Status.SKIPPED]),
+                file=None if rng.random() < 0.2 else f"tests/test_{name}.py",
+            )
+            for name in names
+            for n in range(2)
+            if rng.random() < 0.7
+        )
+        commits = frozenset({f"c{index // rng.choice([1, 2])}"})
+        changed = (f"src/{rng.choice(names)}.py",)
+        jobs.append(Job(index, commits, changed, results))
+
+    expected = [list(ranked.order) for ranked in replay(jobs, store, "repo")]
+
+    assert _engine_product_orders(jobs) == expected
+
+
+def test_the_study_scores_every_ranking_on_the_same_trials_and_skips_the_cold_group() -> None:
+    jobs = [
+        Job(1, frozenset({"a"}), (), (result("A", Status.FAILED), result("B"))),
+        Job(2, frozenset({"b"}), (), (result("A"), result("B", Status.FAILED))),
+        Job(3, frozenset({"c"}), (), (result("A", Status.FAILED), result("B"), result("C"))),
+    ]
+
+    outcome = study(jobs, [LatestFailure(), ProductRanking()])
+
+    assert outcome["counts"]["jobs_ranked_from_empty_history"] == 1
+    assert outcome["counts"]["jobs_evaluated"] == 2
+    assert outcome["trials"]["job_ids"] == [2, 3]
+    for ranking in outcome["rankings"].values():
+        assert len(ranking["per_trial"][PRIMARY]) == 2
+    # Job 3: A failed in build 0 and passed in build 1, B failed in build 1, C is new: C, B, A.
+    latest = outcome["rankings"]["latest-failure"]["per_trial"]["apfd"][1]
+    assert latest == pytest.approx(1 - 3 / 3 + 1 / 6)  # order C, B, A: A is third
+
+
+def test_rankings_must_have_distinct_names() -> None:
+    with pytest.raises(ValueError, match="share a name"):
+        study([], [LatestFailure(), LatestFailure()])
+
+
+def test_a_candidate_beats_another_only_with_an_interval_above_zero_and_six_projects() -> None:
+    before = {f"p{index}": 0.5 for index in range(10)}
+
+    clear = compare(before, {p: 0.6 for p in before})
+    one_project = compare(before, {**before, "p0": 1.5})
+    five_projects = compare(before, {p: 0.6 if int(p[1:]) < 5 else 0.49 for p in before})
+
+    assert clear["beats"] and clear["interval"][0] == pytest.approx(0.1)
+    assert not one_project["beats"]  # a mean carried by one project
+    assert five_projects["higher_on"] == 5 and not five_projects["beats"]
+    assert compare(before, {p: 0.6 for p in before}) == clear  # seeded

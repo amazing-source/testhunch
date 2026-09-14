@@ -1,0 +1,102 @@
+"""Replay one development project with the rankings of a study step (docs/adr/0014).
+
+In a module of its own so that worker processes can import it: Windows starts them afresh.
+"""
+
+from __future__ import annotations
+
+import statistics
+from pathlib import Path
+from typing import Any
+
+from benchmarks.harness.collect import PROJECTS, clone, read_run, window
+from benchmarks.harness.evaluate import commit_jobs, mutant_outcome
+from benchmarks.replay import Job, apfd
+from benchmarks.rtptorrent.data import fetch_project, iter_jobs
+from benchmarks.rtptorrent.schedules import read_schedules
+from benchmarks.study.engine import study
+from benchmarks.study.metrics import Trial
+from benchmarks.study.rankings import LatestFailure, ProductRanking, Ranking
+from testhunch.models import CaseResult, ShadowResult, ShadowRun, Status
+
+CACHE = Path(".benchmark-cache")
+AUTHORS_SCHEDULE = "recently-failed"
+
+
+def rankings(step: str) -> list[Ranking]:
+    if step == "baseline":
+        return [LatestFailure(), ProductRanking()]
+    raise ValueError(f"unknown step: {step}")
+
+
+def run_rtptorrent(project: str, step: str) -> dict[str, Any]:
+    directory = fetch_project(project, CACHE / "rtptorrent")
+    result = study(iter_jobs(directory), rankings(step))
+    schedule = directory / "baseline" / f"{AUTHORS_SCHEDULE}.csv"
+    if schedule.exists():
+        result["authors_schedule"] = _authors_apfd(read_schedules(schedule), result)
+    return {"project": project, "source": "rtptorrent", **result}
+
+
+def _authors_apfd(schedules: dict[int, tuple[list[str], set[str]]], result: Any) -> Any:
+    """The authors' recently-failed APFD and each ranking's, on the jobs their schedule covers."""
+    job_ids = result["trials"]["job_ids"]
+    covered = [index for index, job_id in enumerate(job_ids) if job_id in schedules]
+    authors = [apfd(*schedules[job_ids[index]]) for index in covered]
+    compared = [index for index, score in zip(covered, authors, strict=True) if score is not None]
+    means = {
+        AUTHORS_SCHEDULE: statistics.fmean(s for s in authors if s is not None)
+        if compared
+        else None
+    }
+    for name, ranking in result["rankings"].items():
+        values = [ranking["per_trial"]["apfd"][index] for index in compared]
+        means[name] = statistics.fmean(values) if values else None
+    return {"jobs": len(compared), "mean_apfd": means}
+
+
+def run_harness(name: str, step: str) -> dict[str, Any]:
+    project = PROJECTS[name]
+    cache = CACHE / "harness"
+    repository = clone(project, cache)
+    runs_directory = cache / project.slug / "runs"
+    runs = [
+        read_run(runs_directory / sha)
+        for sha in window(repository, project.end, project.window)
+        if (runs_directory / sha / "run.json").exists()
+    ]
+
+    def mutants(job: Job, results: tuple[CaseResult, ...]) -> list[Trial]:
+        commit = ShadowRun(
+            job.job_id,
+            {},
+            tuple(
+                ShadowResult(r.key, r.status, r.flaky, r.duration_ms, r.attempts) for r in results
+            ),
+        )
+        trials = []
+        for mutant in runs[job.job_id].mutants:
+            outcome = mutant_outcome(mutant, commit)
+            if isinstance(outcome, ShadowRun):
+                trials.append(
+                    Trial(
+                        job_id=job.job_id,
+                        tests=tuple(result.key for result in outcome.results),
+                        failing=frozenset(
+                            r.key for r in outcome.results if r.status is Status.FAILED
+                        ),
+                        durations={r.key: r.duration_ms for r in outcome.results},
+                        changed_files=job.changed_files or (),
+                    )
+                )
+        return trials
+
+    result = study(commit_jobs(repository, runs), rankings(step), mutants)
+    return {"project": name, "source": "harness", **result}
+
+
+def run(task: tuple[str, str, str]) -> dict[str, Any]:
+    source, project, step = task
+    if source == "rtptorrent":
+        return run_rtptorrent(project, step)
+    return run_harness(project, step)
