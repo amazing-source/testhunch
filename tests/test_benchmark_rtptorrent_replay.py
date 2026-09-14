@@ -167,7 +167,16 @@ def test_the_benchmark_writes_json_and_markdown_per_project(tmp_path: Path) -> N
     shutil.copytree(EXTRACT, cache / "adamfisk@LittleProxy")
     (cache / "adamfisk@LittleProxy" / "source.json").write_text('{"url": "test"}', encoding="utf-8")
 
-    assert main(["adamfisk@LittleProxy", "--cache", str(cache), "--out", str(tmp_path)]) == 0
+    # The extract comes from a held-out project (docs/adr/0013); it tests reading, not ranking.
+    arguments = [
+        "adamfisk@LittleProxy",
+        "--held-out",
+        "--cache",
+        str(cache),
+        "--out",
+        str(tmp_path),
+    ]
+    assert main(arguments) == 0
 
     report = json.loads((tmp_path / "adamfisk@LittleProxy.json").read_text(encoding="utf-8"))
     assert report["dataset"] == {"url": "test"}
