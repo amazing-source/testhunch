@@ -314,3 +314,12 @@ def test_each_step_one_candidate_adds_one_signal_to_the_latest_failure() -> None
 
     assert len(names) == len(set(names)) == 3 * (len(SIGNALS) + 2)
     assert all(name.startswith("latest-failure+") and name.count("+") == 1 for name in names)
+
+
+def test_step_two_adds_the_remaining_signals_to_the_version_step_one_kept() -> None:
+    step = STEPS["step-2"]
+    names = [ranking.name for ranking in step.candidates]
+
+    assert step.current.name == "latest-failure+time^1.0"
+    assert len(names) == len(set(names)) == 3 * (len(SIGNALS) + 1)
+    assert not any("time^" in name.removeprefix(step.current.name) for name in names)
