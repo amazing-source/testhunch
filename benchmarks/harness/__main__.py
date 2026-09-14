@@ -2,6 +2,7 @@
 
 uv run python -m benchmarks.harness collect pallets/click
 uv run python -m benchmarks.harness evaluate pallets/click
+uv run python -m benchmarks.harness evaluate fastapi/fastapi --held-out  # frozen versions only
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from benchmarks.harness.collect import (
     window,
 )
 from benchmarks.harness.evaluate import markdown, run_project
+from benchmarks.split import HARNESS_HELD_OUT
 
 DEFAULT_CACHE = Path(".benchmark-cache") / "harness"
 DEFAULT_OUT = Path("benchmarks") / "results" / "harness"
@@ -39,7 +41,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="keep collecting after several commits in a row were not built",
     )
+    parser.add_argument(
+        "--held-out",
+        action="store_true",
+        help="allow evaluating held-out projects: only for versions frozen before the replay "
+        "(docs/adr/0013); collecting them ranks nothing and needs no flag",
+    )
     args = parser.parse_args(argv)
+    held_out = [name for name in args.projects if name in HARNESS_HELD_OUT]
+    if args.action == "evaluate" and held_out and not args.held_out:
+        parser.error(
+            f"held out, evaluated only with --held-out (docs/adr/0013): {', '.join(held_out)}"
+        )
 
     for name in args.projects:
         project = PROJECTS[name]

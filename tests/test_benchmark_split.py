@@ -6,8 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from benchmarks.harness.__main__ import main as harness_main
+from benchmarks.harness.collect import PROJECTS
 from benchmarks.rtptorrent.__main__ import main
 from benchmarks.split import (
+    HARNESS_DEVELOPMENT,
+    HARNESS_HELD_OUT,
     RTPTORRENT_DEVELOPMENT,
     RTPTORRENT_FAILING_JOBS,
     RTPTORRENT_HELD_OUT,
@@ -57,6 +61,23 @@ def test_a_project_without_a_pair_is_a_development_project() -> None:
 
     assert "c@large" in development
     assert len(held_out) == 1
+
+
+def test_every_harness_project_is_either_development_or_held_out() -> None:
+    assert not set(HARNESS_DEVELOPMENT) & set(HARNESS_HELD_OUT)
+    assert set(HARNESS_DEVELOPMENT) | set(HARNESS_HELD_OUT) == set(PROJECTS)
+
+
+def test_the_harness_refuses_to_evaluate_held_out_projects_unless_asked(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    arguments = ["evaluate", "pallets/click", "ollama/ollama", "--cache", str(tmp_path)]
+    with pytest.raises(SystemExit) as refused:
+        harness_main(arguments)
+
+    assert refused.value.code == 2
+    assert "ollama/ollama" in capsys.readouterr().err
+    assert not any(tmp_path.iterdir())  # refused before cloning anything
 
 
 def test_the_benchmark_refuses_held_out_projects_unless_asked(

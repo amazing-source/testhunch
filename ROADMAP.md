@@ -67,7 +67,7 @@ avancer avant elle.
 
 ### D'abord, la meilleure heuristique
 
-- [ ] Séparer les projets avant tout réglage : des projets de développement pour régler, des projets mis de côté pour publier, jamais regardés pendant les réglages. Le partage de RTPTorrent est tiré au sort et consigné dans un ADR avant la première mesure ; le banc d'essai n'a que deux projets, ceux mis de côté seront de nouveaux projets
+- [x] Séparer les projets avant tout réglage : des projets de développement pour régler, des projets mis de côté pour publier, jamais regardés pendant les réglages ([ADR 0013](docs/adr/0013-development-projects-tune-held-out-projects-measure.md)). RTPTorrent est partagé 10/10 par une règle sans graine ; au banc d'essai, click et cobra servent au développement, fastapi et ollama sont mis de côté
 - [ ] Mesurer aussi l'APFDc (l'APFD qui tient compte de la durée des tests) et le rappel selon la part du temps de test réellement lancée. Les suites de LRTS durent 6,5 heures en moyenne : ce que la durée apporte sur des suites de quelques secondes reste à mesurer
 - [ ] Compter la récence et la fenêtre d'historique en builds, et non en exécutions : sur SonarQube, les nombreux jobs par build laissent beaucoup de classes inconnues (voir les [résultats de la phase 3](benchmarks/results/README.md))
 - [ ] Une étude par ajouts successifs, chaque version mesurée : partir des tests qui ont échoué le plus récemment, puis ajouter la durée, le taux d'échec, les changements de verdict, l'historique conjoint fichiers × tests, et enfin le nom et le diff. Un ajout n'est gardé que s'il améliore la mesure sur les projets de développement
