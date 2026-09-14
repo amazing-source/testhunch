@@ -46,38 +46,43 @@ permet pas de la mesurer.
 - [x] Mesurer le rappel par test et le rappel par changement, ainsi que le temps de test économisé
 - [x] Publier les résultats, y compris là où testhunch s'en sort mal
 
-## Phase 4 : service hébergé
+## Phase 4 : la meilleure heuristique
 
-- [ ] Terraform pour un seul serveur : Postgres, API, worker, stockage objet pour les rapports bruts
+Le principal risque du projet n'est pas l'infrastructure : c'est que les signaux de testhunch
+n'apportent rien de plus que « les tests qui ont échoué le plus récemment d'abord ». Cette phase le
+mesure avant de construire le service hébergé. Sur les suites longues de LRTS, cette heuristique
+obtient un APFDc moyen de 0,735, et 0,835 quand elle tient compte en plus de la durée des tests
+(Cheng et al., tableau 8).
+
+- [x] Séparer les projets avant tout réglage : des projets de développement pour régler, des projets mis de côté pour publier, jamais regardés pendant les réglages ([ADR 0013](docs/adr/0013-development-projects-tune-held-out-projects-measure.md)). RTPTorrent est partagé 10/10 par une règle sans graine ; au banc d'essai, click et cobra servent au développement, fastapi et ollama sont mis de côté
+- [ ] Programmer « le plus récemment échoué » dans le rejeu, comme référence mesurée partout avec les mêmes mesures que testhunch, et vérifier qu'on retrouve à peu près l'APFD des ordres des auteurs de RTPTorrent (0,847 sur leurs jobs)
+- [ ] Mesurer aussi l'APFDc (l'APFD qui tient compte de la durée des tests) et le rappel des builds cassés à budget de temps fixé. La mesure principale et le critère de décision (amélioration projet par projet, intervalle de confiance) sont fixés dans un ADR avant la première comparaison. Les suites de LRTS durent 6,5 heures en moyenne : ce que la durée apporte sur des suites de quelques secondes reste à mesurer
+- [ ] Compter la récence et la fenêtre d'historique en builds, et non en exécutions : sur SonarQube, les nombreux jobs par build laissent beaucoup de classes inconnues (voir les [résultats de la phase 3](benchmarks/results/README.md))
+- [ ] Une étude par ajouts successifs sur les projets de développement : partir du plus récemment échoué, puis, à chaque étape, essayer chacun des signaux restants et garder le meilleur, s'il améliore la mesure principale. Les signaux : la durée, le taux d'échec, les changements de verdict, l'historique conjoint fichiers × tests, le nom et le diff
+  - Le nom et le diff comme signal quand l'historique ne dit rien, et non comme bonus fixe qui domine le score : sur le premier échec de chaque test de LRTS, « le plus récemment échoué » tombe à 0,467 contre 0,504 pour l'aléatoire, et une recherche textuelle dans le diff atteint 0,691 (tableau 10). Chez Facebook, les « tokens communs » entre chemins et noms de tests dégradaient le modèle et ont été retirés (Machalica et al., tableau I)
+  - Ce que chaque source peut mesurer : RTPTorrent n'a que les noms des fichiers modifiés et des classes de test ; les durées de Go sont arrondies au centième de seconde ; au banc d'essai, les projets de développement n'ont presque que des mutants
+- [ ] Figer les choix, puis mesurer une seule fois chaque version retenue sur les projets mis de côté et publier le résultat, bon ou mauvais. La meilleure version devient le classement de référence, avec ses raisons ; si aucune ne bat nettement « le plus récemment échoué », testhunch l'adopte et le dit
+- [ ] Selon ce résultat, décider si le modèle appris (phase 6) passe avant le service hébergé (phase 5)
+
+## Phase 5 : service hébergé
+
+- [ ] Terraform pour un seul serveur, d'abord en local puis sur AWS ou Azure : Postgres, API, worker, stockage objet pour les rapports bruts
 - [ ] Déploiement continu de `main` vers la préproduction, promotion manuelle en production
 - [ ] Métriques (Prometheus) et alertes, dont le taux de tests manqués en mode fantôme comme objectif de niveau de service
 - [ ] La CI de testhunch envoie son historique à l'API hébergée
 - [ ] Des jetons par dépôt au lieu d'un jeton partagé
 - [ ] Partitionner `results` par date quand la table sera assez grosse pour le justifier
 
-## Phase 5 : un modèle appris
+## Phase 6 : un modèle appris
 
-Le modèle appris devra battre la meilleure heuristique simple, et non le classement de testhunch
-0.2.0. Les études ne donnent pas le gagnant d'avance. Sur les suites longues de LRTS, le meilleur
-modèle appris obtient un APFDc moyen de 0,736, contre 0,735 pour « les tests qui ont échoué le plus
-récemment d'abord », et 0,835 quand cette heuristique tient compte en plus de la durée des tests
-(Cheng et al., tableau 8). Chez Yaraghi et al., à l'inverse, une forêt aléatoire atteint 0,82 contre
-0,71 pour la meilleure heuristique (RQ2.5). La première étape ne dépend pas de la phase 4 et peut
-avancer avant elle.
-
-### D'abord, la meilleure heuristique
-
-- [x] Séparer les projets avant tout réglage : des projets de développement pour régler, des projets mis de côté pour publier, jamais regardés pendant les réglages ([ADR 0013](docs/adr/0013-development-projects-tune-held-out-projects-measure.md)). RTPTorrent est partagé 10/10 par une règle sans graine ; au banc d'essai, click et cobra servent au développement, fastapi et ollama sont mis de côté
-- [ ] Mesurer aussi l'APFDc (l'APFD qui tient compte de la durée des tests) et le rappel selon la part du temps de test réellement lancée. Les suites de LRTS durent 6,5 heures en moyenne : ce que la durée apporte sur des suites de quelques secondes reste à mesurer
-- [ ] Compter la récence et la fenêtre d'historique en builds, et non en exécutions : sur SonarQube, les nombreux jobs par build laissent beaucoup de classes inconnues (voir les [résultats de la phase 3](benchmarks/results/README.md))
-- [ ] Une étude par ajouts successifs, chaque version mesurée : partir des tests qui ont échoué le plus récemment, puis ajouter la durée, le taux d'échec, les changements de verdict, l'historique conjoint fichiers × tests, et enfin le nom et le diff. Un ajout n'est gardé que s'il améliore la mesure sur les projets de développement
-  - Le nom et le diff comme signal quand l'historique ne dit rien, et non comme bonus fixe qui domine le score : sur le premier échec de chaque test de LRTS, « le plus récemment échoué » tombe à 0,467 contre 0,504 pour l'aléatoire, et une recherche textuelle dans le diff atteint 0,691 (tableau 10). Chez Facebook, les « tokens communs » entre chemins et noms de tests dégradaient le modèle et ont été retirés (Machalica et al., tableau I)
-- [ ] La meilleure version devient le classement de référence, avec ses raisons ; publier les mesures de chaque version sur les projets mis de côté, y compris les mauvaises
-
-### Ensuite, le modèle appris
+Le modèle appris devra battre la meilleure heuristique de la phase 4, et non le classement de
+testhunch 0.2.0. Les études ne donnent pas le gagnant d'avance. Sur LRTS, le meilleur modèle appris
+obtient un APFDc moyen de 0,736, contre 0,735 pour le plus récemment échoué (Cheng et al.,
+tableau 8). Chez Yaraghi et al., à l'inverse, une forêt aléatoire atteint 0,82 contre 0,71 pour la
+meilleure heuristique (RQ2.5).
 
 - [ ] Variables : échecs conjoints fichiers/tests, distance entre chemins, récence, instabilité, durée des tests, et celles que Facebook a retenues après sélection (Machalica et al., tableau I) : historique de modification des fichiers modifiés (3, 14 et 56 jours), extensions de ces fichiers, taux d'échec sur plusieurs fenêtres (7, 14, 28 et 56 jours), nombre de tests
-- [ ] Des arbres à gradient boosting comparés à la meilleure heuristique de l'étape précédente, réglés sur les projets de développement et mesurés sur les projets mis de côté
+- [ ] Des arbres à gradient boosting comparés à la meilleure heuristique de la phase 4, réglés sur les projets de développement et mesurés sur les projets mis de côté
 - [ ] Ne le livrer que s'il bat cette heuristique ; publier la comparaison dans tous les cas
 - [ ] Explorer les indicateurs de prédiction de défauts (fichiers historiquement sujets aux bugs) comme variable supplémentaire
 

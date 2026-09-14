@@ -43,7 +43,7 @@ report says there is nothing to measure yet instead of showing 100%.
 ## Consequences
 
 - One recorded ranking holds a row per known test, so storage grows with tests times recorded
-  builds. Acceptable until the hosted service (phase 4) needs retention or partitioning.
+  builds. Acceptable until the hosted service (ROADMAP.md) needs retention or partitioning.
 - Each job of a test matrix is its own run and is evaluated separately against the same ranking.
 - The report measures the ranking as it was used. It is evidence for this repository's history,
   not a general accuracy claim: that is what the public benchmark (phase 3) is for.
