@@ -6,6 +6,7 @@ In a module of its own so that worker processes can import it: Windows starts th
 from __future__ import annotations
 
 import statistics
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -16,17 +17,67 @@ from benchmarks.rtptorrent.data import fetch_project, iter_jobs
 from benchmarks.rtptorrent.schedules import read_schedules
 from benchmarks.study.engine import study
 from benchmarks.study.metrics import Trial
-from benchmarks.study.rankings import LatestFailure, ProductRanking, Ranking
+from benchmarks.study.rankings import SIGNALS, Candidate, LatestFailure, ProductRanking, Ranking
 from testhunch.models import CaseResult, ShadowResult, ShadowRun, Status
 
 CACHE = Path(".benchmark-cache")
 AUTHORS_SCHEDULE = "recently-failed"
 
 
+# The values each added signal is tried with, fixed before any step runs (ADR 0014).
+WEIGHTS = (0.1, 0.5, 2.0)
+TIME_EXPONENTS = (0.0, 0.5, 1.0)
+WINDOWS = (10, 50, 200)
+
+
+@dataclass(frozen=True, slots=True)
+class Step:
+    current: Ranking
+    candidates: tuple[Ranking, ...] = ()
+    references: tuple[Ranking, ...] = ()  # measured for context, never kept
+
+    def rankings(self) -> list[Ranking]:
+        return [self.current, *self.candidates, *self.references]
+
+
+def additions(current: Candidate) -> tuple[Candidate, ...]:
+    """The current version with each signal it does not use yet, at each of its values."""
+    used = {signal for signal, _ in current.weights}
+    candidates: list[Candidate] = []
+    if current.time_exponent is None:
+        candidates += [
+            replace(current, name=f"{current.name}+time^{exponent}", time_exponent=exponent)
+            for exponent in TIME_EXPONENTS
+        ]
+    for signal in SIGNALS:
+        if signal not in used:
+            candidates += [
+                replace(
+                    current,
+                    name=f"{current.name}+{signal}*{weight}",
+                    weights=(*current.weights, (signal, weight)),
+                )
+                for weight in WEIGHTS
+            ]
+    if current.window is None:
+        candidates += [
+            replace(current, name=f"{current.name}+window={size}", window=size) for size in WINDOWS
+        ]
+    return tuple(candidates)
+
+
+STEPS = {
+    "baseline": Step(LatestFailure(), references=(ProductRanking(),)),
+    "step-1": Step(
+        Candidate("latest-failure"),
+        additions(Candidate("latest-failure")),
+        references=(ProductRanking(),),
+    ),
+}
+
+
 def rankings(step: str) -> list[Ranking]:
-    if step == "baseline":
-        return [LatestFailure(), ProductRanking()]
-    raise ValueError(f"unknown step: {step}")
+    return STEPS[step].rankings()
 
 
 def run_rtptorrent(project: str, step: str) -> dict[str, Any]:

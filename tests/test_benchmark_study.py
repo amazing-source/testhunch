@@ -14,7 +14,17 @@ from benchmarks.rtptorrent.data import load_jobs
 from benchmarks.study.engine import PRIMARY, compare, study
 from benchmarks.study.history import ALPHA, BuildHistory, RunWindow
 from benchmarks.study.metrics import Trial, scores
-from benchmarks.study.rankings import Context, LatestFailure, ProductRanking, product_order, tie
+from benchmarks.study.projects import STEPS
+from benchmarks.study.rankings import (
+    SIGNALS,
+    Candidate,
+    Context,
+    LatestFailure,
+    ProductRanking,
+    _signal,
+    product_order,
+    tie,
+)
 from testhunch.junit import collapse
 from testhunch.models import CaseResult, Status
 from testhunch.store import SqlStore, open_store
@@ -216,3 +226,91 @@ def test_a_candidate_beats_another_only_with_an_interval_above_zero_and_six_proj
     assert not one_project["beats"]  # a mean carried by one project
     assert five_projects["higher_on"] == 5 and not five_projects["beats"]
     assert compare(before, {p: 0.6 for p in before}) == clear  # seeded
+
+
+def _random_history(seed: int, tests: list[str], builds_count: int) -> BuildHistory:
+    rng = random.Random(seed)
+    builds = BuildHistory()
+    for _ in range(builds_count):
+        builds.record(
+            [
+                [
+                    result(
+                        t,
+                        Status.FAILED if rng.random() < 0.15 else Status.PASSED,
+                        rng.randint(0, 50),
+                    )
+                    for t in tests
+                    if rng.random() < 0.9
+                ]
+            ],
+            changed_files=[f"src/{rng.choice(tests).lower()}.py"],
+        )
+    return builds
+
+
+def test_a_candidate_without_signals_orders_as_the_latest_failure() -> None:
+    tests = [f"T{index}" for index in range(30)]
+    builds = _random_history(5, tests, 60)
+    job = Trial(7, (*tests, "New"), frozenset({"T1"}), {}, ())
+    context = Context(builds, list)
+
+    assert Candidate("plain").order(job, context) == LatestFailure().order(job, context)
+
+
+def test_file_failures_is_the_share_of_a_files_changes_the_test_failed_after() -> None:
+    builds = BuildHistory()
+    builds.record([[result("A", Status.FAILED), result("B")]], changed_files=["src/cart.py"])
+    builds.record([[result("A"), result("B")]], changed_files=["src/cart.py", "src/user.py"])
+    builds.record([[result("A"), result("B", Status.FAILED)]], changed_files=["src/user.py"])
+    job = Trial(1, ("A", "B"), frozenset({"A"}), {}, ("src/cart.py",))
+
+    signal = _signal("file_failures", job, Context(builds, list))
+
+    assert (signal("A"), signal("B")) == (0.5, 0.0)  # cart.py changed twice, A failed after one
+
+
+def test_a_heavy_name_weight_pulls_up_the_test_named_after_the_change() -> None:
+    builds = BuildHistory()
+    builds.record([[result("CartTest", file="t/cart_test.py"), result("UserTest", Status.FAILED)]])
+    job = Trial(1, ("UserTest", "CartTest"), frozenset({"CartTest"}), {}, ("src/cart.py",))
+    context = Context(builds, list)
+
+    assert Candidate("plain").order(job, context)[0] == ["UserTest", "CartTest"]
+    assert Candidate("name", (("name", 2.0),)).order(job, context)[0] == ["CartTest", "UserTest"]
+
+
+def test_time_puts_the_quicker_test_first_among_equal_priorities() -> None:
+    builds = BuildHistory()
+    builds.record([[result("Slow", duration=900), result("Quick", duration=9)]])
+    job = Trial(1, ("Slow", "Quick"), frozenset({"Quick"}), {}, ())
+
+    assert Candidate("t", time_exponent=0.0).order(job, Context(builds, list))[0] == [
+        "Quick",
+        "Slow",
+    ]
+
+
+def test_a_window_treats_tests_that_have_not_run_lately_as_new() -> None:
+    builds = BuildHistory()
+    builds.record([[result("Old", Status.FAILED), result("Recent")]])
+    for _ in range(5):
+        builds.record([[result("Recent", Status.FAILED)]])
+    job = Trial(1, ("Recent", "Old"), frozenset({"Old"}), {}, ())
+    context = Context(builds, list)
+
+    assert Candidate("all").order(job, context) == (["Recent", "Old"], 2)
+    assert Candidate("w", window=3).order(job, context) == (["Old", "Recent"], 1)
+
+
+def test_unknown_signals_are_refused() -> None:
+    with pytest.raises(ValueError, match="unknown signals"):
+        Candidate("bad", (("coverage", 1.0),))
+
+
+def test_each_step_one_candidate_adds_one_signal_to_the_latest_failure() -> None:
+    step = STEPS["step-1"]
+    names = [ranking.name for ranking in step.candidates]
+
+    assert len(names) == len(set(names)) == 3 * (len(SIGNALS) + 2)
+    assert all(name.startswith("latest-failure+") and name.count("+") == 1 for name in names)

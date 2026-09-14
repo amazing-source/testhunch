@@ -7,7 +7,7 @@ history testhunch 0.2.0 reads from the store: the most recent runs, one run per 
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from testhunch.models import CaseHistory, CaseResult, Status
@@ -20,31 +20,51 @@ ALPHA = 0.8
 class CaseRecord:
     runs: int = 0  # builds where the test passed or failed
     failures: int = 0  # builds where it failed
+    last_run: int = -1  # the newest build it passed or failed in
     last_failure: int = -1  # the newest build it failed in; -1 when it never failed
     priority: float = 0.0  # RTPTorrent's priority as of `last_failure`
     last_failed: bool = False  # its outcome in the newest build it ran in
     transitions: int = 0  # builds whose outcome differs from the test's previous one
     last_transition: int = -1
+    transition_priority: float = 0.0  # the same recurrence over transitions, as of the last one
     duration_total_ms: int = 0
     duration_samples: int = 0
-    last_duration_ms: int | None = None
+    file: str | None = None  # the latest file reported for the test
 
     def priority_at(self, build: int) -> float:
         """RTPTorrent's priority P(build - 1): decayed by 1 - alpha per build since a failure."""
-        if self.last_failure < 0:
-            return 0.0
-        return float(self.priority * (1 - ALPHA) ** (build - 1 - self.last_failure))
+        return _decayed(self.priority, self.last_failure, build)
+
+    def transition_priority_at(self, build: int) -> float:
+        return _decayed(self.transition_priority, self.last_transition, build)
+
+    def mean_duration_ms(self) -> float | None:
+        return self.duration_total_ms / self.duration_samples if self.duration_samples else None
+
+
+def _decayed(value: float, since: int, build: int) -> float:
+    if since < 0:
+        return 0.0
+    return float(value * (1 - ALPHA) ** (build - 1 - since))
 
 
 class BuildHistory:
-    """Every test's record over the builds recorded so far, numbered from 0."""
+    """Every test's record over the builds recorded so far, numbered from 0.
+
+    It also counts, for each changed file, the builds that changed it and, per test, the ones of
+    those builds the test failed in.
+    """
 
     def __init__(self) -> None:
         self.records: dict[str, CaseRecord] = {}
         self.builds = 0
+        self.file_changes: dict[str, int] = {}
+        self.file_failures: dict[str, dict[str, int]] = {}
 
-    def record(self, jobs: Sequence[Sequence[CaseResult]]) -> None:
-        """Record one build: the collapsed results of each of its jobs.
+    def record(
+        self, jobs: Sequence[Sequence[CaseResult]], changed_files: Iterable[str] = ()
+    ) -> None:
+        """Record one build: the collapsed results of each of its jobs, and the files it changed.
 
         A test failed in the build when it failed in any job, and ran when any job passed or failed
         it; its duration is the mean of the known durations of its jobs.
@@ -52,8 +72,11 @@ class BuildHistory:
         build = self.builds
         failed: dict[str, bool] = {}
         durations: dict[str, list[int]] = {}
+        files: dict[str, str] = {}
         for results in jobs:
             for result in results:
+                if result.file is not None:
+                    files[result.key] = result.file
                 if result.status is Status.SKIPPED:
                     continue
                 failed[result.key] = failed.get(result.key, False) or result.status.is_failure
@@ -64,6 +87,9 @@ class BuildHistory:
             if record is None:
                 record = self.records[key] = CaseRecord()
             elif did_fail != record.last_failed:
+                record.transition_priority = ALPHA + (1 - ALPHA) * record.transition_priority_at(
+                    build
+                )
                 record.transitions += 1
                 record.last_transition = build
             if did_fail:
@@ -71,13 +97,22 @@ class BuildHistory:
                 record.last_failure = build
                 record.failures += 1
             record.runs += 1
+            record.last_run = build
             record.last_failed = did_fail
             known = durations.get(key)
             if known:
-                mean = round(sum(known) / len(known))
-                record.duration_total_ms += mean
+                record.duration_total_ms += round(sum(known) / len(known))
                 record.duration_samples += 1
-                record.last_duration_ms = mean
+        for key, file in files.items():
+            if key in self.records:
+                self.records[key].file = file
+        failing = [key for key, did_fail in failed.items() if did_fail]
+        for path in set(changed_files):
+            self.file_changes[path] = self.file_changes.get(path, 0) + 1
+            if failing:
+                counts = self.file_failures.setdefault(path, {})
+                for key in failing:
+                    counts[key] = counts.get(key, 0) + 1
         self.builds += 1
 
 

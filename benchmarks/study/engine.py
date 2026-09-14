@@ -76,7 +76,8 @@ def study(
                 for ranking in rankings:
                     order, known = ranking.order(trial, context)
                     per_ranking[ranking.name].append(scores(trial, order, known))
-        builds.record(collapsed)
+        changed = [path for job in group for path in job.changed_files or ()]
+        builds.record(collapsed, changed)
         for results in collapsed:
             window.record(results)
         counts["builds"] += 1
