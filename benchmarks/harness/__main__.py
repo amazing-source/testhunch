@@ -23,7 +23,9 @@ from benchmarks.harness.collect import (
     window,
 )
 from benchmarks.harness.evaluate import markdown, run_project
+from benchmarks.heldout import NotFrozen, record_peek
 from benchmarks.split import HARNESS_HELD_OUT
+from testhunch import __version__
 
 DEFAULT_CACHE = Path(".benchmark-cache") / "harness"
 DEFAULT_OUT = Path("benchmarks") / "results" / "harness"
@@ -53,6 +55,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(
             f"held out, evaluated only with --held-out (docs/adr/0013): {', '.join(held_out)}"
         )
+    if args.action == "evaluate" and held_out:
+        # Written before the replay, from a frozen commit, so the look cannot be hidden (ADR 0016).
+        try:
+            record_peek(
+                "benchmarks.harness evaluate", held_out, "the product's ranking", __version__
+            )
+        except NotFrozen as exc:
+            parser.error(str(exc))
 
     for name in args.projects:
         project = PROJECTS[name]

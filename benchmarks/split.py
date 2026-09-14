@@ -60,6 +60,13 @@ def _digest(project: str) -> str:
 
 RTPTORRENT_DEVELOPMENT, RTPTORRENT_HELD_OUT = split(RTPTORRENT_FAILING_JOBS)
 
+# The learned model (ROADMAP phase 6) needs somewhere to compare its own variants that is not the
+# held-out projects, or every comparison would be a look at them (docs/adr/0016). The same rule,
+# applied once more to the development projects: it trains on one half and chooses on the other.
+RTPTORRENT_TRAINING, RTPTORRENT_VALIDATION = split(
+    {project: RTPTORRENT_FAILING_JOBS[project] for project in RTPTORRENT_DEVELOPMENT}
+)
+
 # Each held-out project is the first of GitHub's most-starred projects of its runner's language
 # to meet ADR 0011's reasons, in the order docs/adr/0013 records.
 HARNESS_DEVELOPMENT = ("pallets/click", "spf13/cobra")

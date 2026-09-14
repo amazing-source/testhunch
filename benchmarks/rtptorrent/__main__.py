@@ -17,6 +17,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from benchmarks.heldout import NotFrozen, record_peek
 from benchmarks.replay import add_points, apfd, failing_tests, replay
 from benchmarks.rtptorrent.data import STRATEGIES, fetch_project, iter_jobs
 from benchmarks.rtptorrent.schedules import read_schedules
@@ -153,6 +154,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(
             f"held out, measured only with --held-out (docs/adr/0013): {', '.join(held_out)}"
         )
+    if held_out:
+        # Written before the replay, from a frozen commit, so the look cannot be hidden (ADR 0016).
+        try:
+            record_peek("benchmarks.rtptorrent", held_out, "the product's ranking", __version__)
+        except NotFrozen as exc:
+            parser.error(str(exc))
     args.out.mkdir(parents=True, exist_ok=True)
     for project in projects:
         result = run_project(fetch_project(project, args.cache))
