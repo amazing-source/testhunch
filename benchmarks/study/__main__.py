@@ -19,12 +19,13 @@ from typing import Any
 
 from benchmarks.split import HARNESS_DEVELOPMENT, RTPTORRENT_DEVELOPMENT
 from benchmarks.study.engine import PRIMARY, compare
-from benchmarks.study.metrics import BUDGETS
+from benchmarks.study.metrics import BUDGETS, time_to_catch
 from benchmarks.study.projects import AUTHORS_SCHEDULE, CACHE, STEPS, Step, run
 from testhunch import __version__
 from testhunch.gitinfo import GitError, rev_parse
 
 DEFAULT_OUT = CACHE / "study"
+CATCH_SHARES = (0.9, 0.95)
 SECONDARY = ("apfdc", "apfd", *(f"time_{f}" for f in BUDGETS), *(f"tests_{f}" for f in BUDGETS))
 
 
@@ -123,6 +124,32 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
         for measure in SECONDARY:
             values = [v for r in rtptorrent if (v := _mean(r, ranking, measure)) is not None]
             cells.append(_cell(statistics.fmean(values) if values else None))
+        lines.append(f"| {ranking} | " + " | ".join(cells) + " |")
+
+    lines += [
+        "",
+        "## Share of the test time needed to turn failing jobs red",
+        "",
+        "Per project, the smallest share of each failing job's test time within which 90% (or 95%) "
+        "of its failing jobs turn red, running tests in the ranking's order; then the mean over "
+        "the RTPTorrent projects.",
+        "",
+        "| Ranking | " + " | ".join(f"{s:.0%} caught" for s in CATCH_SHARES) + " |",
+        "|---|" + "---:|" * len(CATCH_SHARES),
+    ]
+    for ranking in names:
+        red_at = [
+            [v for v in r["rankings"][ranking]["per_trial"].get("red_at", []) if v is not None]
+            for r in rtptorrent
+        ]
+        cells = [
+            _cell(
+                statistics.fmean(time_to_catch(red, share) for red in red_at)
+                if red_at and all(red_at)
+                else None
+            )
+            for share in CATCH_SHARES
+        ]
         lines.append(f"| {ranking} | " + " | ".join(cells) + " |")
 
     authors = [r for r in rtptorrent if r.get("authors_schedule", {}).get("jobs")]
