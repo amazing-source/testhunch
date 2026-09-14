@@ -57,14 +57,34 @@ permet pas de la mesurer.
 
 ## Phase 5 : un modèle appris
 
+Le modèle appris devra battre la meilleure heuristique simple, et non le classement de testhunch
+0.2.0. Les études ne donnent pas le gagnant d'avance. Sur les suites longues de LRTS, le meilleur
+modèle appris obtient un APFDc moyen de 0,736, contre 0,735 pour « les tests qui ont échoué le plus
+récemment d'abord », et 0,835 quand cette heuristique tient compte en plus de la durée des tests
+(Cheng et al., tableau 8). Chez Yaraghi et al., à l'inverse, une forêt aléatoire atteint 0,82 contre
+0,71 pour la meilleure heuristique (RQ2.5). La première étape ne dépend pas de la phase 4 et peut
+avancer avant elle.
+
+### D'abord, la meilleure heuristique
+
+- [ ] Séparer les projets avant tout réglage : des projets de développement pour régler, des projets mis de côté pour publier, jamais regardés pendant les réglages. Le partage de RTPTorrent est tiré au sort et consigné dans un ADR avant la première mesure ; le banc d'essai n'a que deux projets, ceux mis de côté seront de nouveaux projets
+- [ ] Mesurer aussi l'APFDc (l'APFD qui tient compte de la durée des tests) et le rappel selon la part du temps de test réellement lancée. Les suites de LRTS durent 6,5 heures en moyenne : ce que la durée apporte sur des suites de quelques secondes reste à mesurer
+- [ ] Compter la récence et la fenêtre d'historique en builds, et non en exécutions : sur SonarQube, les nombreux jobs par build laissent beaucoup de classes inconnues (voir les [résultats de la phase 3](benchmarks/results/README.md))
+- [ ] Une étude par ajouts successifs, chaque version mesurée : partir des tests qui ont échoué le plus récemment, puis ajouter la durée, le taux d'échec, les changements de verdict, l'historique conjoint fichiers × tests, et enfin le nom et le diff. Un ajout n'est gardé que s'il améliore la mesure sur les projets de développement
+  - Le nom et le diff comme signal quand l'historique ne dit rien, et non comme bonus fixe qui domine le score : sur le premier échec de chaque test de LRTS, « le plus récemment échoué » tombe à 0,467 contre 0,504 pour l'aléatoire, et une recherche textuelle dans le diff atteint 0,691 (tableau 10). Chez Facebook, les « tokens communs » entre chemins et noms de tests dégradaient le modèle et ont été retirés (Machalica et al., tableau I)
+- [ ] La meilleure version devient le classement de référence, avec ses raisons ; publier les mesures de chaque version sur les projets mis de côté, y compris les mauvaises
+
+### Ensuite, le modèle appris
+
 - [ ] Variables : échecs conjoints fichiers/tests, distance entre chemins, récence, instabilité, durée des tests, et celles que Facebook a retenues après sélection (Machalica et al., tableau I) : historique de modification des fichiers modifiés (3, 14 et 56 jours), extensions de ces fichiers, taux d'échec sur plusieurs fenêtres (7, 14, 28 et 56 jours), nombre de tests
-- [ ] Mesurer ce qu'apporte la correspondance de noms entre fichiers modifiés et tests du classement de référence : chez Facebook, les « tokens communs » entre chemins et noms de tests dégradaient le modèle et ont été retirés (tableau I)
-- [ ] Des arbres à gradient boosting comparés au classement de référence de la phase 1, sur le benchmark de la phase 3
-- [ ] Ne le livrer que s'il bat la référence ; publier la comparaison dans tous les cas
+- [ ] Des arbres à gradient boosting comparés à la meilleure heuristique de l'étape précédente, réglés sur les projets de développement et mesurés sur les projets mis de côté
+- [ ] Ne le livrer que s'il bat cette heuristique ; publier la comparaison dans tous les cas
 - [ ] Explorer les indicateurs de prédiction de défauts (fichiers historiquement sujets aux bugs) comme variable supplémentaire
 
 ## Références
 
 - Machalica et al., *Predictive Test Selection*, ICSE-SEIP 2019 (Meta), [doi:10.1109/ICSE-SEIP.2019.00018](https://doi.org/10.1109/ICSE-SEIP.2019.00018), [arXiv:1810.05286](https://arxiv.org/abs/1810.05286)
 - Mattis et al., *RTPTorrent: An Open-source Dataset for Evaluating Regression Test Prioritization*, MSR 2020
+- Cheng, Wang, Jabbarvand et Marinov, *Revisiting Test-Case Prioritization on Long-Running Test Suites*, ISSTA 2024, [doi:10.1145/3650212.3680307](https://doi.org/10.1145/3650212.3680307) (le jeu de données LRTS)
+- Yaraghi, Bagherzadeh, Kahani et Briand, *Scalable and Accurate Test Case Prioritization in Continuous Integration Contexts*, IEEE TSE 2023, [doi:10.1109/TSE.2022.3184842](https://doi.org/10.1109/TSE.2022.3184842), [arXiv:2109.13168](https://arxiv.org/abs/2109.13168)
 - *Predicting test failures induced by software defects*, Journal of Systems and Software, 2025 (Nokia 5G)
