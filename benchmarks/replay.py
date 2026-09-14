@@ -84,6 +84,8 @@ def replay(jobs: Iterable[Job], store: SqlStore, repo: str) -> Iterator[RankedJo
                     ShadowResult(r.key, r.status, r.flaky, r.duration_ms, r.attempts)
                     for r in results
                 ),
+                # What the ranking expected, as `prioritize --record` stores it (docs/adr/0017).
+                {test.key: test.expected_ms for test in ranking},
             )
             yield RankedJob(job, run, tuple(order), cold=history.builds == 0, group=number)
 

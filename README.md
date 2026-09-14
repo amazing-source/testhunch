@@ -67,7 +67,8 @@ flowchart LR
    d'un même build ne pèsent qu'une fois.
 4. **Mode fantôme** : avec `prioritize --record` avant les tests, le classement est enregistré
    pour ce commit ; tous les tests tournent quand même. Ensuite, `testhunch shadow` mesure ce
-   qu'aurait manqué le fait de ne lancer que les 10 %, 25 % ou 50 % de tests les mieux classés :
+   qu'aurait manqué le fait de ne dépenser que 10 %, 25 % ou 50 % du temps de test attendu sur les
+   tests les mieux classés :
    combien d'exécutions en échec seraient restées en échec, combien d'échecs auraient été vus, et
    la part de tests et de temps économisée. Un classement n'est jamais comparé à une exécution qu'il
    a déjà vue ([ADR 0006](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0006-shadow-mode-measures-misses-without-skipping.md)).
@@ -238,6 +239,16 @@ Une fois que le rapport du mode fantôme montre ce qu'un budget aurait manqué s
 classés sous le budget ; tout le reste tourne, y compris les tests que testhunch n'a encore jamais
 vus ([ADR 0007](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0007-selections-leave-out-known-low-ranked-tests.md)).
 La coupure est exactement celle du mode fantôme.
+
+**`--budget 25%`, c'est un quart du temps de test attendu, pas un quart des tests**
+([ADR 0017](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0017-a-budget-is-a-share-of-the-test-time.md)).
+Le classement met volontairement les tests rapides devant : un quart des tests coûterait bien moins
+d'un quart du temps, et vous ne contrôleriez pas ce que votre CI paie vraiment. Le budget garde le
+plus long début du classement qui tienne dans le temps imparti — jamais un autre sous-ensemble mieux
+rempli, car l'ordre du classement est ce qu'il promet. Les tests que testhunch n'a jamais vus
+tournent **en plus** du budget : rien n'a mesuré leur durée. `--budget-unit tests` revient à
+l'ancien sens, une part du nombre de tests connus, pour un lanceur qui ne rapporte pas de durée
+utilisable.
 
 ```bash
 # pytest : testhunch doit être installé dans l'environnement des tests

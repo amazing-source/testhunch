@@ -66,8 +66,8 @@ obtient un APFDc moyen de 0,735, et 0,835 quand elle tient compte en plus de la 
 - [x] Figer les choix, puis mesurer une seule fois chaque version retenue sur les projets mis de côté et publier le résultat, bon ou mauvais ([résultats](benchmarks/results/study/held-out.md)). Sur les 10 projets RTPTorrent mis de côté, la version finale fait +0,028 face à « le plus récemment échoué » (meilleure sur 9) et +0,043 face à la 0.2.0 ; pour rattraper 90 % des builds cassés, elle lance 58 % du temps de test, contre 66 % et 70 %. Au banc d'essai, elle fait jeu égal sur les mutants de fastapi et nettement mieux sur ceux d'ollama
 - [ ] La version finale devient le classement de référence de testhunch, avec ses raisons et une sélection par budget de temps ; le rejeu du produit doit reproduire les chiffres de l'étude
   - [x] Le classement de l'étude dans le produit ([ADR 0015](docs/adr/0015-testhunch-ranks-by-latest-failure-per-unit-of-time.md)) : historique par build tenu à jour à l'ingestion, priorité RTPTorrent, durée moyenne et fichier du test, dans la CLI, l'Action, l'API et le rejeu. Un test vérifie que le rejeu du produit donne exactement les ordres du moteur de l'étude
-  - [ ] Une sélection par budget de temps, et non par nombre de tests : le gain mesuré est en temps, pas en nombre
-  - [ ] Rejouer tous les projets de l'étude avec le produit et retrouver ses chiffres
+  - [x] Une sélection par budget de temps, et non par nombre de tests ([ADR 0017](docs/adr/0017-a-budget-is-a-share-of-the-test-time.md)) : le gain mesuré est en temps, pas en nombre. `--budget 25 %` dépense un quart du temps de test attendu ; le mode fantôme coupe avec les durées enregistrées avec le classement, jamais avec celles de l'exécution qu'il juge
+  - [ ] Rejouer tous les projets de l'étude avec le produit et retrouver ses chiffres, et refaire les tableaux de budgets du README avec le classement actuel (un seul regard aux projets mis de côté, [ADR 0016](docs/adr/0016-every-look-at-the-held-out-projects-is-recorded.md))
 - [ ] Selon ce résultat, décider si le modèle appris (phase 6) passe avant le service hébergé (phase 5)
 
 ## Phase 5 : service hébergé

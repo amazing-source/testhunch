@@ -16,9 +16,19 @@ def result(
     return ShadowResult(key, status, flaky, duration_ms, attempts)
 
 
-def ranked(ranking: str, *results: ShadowResult, run_id: int = 1) -> ShadowRun:
-    """`ranked("abcd", ...)`: tests a, b, c, d in that order."""
-    return ShadowRun(run_id, {key: pos for pos, key in enumerate(ranking, start=1)}, results)
+def ranked(
+    ranking: str,
+    *results: ShadowResult,
+    run_id: int = 1,
+    expected: dict[str, float] | None = None,
+) -> ShadowRun:
+    """`ranked("abcd", ...)`: tests a, b, c, d in that order.
+
+    Every test is expected to cost the same unless `expected` says otherwise, so a time budget cuts
+    where a budget of tests would and each test below says what it means to say.
+    """
+    positions = {key: pos for pos, key in enumerate(ranking, start=1)}
+    return ShadowRun(run_id, positions, results, expected or dict.fromkeys(positions, 10.0))
 
 
 def passing(keys: str) -> list[ShadowResult]:
@@ -132,6 +142,47 @@ def test_unknown_attempts_and_flaky_results_are_never_confirmed() -> None:
     )
     (point,) = evaluate([run], fractions=(1.0,))
     assert (point.failures, point.confirmed_failures, point.confirmed_failing_runs) == (1, 0, 0)
+
+
+def test_a_budget_is_a_share_of_the_expected_time_not_of_the_tests() -> None:
+    # Four tests, 100 ms expected in all: half the time is a, b and c, three of the four tests.
+    run = ranked(
+        "abcd",
+        result("d", Status.FAILED),
+        *passing("abc"),
+        expected={"a": 10.0, "b": 20.0, "c": 20.0, "d": 50.0},
+    )
+
+    (point,) = evaluate([run], fractions=(0.5,))
+
+    assert point.tests_run == 3
+    assert (point.failing_runs, point.caught_runs) == (1, 0)  # d costs more than the budget left
+
+
+def test_the_budget_follows_the_ranking_rather_than_packing_the_time() -> None:
+    # After b there are 10 ms left: c would fit, but it is ranked below d, which does not.
+    run = ranked(
+        "abcd",
+        result("c", Status.FAILED),
+        *passing("abd"),
+        expected={"a": 10.0, "b": 20.0, "d": 50.0, "c": 10.0},
+    )
+
+    (point,) = evaluate([run], fractions=(0.4,))
+
+    assert point.tests_run == 2  # a and b, not a, b and c
+    assert (point.failing_runs, point.caught_runs) == (1, 0)
+
+
+def test_a_ranking_recorded_without_expected_times_is_left_out_and_counted() -> None:
+    old = ShadowRun(1, {"a": 1, "b": 2}, (result("a", Status.FAILED), result("b")))
+    new = ranked("ab", result("a", Status.FAILED), *passing("b"), run_id=2)
+
+    (point,) = evaluate([old, new], fractions=(0.5,))
+
+    # The old run is not guessed at: it is left out of every count, and said so.
+    assert point.runs_without_expected_time == 1
+    assert (point.runs, point.failing_runs, point.caught_runs) == (1, 1, 1)
 
 
 def test_the_learning_run_draw_is_the_same_for_every_job_of_a_commit() -> None:
