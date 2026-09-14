@@ -13,15 +13,17 @@ from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups, replay
 from benchmarks.rtptorrent.data import load_jobs
 from benchmarks.study.engine import PRIMARY, compare, study
 from benchmarks.study.history import ALPHA, BuildHistory, RunWindow
-from benchmarks.study.metrics import Trial, scores, time_to_catch
+from benchmarks.study.metrics import Trial, best_red_at, scores, time_to_catch
 from benchmarks.study.projects import STEPS
 from benchmarks.study.rankings import (
-    SIGNALS,
+    HISTORY_SIGNALS,
+    PROXIMITY_SIGNALS,
     Candidate,
     Context,
     LatestFailure,
     ProductRanking,
     _signal,
+    location,
     product_order,
     tie,
 )
@@ -312,7 +314,7 @@ def test_each_step_one_candidate_adds_one_signal_to_the_latest_failure() -> None
     step = STEPS["step-1"]
     names = [ranking.name for ranking in step.candidates]
 
-    assert len(names) == len(set(names)) == 3 * (len(SIGNALS) + 2)
+    assert len(names) == len(set(names)) == 3 * (len(HISTORY_SIGNALS) + 2)
     assert all(name.startswith("latest-failure+") and name.count("+") == 1 for name in names)
 
 
@@ -321,7 +323,7 @@ def test_step_two_adds_the_remaining_signals_to_the_version_step_one_kept() -> N
     names = [ranking.name for ranking in step.candidates]
 
     assert step.current.name == "latest-failure+time^1.0"
-    assert len(names) == len(set(names)) == 3 * (len(SIGNALS) + 1)
+    assert len(names) == len(set(names)) == 3 * (len(HISTORY_SIGNALS) + 1)
     assert not any("time^" in name.removeprefix(step.current.name) for name in names)
 
 
@@ -346,3 +348,61 @@ def test_the_time_to_catch_a_share_of_failing_jobs_is_a_nearest_rank_quantile() 
     assert time_to_catch(red_at, 0.9) == 0.9
     assert time_to_catch(red_at, 0.95) == 1.0
     assert time_to_catch([0.3], 0.5) == 0.3
+
+
+def _proximity_values(key: str, file: str | None, changed: tuple[str, ...]) -> dict[str, float]:
+    builds = BuildHistory()
+    builds.record([[result(key, file=file)]])
+    job = Trial(1, (key,), frozenset({key}), {key: 1}, changed)
+    context = Context(builds, list)
+    return {name: _signal(name, job, context)(key) for name in PROXIMITY_SIGNALS}
+
+
+def test_a_java_test_class_is_close_to_its_own_file_and_its_subject() -> None:
+    own = _proximity_values(
+        "org.jooq.impl.ParserTest", None, ("jOOQ/src/test/java/org/jooq/impl/ParserTest.java",)
+    )
+    subject = _proximity_values(
+        "org.jooq.impl.ParserTest", None, ("jOOQ/src/main/java/org/jooq/impl/Parser.java",)
+    )
+    elsewhere = _proximity_values("org.jooq.impl.ParserTest", None, ("docs/README.md",))
+
+    assert (own["test_file_changed"], own["subject_file_changed"]) == (1.0, 0.0)
+    assert (subject["test_file_changed"], subject["subject_file_changed"]) == (0.0, 1.0)
+    # org, jooq, impl and parser: 4 of the test path's 5 tokens (test is the fifth).
+    assert subject["token_similarity"] == pytest.approx(4 / 5)
+    assert elsewhere["test_file_changed"] == elsewhere["subject_file_changed"] == 0.0
+    for name in ("path_similarity", "token_similarity", "name_similarity"):
+        assert subject[name] > elsewhere[name]
+
+
+def test_a_pytest_file_is_located_by_its_reported_file() -> None:
+    values = _proximity_values(
+        "tests/test_options.py::test_flag", "tests/test_options.py", ("src/click/options.py",)
+    )
+
+    assert location("tests/test_options.py::test_flag", None) == "tests/test_options.py"
+    assert (values["test_file_changed"], values["subject_file_changed"]) == (0.0, 1.0)
+    assert values["name_similarity"] == pytest.approx(1 - 5 / 12)  # "test_options" vs "options"
+
+
+def test_proximity_is_zero_without_known_changed_files() -> None:
+    assert set(_proximity_values("org.a.BTest", None, ()).values()) == {0.0}
+
+
+def test_the_best_order_in_hindsight_runs_unknown_tests_then_the_quickest_failure() -> None:
+    job = trial("uabc", "bc", {"u": 9, "a": 9, "b": 29, "c": 19})  # costs 10, 10, 30, 20
+
+    assert best_red_at(job, known={"a", "b", "c"}) == pytest.approx((10 + 20) / 70)
+    assert best_red_at(trial("uab", "u", {"u": 9, "a": 9, "b": 9}), known={"a", "b"}) == (
+        pytest.approx(10 / 30)
+    )
+
+
+def test_the_extension_step_tries_only_the_proximity_signals() -> None:
+    step = STEPS["step-3"]
+    names = [ranking.name for ranking in step.candidates]
+
+    assert step.current == STEPS["step-2"].current
+    assert len(names) == 3 * len(PROXIMITY_SIGNALS)
+    assert all(any(signal in name for signal in PROXIMITY_SIGNALS) for name in names)

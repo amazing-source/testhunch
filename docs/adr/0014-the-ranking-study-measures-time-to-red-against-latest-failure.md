@@ -110,3 +110,34 @@ add a signal to compute and explain for nothing. A candidate must now also impro
 least 0.005, half a percent of a job's test time. The threshold only makes the rule stricter, and it
 changes no other verdict of steps 1 and 2: every other candidate that met both conditions improved
 the mean by at least 0.014.
+
+## Extension, 2026-09-14, before step 3
+
+The selection stopped at step 2 on `latest-failure+time^1.0`. Two analyses of the development
+projects, made after that, motivate one more step:
+
+- **A bound.** Running unknown tests first and then, in hindsight, the quickest failing test, 90% of
+  a project's failing jobs turn red within 30% of the test time on average, and 95% within 42%.
+  The kept version needs 57% and 71%. On jOOQ and okhttp it is at or close to the bound: their
+  failing classes take most of a job's time. The largest gaps are on HikariCP, dynjs, Achilles,
+  titan and deeplearning4j.
+- **The late jobs there.** Of the failing jobs that turn red after half the test time, their
+  failing tests had often never failed (31% of HikariCP's, 59% of titan's), and the change often
+  touched the failing test's own file (18% on HikariCP, 31% on dynjs) or a file whose name it
+  contains (21% and 54%).
+
+**Step 3 tries only signals of how close a test is to the change**, each with weights 0.1, 0.5 and
+2: whether the change touches the test's own file; whether it touches a file named like the test
+without its test affixes (`ParserTest` and `Parser.java`); and the three (test, file) similarity
+features of Elsner et al. (ISSTA 2021, feature set F3, which Cheng et al. evaluate in LTR): the
+minimum Levenshtein distance between the test's path and a changed path, the common tokens of
+those paths, and the minimum Levenshtein distance between the test's name and a changed file's.
+Distances are normalized by the longer string, and common tokens by the test path's tokens, so that
+every signal lies between 0 and 1. A Java class stands for the path of its package and name. The
+history signals, durations and windows are not tried again: from the same current version they
+would repeat step 2 exactly.
+
+The same rule decides. After step 3, and any further step these signals lead to, the study stops
+whatever the result, and the held-out projects are replayed. Choosing signals after looking at the
+development projects' late jobs fits the study to them a little more; the held-out replay is what
+tells whether it holds.

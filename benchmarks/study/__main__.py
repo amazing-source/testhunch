@@ -151,6 +151,21 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
             for share in CATCH_SHARES
         ]
         lines.append(f"| {ranking} | " + " | ".join(cells) + " |")
+    best = [
+        [
+            v
+            for v, kind in zip(r["trials"]["best_red_at"], r["trials"]["kinds"], strict=True)
+            if v is not None and kind == "job"
+        ]
+        for r in rtptorrent
+        if "best_red_at" in r["trials"]
+    ]
+    if best and len(best) == len(rtptorrent) and all(best):
+        cells = [
+            _cell(statistics.fmean(time_to_catch(red, share) for red in best))
+            for share in CATCH_SHARES
+        ]
+        lines.append("| *best order in hindsight* | " + " | ".join(cells) + " |")
 
     authors = [r for r in rtptorrent if r.get("authors_schedule", {}).get("jobs")]
     if authors:

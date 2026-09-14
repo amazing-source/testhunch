@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 from benchmarks.replay import apfd
@@ -68,6 +68,27 @@ def scores(trial: Trial, order: Sequence[str], known: int) -> dict[str, float | 
     for fraction in BUDGETS:
         result[f"time_{fraction}"] = float(before[first] + costs[first] <= fraction * total)
     return result
+
+
+def best_red_at(trial: Trial, known: Collection[str]) -> float | None:
+    """When the build would turn red in hindsight: unknown tests first, then the quickest failure.
+
+    The bound no ranking can pass: unknown tests always run first, in the job's order (ADR 0006),
+    then a perfect ranking would run the shortest failing known test. None without every duration.
+    """
+    durations = [trial.durations[test] for test in trial.tests]
+    if any(duration is None for duration in durations):
+        return None
+    cost = {test: (trial.durations[test] or 0) + EPSILON_MS for test in trial.tests}
+    total = sum(cost.values())
+    elapsed = 0
+    for test in trial.tests:
+        if test in known:
+            continue
+        elapsed += cost[test]
+        if test in trial.failing:
+            return elapsed / total
+    return (elapsed + min(cost[test] for test in trial.failing if test in known)) / total
 
 
 def time_to_catch(red_at: Sequence[float], share: float) -> float:

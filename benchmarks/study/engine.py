@@ -11,7 +11,7 @@ from typing import Any
 
 from benchmarks.replay import HISTORY_RUNS, Job, concurrent_groups
 from benchmarks.study.history import BuildHistory, RunWindow
-from benchmarks.study.metrics import Trial, scores
+from benchmarks.study.metrics import Trial, best_red_at, scores
 from benchmarks.study.rankings import Context, Ranking
 from testhunch.junit import collapse
 from testhunch.models import CaseHistory, CaseResult
@@ -49,6 +49,7 @@ def study(
     counts: Counter[str] = Counter()
     kinds: list[str] = []
     job_ids: list[int] = []
+    best: list[float | None] = []
     per_ranking: dict[str, list[dict[str, float | None]]] = {name: [] for name in names}
     for group in concurrent_groups(jobs):
         collapsed = [collapse(job.results) for job in group]
@@ -75,6 +76,7 @@ def study(
                 counts[f"{kind}s_evaluated"] += 1
                 kinds.append(kind)
                 job_ids.append(trial.job_id)
+                best.append(best_red_at(trial, builds.records))
                 for ranking in rankings:
                     order, known = ranking.order(trial, context)
                     per_ranking[ranking.name].append(scores(trial, order, known))
@@ -85,7 +87,7 @@ def study(
         counts["builds"] += 1
     return {
         "counts": dict(sorted(counts.items())),
-        "trials": {"kinds": kinds, "job_ids": job_ids},
+        "trials": {"kinds": kinds, "job_ids": job_ids, "best_red_at": best},
         "rankings": {
             name: {
                 "means": {kind: means(values, kinds, kind) for kind in sorted(set(kinds))},
