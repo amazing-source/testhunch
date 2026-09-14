@@ -15,7 +15,9 @@ import pytest
 from benchmarks.harness.collect import (
     CommitRun,
     MutantRun,
+    NotBuiltInARow,
     Project,
+    collect,
     docker,
     read_run,
     run_commit,
@@ -508,3 +510,58 @@ def test_the_container_tries_candidates_until_three_compile(
     for mutant in compiled:
         assert mutant.test_exit == 1
         assert b"<failure" in mutant.report.read_bytes()  # type: ignore[union-attr]
+
+
+def test_commits_not_built_in_a_row_stop_the_collection(repository: Path, tmp_path: Path) -> None:
+    shas = [commit(repository, "src/cart.py", str(n), f"commit {n}") for n in range(4)]
+    fake = FakeDocker(outputs({"setup-exit": b"1\n", "setup-retry.log": b"no such host"}))
+    lines: list[str] = []
+
+    with pytest.raises(NotBuiltInARow, match="3 commits in a row were not built"):
+        collect(
+            PROJECT,
+            repository,
+            shas,
+            tmp_path / "runs",
+            "sha256:image",
+            run=fake,
+            report=lines.append,
+        )
+
+    assert len(fake.calls) == 3 and len(lines) == 3
+    assert "not built (setup exit 1)" in lines[-1]
+    # Once someone has read the logs and decided the project is at fault, collection goes on.
+    collect(
+        PROJECT,
+        repository,
+        shas,
+        tmp_path / "runs",
+        "sha256:image",
+        allow_not_built=True,
+        run=fake,
+        report=lines.append,
+    )
+    assert len(fake.calls) == 4
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TESTHUNCH_TEST_DOCKER"), reason="set TESTHUNCH_TEST_DOCKER=1 to run Docker"
+)
+def test_a_setup_that_fails_once_is_tried_again(repository: Path, tmp_path: Path) -> None:
+    sha = commit(repository, "README", "project", "first")
+    project = Project(
+        "example/project",
+        end=sha,
+        image="unused",
+        # Fails the first time it runs in this container, as a download does when the network drops.
+        setup="if [ -e ../setup-ran ]; then exit 0; fi; touch ../setup-ran; exit 1",
+        test='printf "<testsuite/>" > "$REPORT"',
+    )
+    image = "busybox:1.37.0@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0"
+
+    run = run_commit(
+        project, repository, sha, tmp_path / "runs", image, docker, setup_retry_delay_s=0
+    )
+
+    assert (run.setup_exit, run.built) == (0, True)
+    assert (tmp_path / "runs" / sha / "setup-retry.log").exists()

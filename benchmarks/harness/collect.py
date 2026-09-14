@@ -24,6 +24,10 @@ IMAGES = Path(__file__).parent / "images"
 # MUTANTS_PER_COMMIT have compiled, since only a build can tell that a Go `+` joins strings.
 MUTANT_CANDIDATES = 10
 TIMEOUT_S = 1800  # per step, far above the suites' under a minute: a hang, not a slow test
+SETUP_RETRY_DELAY_S = 30
+# This many commits in a row not built says more about the machine (a network outage, Docker)
+# than about the project: collection stops so that someone looks before they are recorded.
+NOT_BUILT_IN_A_ROW = 3
 
 # Runs in the container: the commit's files (src/) and its mutants (mutants/) arrive as a tar on
 # stdin, the outputs leave as a tar on stdout, so nothing depends on bind mounts or host user ids.
@@ -36,7 +40,14 @@ tar -x
 cd src
 set +e
 timeout "$TIMEOUT_S" sh -c "$SETUP" > "$out/setup.log" 2>&1
-echo "$?" > "$out/setup-exit"
+setup=$?
+if [ "$setup" != 0 ]; then
+    # Tried again before the commit counts as not built: a download fails when the network drops.
+    sleep "$SETUP_RETRY_DELAY_S"
+    timeout "$TIMEOUT_S" sh -c "$SETUP" > "$out/setup-retry.log" 2>&1
+    setup=$?
+fi
+echo "$setup" > "$out/setup-exit"
 if [ "$(cat "$out/setup-exit")" = 0 ]; then
     REPORT="$out/report.xml" timeout "$TIMEOUT_S" sh -c "$TEST" > "$out/test.log" 2>&1
     echo "$?" > "$out/test-exit"
@@ -249,6 +260,7 @@ def run_commit(
     runs: Path,
     image_id: str,
     run: Docker = docker,
+    setup_retry_delay_s: int = SETUP_RETRY_DELAY_S,
 ) -> CommitRun:
     """Run one commit's suite and its mutants', unless their outputs are already in `runs/<sha>`."""
     target = runs / sha
@@ -282,6 +294,8 @@ def run_commit(
             f"MUTANTS={MUTANTS_PER_COMMIT}",
             "--env",
             f"TIMEOUT_S={TIMEOUT_S}",
+            "--env",
+            f"SETUP_RETRY_DELAY_S={setup_retry_delay_s}",
             "--volume",
             f"testhunch-harness-{project.image}-cache:/home/runner/.cache",
             image_id,
@@ -317,6 +331,39 @@ def run_commit(
     shutil.rmtree(target, ignore_errors=True)
     partial.rename(target)
     return read_run(target)
+
+
+class NotBuiltInARow(RuntimeError):
+    """Several consecutive commits were not built: the environment may be at fault."""
+
+
+def collect(
+    project: Project,
+    repository: Path,
+    shas: Sequence[str],
+    runs: Path,
+    image_id: str,
+    limit: int | None = None,
+    allow_not_built: bool = False,
+    run: Docker = docker,
+    report: Callable[[str], None] = print,
+) -> None:
+    """Run the commits in window order, at most `limit` new ones, stopping on a run not built."""
+    new = not_built = 0
+    for number, sha in enumerate(shas, start=1):
+        if limit is not None and new >= limit:
+            return
+        new += not (runs / sha / "run.json").exists()
+        commit = run_commit(project, repository, sha, runs, image_id, run)
+        status = "built" if commit.built else f"not built (setup exit {commit.setup_exit})"
+        report(f"{project.name} {number}/{len(shas)} {sha[:12]} {status}, {commit.seconds:.0f}s")
+        not_built = 0 if commit.built else not_built + 1
+        if not_built >= NOT_BUILT_IN_A_ROW and not allow_not_built:
+            raise NotBuiltInARow(
+                f"{project.name}: {not_built} commits in a row were not built, up to {sha}. "
+                f"Read their setup logs in {runs}: if the machine was at fault (network, Docker), "
+                "delete those runs and collect again; if the project was, pass --allow-not-built."
+            )
 
 
 def read_run(directory: Path) -> CommitRun:

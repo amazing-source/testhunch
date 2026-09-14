@@ -14,10 +14,11 @@ from pathlib import Path
 
 from benchmarks.harness.collect import (
     PROJECTS,
+    NotBuiltInARow,
     build_image,
     clone,
+    collect,
     read_run,
-    run_commit,
     window,
 )
 from benchmarks.harness.evaluate import markdown, run_project
@@ -33,6 +34,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--limit", type=int, help="collect at most this many new commits")
+    parser.add_argument(
+        "--allow-not-built",
+        action="store_true",
+        help="keep collecting after several commits in a row were not built",
+    )
     args = parser.parse_args(argv)
 
     for name in args.projects:
@@ -42,14 +48,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         runs_directory = args.cache / project.slug / "runs"
         if args.action == "collect":
             image_id = build_image(project)
-            new = 0
-            for number, sha in enumerate(shas, start=1):
-                if args.limit is not None and new >= args.limit:
-                    break
-                new += not (runs_directory / sha / "run.json").exists()
-                run = run_commit(project, repository, sha, runs_directory, image_id)
-                status = "built" if run.built else f"not built (setup exit {run.setup_exit})"
-                print(f"{name} {number}/{len(shas)} {sha[:12]} {status}, {run.seconds:.0f}s")
+            try:
+                collect(
+                    project,
+                    repository,
+                    shas,
+                    runs_directory,
+                    image_id,
+                    args.limit,
+                    args.allow_not_built,
+                )
+            except NotBuiltInARow as stop:
+                sys.stderr.write(f"{stop}\n")
+                return 1
         else:
             runs = [
                 read_run(runs_directory / sha)
