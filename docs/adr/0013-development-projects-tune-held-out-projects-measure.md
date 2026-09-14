@@ -5,8 +5,8 @@ Status: accepted
 
 ## Context
 
-Phase 5 starts with a study of simple rankings (ROADMAP.md): from the tests that failed most
-recently, each addition (test duration, failure rate, verdict changes, file × test history, names
+The roadmap studies simple rankings before anything else (ROADMAP.md, phase 4): from the tests
+that failed most recently, each addition (test duration, failure rate, verdict changes, file × test history, names
 and diffs) is kept only if it measures better. Every addition kept, every weight and every window
 tried fits the ranking a little more to the projects it is measured on. Published on those same
 projects, the numbers would overstate what users get on theirs.
