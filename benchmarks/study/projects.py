@@ -6,6 +6,7 @@ In a module of its own so that worker processes can import it: Windows starts th
 from __future__ import annotations
 
 import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,14 @@ from benchmarks.rtptorrent.data import fetch_project, iter_jobs
 from benchmarks.rtptorrent.schedules import read_schedules
 from benchmarks.study.engine import study
 from benchmarks.study.metrics import Trial
-from benchmarks.study.rankings import SIGNALS, Candidate, LatestFailure, ProductRanking, Ranking
+from benchmarks.study.rankings import (
+    HISTORY_SIGNALS,
+    PROXIMITY_SIGNALS,
+    Candidate,
+    LatestFailure,
+    ProductRanking,
+    Ranking,
+)
 from testhunch.models import CaseResult, ShadowResult, ShadowRun, Status
 
 CACHE = Path(".benchmark-cache")
@@ -40,16 +48,21 @@ class Step:
         return [self.current, *self.candidates, *self.references]
 
 
-def additions(current: Candidate) -> tuple[Candidate, ...]:
-    """The current version with each signal it does not use yet, at each of its values."""
+def additions(
+    current: Candidate, signals: Sequence[str] = HISTORY_SIGNALS, other_changes: bool = True
+) -> tuple[Candidate, ...]:
+    """The current version with each signal it does not use yet, at each of its values.
+
+    `other_changes` also tries adding durations and a window, when the current version has none.
+    """
     used = {signal for signal, _ in current.weights}
     candidates: list[Candidate] = []
-    if current.time_exponent is None:
+    if other_changes and current.time_exponent is None:
         candidates += [
             replace(current, name=f"{current.name}+time^{exponent}", time_exponent=exponent)
             for exponent in TIME_EXPONENTS
         ]
-    for signal in SIGNALS:
+    for signal in signals:
         if signal not in used:
             candidates += [
                 replace(
@@ -59,7 +72,7 @@ def additions(current: Candidate) -> tuple[Candidate, ...]:
                 )
                 for weight in WEIGHTS
             ]
-    if current.window is None:
+    if other_changes and current.window is None:
         candidates += [
             replace(current, name=f"{current.name}+window={size}", window=size) for size in WINDOWS
         ]
@@ -78,6 +91,13 @@ STEPS = {
 STEP_1_KEPT = Candidate("latest-failure+time^1.0", time_exponent=1.0)
 STEPS["step-2"] = Step(
     STEP_1_KEPT, additions(STEP_1_KEPT), references=(LatestFailure(), ProductRanking())
+)
+# Step 2 kept nothing. The extension step (ADR 0014) tries only the proximity signals: the history
+# signals, durations and windows would repeat step 2's candidates exactly.
+STEPS["step-3"] = Step(
+    STEP_1_KEPT,
+    additions(STEP_1_KEPT, PROXIMITY_SIGNALS, other_changes=False),
+    references=(LatestFailure(), ProductRanking()),
 )
 
 

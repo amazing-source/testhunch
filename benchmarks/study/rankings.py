@@ -7,10 +7,13 @@ then the known ones. Ties are broken by a hash of the job and the test, shared b
 from __future__ import annotations
 
 import hashlib
+import re
 import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
+
+from rapidfuzz.distance import Levenshtein
 
 from benchmarks.study.history import BuildHistory, CaseRecord
 from benchmarks.study.metrics import EPSILON_MS, Trial
@@ -85,7 +88,19 @@ def product_order(
     return order, sum(1 for test in tests if test in positions)
 
 
-SIGNALS = ("failure_rate", "transitions", "file_failures", "name")
+# Signals of steps 1 and 2: the test's history, and the name matching of testhunch 0.2.0.
+HISTORY_SIGNALS = ("failure_rate", "transitions", "file_failures", "name")
+# Signals of the extension step (ADR 0014): how close a test is to the files the change touched.
+PROXIMITY_SIGNALS = (
+    "test_file_changed",
+    "subject_file_changed",
+    "path_similarity",
+    "token_similarity",
+    "name_similarity",
+)
+SIGNALS = (*HISTORY_SIGNALS, *PROXIMITY_SIGNALS)
+_TEST_AFFIXES = re.compile(r"^(?:test_|Test(?=[A-Z]))|(?:_test|Tests?|IT|TestCase)$")
+_TOKENS = re.compile(r"[/\._$\-]+|(?<=[a-z0-9])(?=[A-Z])")
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,7 +189,70 @@ def _signal(name: str, trial: Trial, context: Context) -> Callable[[str], float]
             return float(any(s in haystack for s in stems))
 
         return name_match
+    if name in PROXIMITY_SIGNALS:
+        return _proximity(name, trial, records)
     raise ValueError(f"unknown signal: {name}")
+
+
+def location(key: str, file: str | None) -> str:
+    """Where a test lives: its reported file, else its class as a path (`org.a.B` -> `org/a/B`)."""
+    if file:
+        return file.replace("\\", "/")
+    group = key.split("::", 1)[0].split("$", 1)[0]
+    return group if "/" in group else group.replace(".", "/")
+
+
+def _stem(path: str) -> str:
+    name = path.rsplit("/", 1)[-1]
+    return name.rsplit(".", 1)[0] if "." in name else name
+
+
+def _without_extension(path: str) -> str:
+    head, _, name = path.rpartition("/")
+    return f"{head}/{_stem(name)}" if head else _stem(name)
+
+
+def _tokens(path: str) -> set[str]:
+    return {token.lower() for token in _TOKENS.split(path) if len(token) > 1}
+
+
+def _proximity(name: str, trial: Trial, records: dict[str, CaseRecord]) -> Callable[[str], float]:
+    """A signal of how close a test is to the change, from 0 to 1 (Elsner et al., ISSTA 2021).
+
+    - test_file_changed: the change touches the test's own file;
+    - subject_file_changed: the change touches a file named like the test without its test
+      affixes (`BarTest` -> `Bar`, `test_bar` -> `bar`);
+    - path_similarity: 1 minus the smallest normalized Levenshtein distance between the test's
+      path and a changed path (their minimum file path distance);
+    - token_similarity: the largest share of the test path's tokens found in a changed path
+      (their common path tokens, divided by the test's tokens to stay within 0 and 1);
+    - name_similarity: the same as path_similarity between the test's name and a changed file's.
+    """
+    changed = sorted({path.replace("\\", "/") for path in trial.changed_files})
+    if not changed:
+        return lambda test: 0.0
+    stripped = [_without_extension(path) for path in changed]
+    stems = [_stem(path).lower() for path in changed]
+    tokens = [_tokens(path) for path in changed]
+
+    def value(test: str) -> float:
+        path = location(test, records[test].file)
+        if name == "test_file_changed":
+            own = _without_extension(path)
+            return float(any(s == own or s.endswith("/" + own) for s in stripped))
+        if name == "subject_file_changed":
+            subject = _TEST_AFFIXES.sub("", _stem(path)).lower()
+            own = _stem(path).lower()
+            return float(len(subject) >= 3 and any(s == subject != own for s in stems))
+        if name == "path_similarity":
+            return max(Levenshtein.normalized_similarity(path, other) for other in changed)
+        if name == "token_similarity":
+            mine = _tokens(path)
+            return max(len(mine & theirs) for theirs in tokens) / len(mine) if mine else 0.0
+        own = _stem(path).lower()
+        return max(Levenshtein.normalized_similarity(own, stem) for stem in stems)
+
+    return value
 
 
 def _expected_durations(known: Sequence[str], records: dict[str, CaseRecord]) -> dict[str, float]:
