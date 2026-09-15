@@ -6,6 +6,7 @@ import itertools
 import json
 import random
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -560,3 +561,34 @@ def test_the_selective_step_tries_the_signal_the_cold_start_step_could_not() -> 
     assert sum("/cold+name*" in name for name in names) == 3
     # The step it follows never tried it: it iterated the proximity signals only.
     assert not any("+name*" in name for name in (c.name for c in STEPS["cold-start"].candidates))
+
+
+def test_the_cost_can_be_dropped_where_the_history_says_nothing() -> None:
+    """The divisor does not bury a match under a zero score, but under an older failure.
+
+    A quick test that failed two builds ago is still worth 0.003 once decayed and divided; a slow
+    test that has never failed but whose name matches the change is worth 2.0 divided by its own
+    900 ms, which is less. Dropping the divisor where there is no risk to weigh flips that.
+    """
+    builds = BuildHistory()
+    slow = "tests/test_cart.py::slow"
+    builds.record([[result("fell", Status.FAILED, duration=10), result(slow, duration=900)]])
+    for _ in range(2):
+        builds.record([[result("fell", duration=10), result(slow, duration=900)]])
+    job = Trial(1, ("fell", slow), frozenset({slow}), {"fell": 10, slow: 900}, ("src/cart.py",))
+    context = Context(builds, list)
+    named = Candidate("named", cold_weights=(("name", 2.0),), time_exponent=1.0)
+
+    free = replace(named, name="free", cold_time_exponent=0.0)
+
+    assert named.order(job, context)[0][0] == "fell"
+    assert free.order(job, context)[0][0] == slow
+
+
+def test_the_last_step_drops_the_cost_alone_and_with_the_name() -> None:
+    step = STEPS["cold-free"]
+    names = [ranking.name for ranking in step.candidates]
+
+    assert len(names) == len(set(names)) == 1 + 3  # the cost alone, then with each weight of name
+    assert all(isinstance(c, Candidate) and c.cold_time_exponent == 0.0 for c in step.candidates)
+    assert sum("+name*" in name for name in names) == 3

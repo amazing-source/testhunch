@@ -120,6 +120,28 @@ until there is something frozen to measure on them.
 The signal has already been tried in its `always` form, in steps 1, 2 and 4, and rejected on the
 mean. It may well fail again. What is new is only the form and the slice it is judged on.
 
+It did fail (benchmarks/results/study/selective.md): the name costs almost nothing on the mean,
+0.861 against 0.861, and buys almost nothing on the slice, 0.692 to 0.670. So it is not the name
+that gives 0.2.0 its 0.455, and three of our own numbers say what does:
+
+| | divides by the duration | first-failure position |
+|---|---|---:|
+| latest-failure | no | 0.616 |
+| the current version | yes | 0.692 |
+| testhunch 0.2.0 | no | 0.455 |
+
+The same name signal is worth 0.16 in 0.2.0 and 0.02 here. What differs is the divisor: a slow test
+whose name matches the change is worth 2.0 undivided, but 2.0 / 900 ms once divided — less than a
+quick test that failed two builds ago and has decayed to 0.003. The signal is given and taken back.
+
+**The last step, `cold-free`, drops the cost where the history is silent**: `cold_time_exponent=0`,
+alone and with the name at each weight. Dividing by a cost arbitrates between tests whose risk is
+estimated; where nothing is estimated there is nothing to arbitrate.
+
+This is the third candidate set derived from looking at development results, and the last: whatever
+it returns, this line of search stops there. Each set takes a little more freedom with those
+projects, and the risk of fitting them is a thing to stop before discovering, not after.
+
 ## Consequences
 
 - `benchmarks/firstfailures.py` becomes part of the decision, not a diagnostic: a candidate that is

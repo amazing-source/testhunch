@@ -161,6 +161,27 @@ STEPS["selective"] = Step(
     references=(LatestFailure(), ProductRanking()),
 )
 
+# The last step of ADR 0018, and the last whatever it returns: not another signal, but the cost.
+# Dividing a score by a duration arbitrates between tests whose risk is estimated; where the
+# history is silent there is nothing to arbitrate, and the divisor buries a slow test whose name
+# matches the change — which is what the two steps before measured without naming it.
+_NO_COST = replace(STEP_3_KEPT, name=f"{STEP_3_KEPT.name}/cold-free", cold_time_exponent=0.0)
+STEPS["cold-free"] = Step(
+    STEP_3_KEPT,
+    (
+        _NO_COST,
+        *(
+            replace(
+                _NO_COST,
+                name=f"{_NO_COST.name}+name*{weight}",
+                cold_weights=(("name", weight),),
+            )
+            for weight in WEIGHTS
+        ),
+    ),
+    references=(LatestFailure(), ProductRanking()),
+)
+
 
 def rankings(step: str) -> list[Ranking]:
     return STEPS[step].rankings()
