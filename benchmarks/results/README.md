@@ -95,11 +95,11 @@ principe mais une pièce portante.
 **Et cette régression, c'est notre étude qui l'a introduite.** Mesurée sur la même tranche
 ([détail](study/cold-start.md)) :
 
-| | A déjà échoué | N'a jamais échoué |
+| | A déjà échoué (4 182 jobs) | N'a jamais échoué (283 jobs) |
 |---|---:|---:|
-| classement actuel | **0,123** | 0,692 |
-| testhunch 0.2.0 | 0,148 | **0,455** |
-| aléatoire | 0,460 | 0,470 |
+| classement actuel | **0,124** | 0,692 |
+| testhunch 0.2.0 | 0,149 | **0,455** |
+| aléatoire | 0,460 | 0,472 |
 
 La 0.2.0 n'était pas pire que le hasard sur les premiers échecs ; la version que l'étude a retenue
 l'est. La 0.2.0 portait un signal de démarrage à froid — son affinité de nom, de poids 2,0,
@@ -110,7 +110,7 @@ L'échange a rapporté 0,018 d'APFDc moyen et coûté la propriété qui protég
 
 Trente candidats ont essayé de la récupérer avec les signaux de proximité continus, **aucun n'y
 arrive** : même à poids 0,1 et appliqués seulement là où l'historique se tait, ils noient le
-classement (0,123 → 0,331 sur le bon régime) sans jamais atteindre l'aléatoire sur l'autre. Ce qui
+classement (0,124 → 0,335 sur le bon régime) sans jamais atteindre l'aléatoire sur l'autre. Ce qui
 marchait était **sélectif**, déclenché sur une correspondance de radical de fichier, et baisser le
 poids d'un signal continu ne le rend pas sélectif.
 

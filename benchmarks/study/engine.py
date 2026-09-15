@@ -52,8 +52,9 @@ def study(
     job_ids: list[int] = []
     best: list[float | None] = []
     # Per trial: had any of its known failing tests ever failed before? The guardrail of ADR 0018
-    # only means something once the trials are split on this.
-    first_failures: list[bool] = []
+    # only means something once the trials are split on this. None when the ranking had seen none
+    # of them: that trial belongs to neither slice, since there was nothing to rank them with.
+    first_failures: list[bool | None] = []
     per_ranking: dict[str, list[dict[str, float | None]]] = {name: [] for name in names}
     for group in concurrent_groups(jobs):
         collapsed = [collapse(job.results) for job in group]
@@ -83,8 +84,9 @@ def study(
                 best.append(best_red_at(trial, builds.records))
                 known_failing = [t for t in trial.failing if t in builds.records]
                 first_failures.append(
-                    bool(known_failing)
-                    and all(builds.records[t].failures == 0 for t in known_failing)
+                    all(builds.records[t].failures == 0 for t in known_failing)
+                    if known_failing
+                    else None
                 )
                 for ranking in rankings:
                     order, known = ranking.order(trial, context)

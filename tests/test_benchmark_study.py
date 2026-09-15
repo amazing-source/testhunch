@@ -582,6 +582,28 @@ def test_the_guardrail_table_splits_the_jobs_and_says_it_is_a_bar_not_a_target()
     assert "| r | 0.100 | 0.900 |" in page
 
 
+def test_a_job_whose_failing_tests_are_all_unknown_belongs_to_neither_slice() -> None:
+    """It says nothing about the ranking: there was nothing to rank those tests with.
+
+    Counting it as "had failed before" is the opposite of what it is, and it flatters that slice:
+    an unseen test runs first (docs/adr/0006), so its position is near the top. Eighty jobs of the
+    development projects landed there, which is why two published pages disagreed on the count.
+    """
+    jobs = [
+        Job(1, frozenset({"a"}), (), (result("A", Status.FAILED), result("B"))),
+        # "A" failed before; "New" the ranking has never seen, and it is the only failure here.
+        Job(2, frozenset({"b"}), (), (result("A"), result("B"), result("New", Status.FAILED))),
+        Job(3, frozenset({"c"}), (), (result("A", Status.FAILED), result("B"))),
+    ]
+
+    outcome = study(jobs, [LatestFailure()])
+
+    assert outcome["trials"]["job_ids"] == [2, 3]
+    assert outcome["trials"]["first_failure"] == [None, False]
+    page = "\n".join(_first_failure_table([{**outcome, "project": "a@b"}], ["latest-failure"]))
+    assert "had failed before (1)" in page and "had never failed before (0)" in page
+
+
 def test_the_selective_step_tries_the_signal_the_cold_start_step_could_not() -> None:
     """`name` is testhunch 0.2.0's file-stem affinity, filed under the history signals."""
     step = STEPS["selective"]
