@@ -55,6 +55,41 @@ Ce qui reste franchement moins bon : le rappel par test. Pour savoir vite qu'un 
 quelque chose, cette version est meilleure et bien moins chère ; pour savoir *tout* ce qu'il casse,
 elle est moins bonne.
 
+### Et un angle mort, mesuré : les premiers échecs
+
+Ces moyennes mélangent deux régimes très différents. Découpées selon que le test en échec avait
+déjà échoué ou non ([détail](study/first-failures.md), `python -m benchmarks.firstfailures`, sur les
+10 projets de développement), position du premier test en échec dans l'ordre, **plus bas = mieux** :
+
+| | A déjà échoué (4 182 jobs) | N'a jamais échoué (283 jobs) |
+|---|---:|---:|
+| testhunch | **0,124** | 0,692 |
+| le plus récemment échoué | 0,107 | 0,616 |
+| aléatoire | 0,460 | **0,472** |
+
+Sur un test qui a déjà échoué — 94 % des jobs en échec — testhunch est presque quatre fois meilleur
+que l'aléatoire. **Sur un test qui n'a jamais échoué, il est plus mauvais que l'aléatoire**, et c'est
+structurel : un classement fondé sur la récence des échecs relègue par construction ce qui n'a jamais
+cassé, donc il cherche au mauvais endroit. Le hasard, lui, ne se trompe pas exprès. Cheng et al.
+(ISSTA 2024, tableau 10) mesurent la même chose sur « le plus récemment échoué » : 0,467 contre
+0,504 pour l'aléatoire.
+
+Deux précisions que la page détaille :
+
+- **Notre seul avantage sur cette tranche vient du coût, pas de la prédiction.** En temps (`red_at`)
+  testhunch fait 0,554 contre 0,721 pour le plus récemment échoué, uniquement parce qu'il lance les
+  tests rapides d'abord. En position, il fait *moins bien* que lui : diviser par la durée repousse
+  encore un test neuf qui est lent. Ne rapporter que le temps revendiquerait une compétence qu'il
+  n'a pas.
+- **Ce n'est pas la faute de la règle des tests inconnus.** La position parmi les seuls tests connus
+  (0,704) est la même que la position globale (0,692) : le biais est dans le classement lui-même.
+
+C'est le cas de la seule vraie régression de click, manquée à tous les budgets, et c'est le cas de
+tout bug écrit dans du code neuf. C'est aussi la raison pour laquelle le filet de sécurité de
+l'[ADR 0007](../../docs/adr/0007-selections-leave-out-known-low-ranked-tests.md) — ne sauter que sur
+les pull requests, relancer toute la suite sur la branche principale — n'est pas une précaution de
+principe mais une pièce portante.
+
 ## RTPTorrent : 20 projets Java, 110 126 jobs Travis CI
 
 Méthode : [ADR 0010](../../docs/adr/0010-benchmark-replays-rtptorrent-in-build-order.md). Données :

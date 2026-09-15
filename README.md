@@ -144,6 +144,24 @@ tournent, le build devient rouge quand même. Pour savoir *vite* qu'un changemen
 chose, cette version est meilleure et bien moins chère ; pour savoir *tout* ce qu'il casse, elle est
 moins bonne.
 
+### L'angle mort : un test qui n'a jamais échoué
+
+Ces moyennes mélangent deux régimes, et un seul est bon. Découpées selon que le test en échec avait
+déjà échoué ou non ([détail](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/study/first-failures.md)),
+position du premier test en échec dans l'ordre, plus bas étant meilleur :
+
+| | A déjà échoué (94 % des jobs) | N'a jamais échoué (6 %) |
+|---|---:|---:|
+| testhunch | **0,124** | 0,692 |
+| aléatoire | 0,460 | **0,472** |
+
+**Sur un test qui n'a jamais échoué, testhunch fait pire que le hasard.** Ce n'est pas de la
+malchance : un classement fondé sur la récence des échecs relègue par construction ce qui n'a jamais
+cassé, donc il cherche au mauvais endroit. C'est exactement le cas d'un bug écrit dans du code neuf.
+
+C'est pourquoi le filet de sécurité ci-dessous — ne sauter des tests que sur les pull requests et
+relancer toute la suite sur la branche principale — n'est pas une précaution de principe.
+
 **Banc d'essai**, 200 commits chacun de quatre projets, résultats par test. Des mutants d'un seul
 jeton ont été glissés dans les lignes que chaque commit a changées :
 
