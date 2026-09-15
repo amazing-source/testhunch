@@ -36,6 +36,18 @@ curl -H "Authorization: Bearer $(terraform output -raw api_token)" \
   http://127.0.0.1:8000/v1/repos
 ```
 
+## L'alerte de facturation
+
+```bash
+terraform apply -var "alert_email=vous@exemple.fr"
+```
+
+Sans adresse, aucun budget n'est créé. Avec une adresse, AWS écrit dès que le coût **net**, celui
+qui reste une fois les crédits appliqués, dépasse 5 dollars dans le mois, et dès que le mois se
+dirige vers ce montant. Tant que le crédit couvre tout, ce coût net reste à zéro : cette alerte ne
+mesure donc pas ce que vous consommez, elle prévient au moment où AWS commence vraiment à
+facturer. C'est le signal qui compte quand on paie avec du crédit.
+
 ## Ce que ça coûte
 
 Environ 18 dollars par mois : à peu près 16 pour l'instance `t3.small`, 2 pour le disque de 20 Go,
