@@ -549,3 +549,14 @@ def test_the_guardrail_table_splits_the_jobs_and_says_it_is_a_bar_not_a_target()
     assert "must not be worse than random" in page
     assert "had failed before (1)" in page and "had never failed before (1)" in page
     assert "| r | 0.100 | 0.900 |" in page
+
+
+def test_the_selective_step_tries_the_signal_the_cold_start_step_could_not() -> None:
+    """`name` is testhunch 0.2.0's file-stem affinity, filed under the history signals."""
+    step = STEPS["selective"]
+    names = [ranking.name for ranking in step.candidates]
+
+    assert len(names) == len(set(names)) == 2 * 3  # one signal, three weights, two forms
+    assert sum("/cold+name*" in name for name in names) == 3
+    # The step it follows never tried it: it iterated the proximity signals only.
+    assert not any("+name*" in name for name in (c.name for c in STEPS["cold-start"].candidates))
