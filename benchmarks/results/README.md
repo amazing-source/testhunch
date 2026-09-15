@@ -35,10 +35,25 @@ Les pages générées, en anglais, donnent le détail par projet :
 - le **rappel par test** baisse à tous les budgets. Beaucoup de tests en échec ne tournent plus, le
   build devient rouge quand même.
 
-Autrement dit : pour attraper vite qu'un changement casse quelque chose, cette version est
-meilleure et bien moins chère. Pour savoir *tout* ce qu'un changement casse, elle est moins bonne à
-budget nominal égal. Une comparaison à temps réellement égal reste à faire ; elle demanderait un
-second regard aux projets mis de côté et n'a pas été dépensée.
+Attention cependant : ce tableau compare une part du **temps** à une part du **nombre de tests**.
+La comparaison à part de temps égale existe déjà, mesurée une seule fois sur les projets mis de
+côté avec des versions figées d'avance ([study/held-out.md](study/held-out.md)) — part des jobs en
+échec devenus rouges :
+
+| À part de temps égale | 10 % | 25 % | 50 % |
+|---|---:|---:|---:|
+| **classement actuel** | **0,573** | **0,706** | **0,810** |
+| les tests qui ont échoué récemment d'abord | 0,526 | 0,674 | 0,771 |
+| testhunch 0.2.0 | 0,511 | 0,637 | 0,749 |
+
+À temps égal, la version actuelle rattrape plus de builds cassés que la 0.2.0 à **tous** les
+budgets, d'environ 6 points, et à nombre de tests égal aussi. La ligne « 50 % » du tableau
+précédent ne dit donc pas que la 0.2.0 ordonnait mieux : elle dit que 50 % du temps achète moins de
+tests que 50 % des tests.
+
+Ce qui reste franchement moins bon : le rappel par test. Pour savoir vite qu'un changement casse
+quelque chose, cette version est meilleure et bien moins chère ; pour savoir *tout* ce qu'il casse,
+elle est moins bonne.
 
 ## RTPTorrent : 20 projets Java, 110 126 jobs Travis CI
 

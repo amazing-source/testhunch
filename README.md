@@ -122,14 +122,27 @@ test. La 0.2.0, elle, gardait rouges 87 % des jobs pour 44 % du temps.
 | 25 % | **90 %** (pire : 62 %) | **24 %** | 87 % pour 44 % |
 | 50 % | 92 % (pire : 79 %) | 49 % | **94 %** pour 69 % |
 
-À budget nominal égal, testhunch dépense donc à peu près **deux fois moins de temps de test** qu'en
-0.2.0. Mais le gain ne se paie pas de rien, et voici les deux mauvaises nouvelles :
+Attention à la lecture de ce tableau : il compare une part du **temps** (aujourd'hui) à une part du
+**nombre de tests** (0.2.0). Ce ne sont pas le même achat, et la ligne des 50 % s'explique
+entièrement par là : 50 % du temps lance moins de tests que 50 % des tests.
 
-- **à 50 %, la 0.2.0 rattrapait plus de builds** (94 % contre 92 %) : un budget de 50 % du temps
-  lance moins de tests qu'un budget de 50 % des tests ;
-- **le rappel par test baisse à tous les budgets** : moins de tests en échec tournent, le build
-  devient rouge quand même. Pour savoir *vite* qu'un changement casse quelque chose, cette version
-  est meilleure et bien moins chère ; pour savoir *tout* ce qu'il casse, elle est moins bonne.
+**À part de temps égale**, comparaison faite une seule fois sur les 10 projets mis de côté avec des
+versions figées d'avance ([détail](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/study/held-out.md)),
+part des jobs en échec devenus rouges :
+
+| À part de temps égale | 10 % | 25 % | 50 % |
+|---|---:|---:|---:|
+| **classement actuel** | **0,573** | **0,706** | **0,810** |
+| les tests qui ont échoué récemment d'abord | 0,526 | 0,674 | 0,771 |
+| testhunch 0.2.0 | 0,511 | 0,637 | 0,749 |
+
+À temps égal, la version actuelle rattrape donc plus de builds cassés que la 0.2.0 à **tous** les
+budgets, de 6 points environ, et à nombre de tests égal aussi.
+
+Ce qui reste moins bon : **le rappel par test baisse à tous les budgets**. Moins de tests en échec
+tournent, le build devient rouge quand même. Pour savoir *vite* qu'un changement casse quelque
+chose, cette version est meilleure et bien moins chère ; pour savoir *tout* ce qu'il casse, elle est
+moins bonne.
 
 **Banc d'essai**, 200 commits chacun de quatre projets, résultats par test. Des mutants d'un seul
 jeton ont été glissés dans les lignes que chaque commit a changées :
