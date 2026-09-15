@@ -28,7 +28,7 @@ variable "instance_type" {
 variable "image" {
   description = "The published image to run. Pinned to an exact version, never :latest."
   type        = string
-  default     = "ghcr.io/amazing-source/testhunch:0.3.0"
+  default     = "ghcr.io/amazing-source/testhunch:0.4.0"
 }
 
 variable "postgres_image" {

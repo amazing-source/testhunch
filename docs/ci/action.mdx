@@ -16,7 +16,7 @@ saute aucun test.** Sauter se décide ailleurs, et volontairement (voir
     fetch-depth: 0 # testhunch compare avec la branche de base de la pull request
 
 - id: testhunch
-  uses: amazing-source/testhunch@v0.3.0
+  uses: amazing-source/testhunch@v0.4.0
   with:
     command: prioritize
     database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
@@ -24,7 +24,7 @@ saute aucun test.** Sauter se décide ailleurs, et volontairement (voir
 - run: pytest --junitxml=junit.xml
 
 - if: ${{ !cancelled() }}
-  uses: amazing-source/testhunch@v0.3.0
+  uses: amazing-source/testhunch@v0.4.0
   with:
     command: ingest
     reports: junit.xml
@@ -79,8 +79,8 @@ l'URL d'une base Postgres depuis un secret.
 
 ## Sur la version
 
-L'Action construit le paquet **depuis son propre checkout**, donc `@v0.3.0` fait tourner
-testhunch 0.3.0 : l'Action et la CLI ne peuvent pas diverger. Pour une garantie plus forte qu'un tag,
+L'Action construit le paquet **depuis son propre checkout**, donc `@v0.4.0` fait tourner
+testhunch 0.4.0 : l'Action et la CLI ne peuvent pas diverger. Pour une garantie plus forte qu'un tag,
 épinglez le SHA du commit.
 
 <Note>
@@ -94,7 +94,7 @@ Au lieu d'une base que votre job doit joindre, `api-url` envoie le run au servic
 
 ```yaml
 - if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
-  uses: amazing-source/testhunch@v0.3.0
+  uses: amazing-source/testhunch@v0.4.0
   env:
     TESTHUNCH_API_TOKEN: ${{ secrets.TESTHUNCH_API_TOKEN }}
   with:
