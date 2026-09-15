@@ -76,8 +76,10 @@ flowchart LR
 ## Ce qui a été mesuré
 
 Le classement a été rejoué sur de vrais historiques de CI : chaque exécution est classée uniquement
-à partir de celles terminées avant elle, avec le vrai code de testhunch. Tous les chiffres, projet
-par projet, y compris ceux où testhunch s'en sort mal, sont dans
+à partir de celles terminées avant elle, avec le vrai code de testhunch. **Ces chiffres sont ceux du
+classement de la 0.3.0**, celle que `uvx testhunch` et `@v0.3.0` installent ; la ligne « testhunch
+0.2.0 » des tableaux est la version précédente, gardée comme point de comparaison. Tous les
+chiffres, projet par projet, y compris ceux où testhunch s'en sort mal, sont dans
 [benchmarks/results](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md).
 
 ### Face à « les tests qui ont échoué récemment d'abord »
@@ -242,13 +244,13 @@ L'Action de ce dépôt classe les tests avant qu'ils tournent, enregistre leurs 
   with:
     fetch-depth: 0 # testhunch compare avec la branche de base de la pull request
 - id: testhunch
-  uses: amazing-source/testhunch@v0.2.0
+  uses: amazing-source/testhunch@v0.3.0
   with:
     command: prioritize
     database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
 - run: pytest --junitxml=junit.xml
 - if: ${{ !cancelled() }}
-  uses: amazing-source/testhunch@v0.2.0
+  uses: amazing-source/testhunch@v0.3.0
   with:
     command: ingest
     reports: junit.xml
@@ -275,7 +277,7 @@ mieux classés. Rien n'est jamais sauté.
 
 Sans `database-url`, l'historique ne survit pas d'une exécution de CI à l'autre : pour un vrai
 usage, passez l'URL d'une base Postgres depuis un secret, ou envoyez les rapports à une API
-auto-hébergée (ci-dessous). `@v0.2.0` exécute testhunch 0.2.0 ; pour une garantie plus forte qu'un tag, utilisez le SHA de
+auto-hébergée (ci-dessous). `@v0.3.0` exécute testhunch 0.3.0 ; pour une garantie plus forte qu'un tag, utilisez le SHA de
 son commit.
 
 ### Sauter vraiment des tests

@@ -1,10 +1,12 @@
 name: Release
 
-# Push a tag like v0.1.0, matching the version in pyproject.toml, to publish:
-#   - testhunch 0.1.0 on PyPI, through trusted publishing: PyPI trusts this workflow's OIDC
+# Push a tag `vX.Y.Z` matching the version in pyproject.toml to publish:
+#   - testhunch X.Y.Z on PyPI, through trusted publishing: PyPI trusts this workflow's OIDC
 #     identity (repository, release.yml, environment "pypi"), so no token is stored in GitHub
-#   - ghcr.io/<owner>/testhunch:0.1.0 and :0.1
-# Nothing is published if the tag does not match the package version.
+#   - ghcr.io/<owner>/testhunch:X.Y.Z and :X.Y
+# Nothing is published if the tag does not match the package version. The version is written in one
+# place, pyproject.toml, and a test holds the README's `@vX.Y.Z` examples to it: what the front page
+# tells a reader to install has to be the version this workflow would publish.
 on:
   push:
     tags: ["v*"]
