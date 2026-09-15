@@ -12,9 +12,9 @@ variable "name" {
 
 variable "instance_type" {
   description = <<-EOT
-    The one server. x86, not Graviton: the published image is linux/amd64 only, because
-    .github/workflows/release.yml builds without a `platforms:` list. An arm64 instance would
-    pull an image it cannot run, and the failure would only show in the container logs.
+    The one server. x86, not Graviton: the published image is linux/amd64 only, because neither
+    .github/workflows/ci.yml nor release.yml builds with a `platforms:` list. An arm64 instance
+    would pull an image it cannot run, and the failure would only show in the container logs.
   EOT
   type        = string
   default     = "t3.small"
@@ -26,9 +26,19 @@ variable "instance_type" {
 }
 
 variable "image" {
-  description = "The published image to run. Pinned to an exact version, never :latest."
+  description = <<-EOT
+    The published image to run, pinned to a tag that cannot move under the server: a released
+    version, or the `sha-<commit>` that .github/workflows/ci.yml publishes for every commit of main
+    that passed. Deploying main does not need a release.
+  EOT
   type        = string
   default     = "ghcr.io/amazing-source/testhunch:0.4.0"
+
+  validation {
+    # A moving tag would make `terraform plan` say nothing changed while the server changed.
+    condition     = !endswith(var.image, ":latest") && !endswith(var.image, ":main")
+    error_message = "Pin the image to a version or to a sha- tag, not to a tag that moves."
+  }
 }
 
 variable "postgres_image" {

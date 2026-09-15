@@ -38,6 +38,21 @@ Le premier démarrage installe Docker, télécharge les images et lance la pile 
 minutes après la fin de `apply` avant que l'API réponde. Sur l'instance, le journal de cette
 installation est `/var/log/testhunch-setup.log`.
 
+## Mettre à jour le serveur
+
+Chaque commit de `main` qui passe la CI est publié comme image, donc déployer ne demande aucune
+version ([ADR 0025](../docs/adr/0025-main-is-deployable-without-a-release.md)) :
+
+```bash
+terraform apply -var "image=ghcr.io/amazing-source/testhunch:sha-<commit>"
+```
+
+Épinglez le `sha-`, jamais `:main`. Une étiquette qui bouge ferait dire à `terraform plan` que rien
+ne change alors que le serveur changerait ; la variable refuse `:main` et `:latest` pour cette
+raison. L'image est passée par le script de démarrage, donc en changer **remplace l'instance** :
+comptez deux à trois minutes d'interruption. Le disque de données, lui, reste
+([ADR 0024](../docs/adr/0024-the-data-outlives-the-server.md)).
+
 ## S'en servir
 
 ```bash
@@ -46,6 +61,10 @@ curl http://127.0.0.1:8000/readyz              # dans un autre
 curl -H "Authorization: Bearer $(terraform output -raw api_token)" \
   http://127.0.0.1:8000/v1/repos
 ```
+
+Ce jeton-là est celui de l'exploitant : il ouvre tout. Une CI reçoit le sien, qui n'ouvre qu'un
+dépôt, frappé sur le serveur par `testhunch token create <dépôt>`
+([ADR 0022](../docs/adr/0022-a-token-opens-one-repository.md)).
 
 ## L'alerte de facturation
 
@@ -79,9 +98,6 @@ Le disque n'est sauvegardé nulle part : le perdre, c'est perdre l'historique.
 
 ## Ce qui n'y est pas encore
 
-- **Un seul jeton pour tout le monde.** Une fois l'API publique, ce jeton est la seule chose entre
-  Internet et la base, et on ne peut pas le révoquer pour un dépôt sans le révoquer pour tous. Les
-  jetons par dépôt sont l'item suivant de la feuille de route.
 - **Aucune limitation de débit.** Une inondation non authentifiée coûte quand même du CPU.
 - **Aucune sauvegarde.** Le disque de données survit au remplacement de l'instance, mais rien ne le
   copie : un instantané programmé est l'étape suivante évidente, et elle n'est pas faite.
@@ -89,5 +105,5 @@ Le disque n'est sauvegardé nulle part : le perdre, c'est perdre l'historique.
   aucune copie du XML qu'on lui envoie. Le bucket attend le code qui écrira dedans.
 - **L'état Terraform reste sur votre machine**, et il contient les secrets engendrés en clair. Il
   n'est pas versionné. Le déplacer dans S3 avec verrouillage viendra avec le déploiement continu.
-- **Pas d'image arm64.** `release.yml` publie en `linux/amd64` seulement, donc pas de Graviton, qui
-  serait pourtant moins cher. Le type d'instance refuse `t4g.` pour cette raison.
+- **Pas d'image arm64.** Les deux workflows publient en `linux/amd64` seulement, donc pas de
+  Graviton, qui serait pourtant moins cher. Le type d'instance refuse `t4g.` pour cette raison.
