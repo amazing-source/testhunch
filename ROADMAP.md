@@ -81,7 +81,8 @@ obtient un APFDc moyen de 0,735, et 0,835 quand elle tient compte en plus de la 
   - [x] Donner un nom public à l'API ([ADR 0021](docs/adr/0021-the-api-answers-on-one-public-name.md)) : une adresse fixe, 80 et 443 ouverts, et Caddy devant l'API qui obtient et renouvelle seul son certificat Let's Encrypt. Tout cela tient à une variable : sans nom de domaine, rien n'est réservé ni ouvert et le serveur reste celui de l'ADR 0020. Le jeton partagé devient dès lors la seule chose entre Internet et la base, ce qui rend les jetons par dépôt urgents
 - [ ] Déploiement continu de `main` vers la préproduction, promotion manuelle en production
 - [ ] Métriques (Prometheus) et alertes, dont le taux de tests manqués en mode fantôme comme objectif de niveau de service
-- [ ] La CI de testhunch envoie son historique à l'API hébergée
+- [ ] La CI de testhunch envoie son historique à l'API hébergée : l'étape existe et l'Action sait parler au service (`api-url`), vérifié en CI contre une vraie API lancée dans le job. Il reste à déposer les deux secrets et à publier une version dont l'image porte les jetons par dépôt, le serveur tournant encore la 0.3.0
+- [ ] Enregistrer le classement côté serveur, pour que le mode fantôme fonctionne aussi quand le run part à l'API : `prioritize --record` écrit dans la base locale, donc par le chemin hébergé le classement et le run ne se retrouvent pas
 - [x] Des jetons par dépôt au lieu d'un jeton partagé ([ADR 0022](docs/adr/0022-a-token-opens-one-repository.md)) : une table `api_tokens` qui ne garde que l'empreinte SHA-256, un jeton frappé par la CLI contre la base et jamais par l'API, donc aucune requête ne peut en produire un ni élargir le sien. Un jeton présenté sur un autre dépôt reçoit un 403, un jeton inconnu ou révoqué un 401. Le jeton de l'exploitant ouvre toujours tout
 - [ ] Partitionner `results` par date quand la table sera assez grosse pour le justifier
 

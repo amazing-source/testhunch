@@ -57,12 +57,26 @@ case "${TESTHUNCH_COMMAND}" in
     fi
 
     # Patterns are passed quoted: testhunch expands them itself, the same way on every runner.
-    testhunch ingest "${reports[@]}" ${base:+--base "${base}"}
-    {
-      testhunch report --last "${TESTHUNCH_LAST}" --format markdown
-      echo
-      testhunch shadow --last "${TESTHUNCH_LAST}" --format markdown
-    } >> "${GITHUB_STEP_SUMMARY}"
+    if [ -n "${TESTHUNCH_INPUT_API_URL}" ]; then
+      # Sent to a hosted testhunch, so there is no local history to summarise here. Shadow mode
+      # still records its ranking locally, so it has nothing to compare against: the summary says
+      # what happened rather than printing empty tables.
+      sent="$(testhunch ingest "${reports[@]}" ${base:+--base "${base}"} \
+        --api "${TESTHUNCH_INPUT_API_URL}")"
+      echo "${sent}"
+      {
+        echo "### testhunch"
+        echo
+        echo "${sent}"
+      } >> "${GITHUB_STEP_SUMMARY}"
+    else
+      testhunch ingest "${reports[@]}" ${base:+--base "${base}"}
+      {
+        testhunch report --last "${TESTHUNCH_LAST}" --format markdown
+        echo
+        testhunch shadow --last "${TESTHUNCH_LAST}" --format markdown
+      } >> "${GITHUB_STEP_SUMMARY}"
+    fi
     ;;
 
   prioritize)

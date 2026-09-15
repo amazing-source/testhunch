@@ -44,6 +44,7 @@ c'est-à-dire précisément quand il y a quelque chose à apprendre.
 | `reports` | Pour `ingest` : fichiers JUnit XML ou motifs glob, un par ligne. |
 | `base` | Référence à comparer pour trouver les fichiers modifiés. Par défaut, la branche de base sur un événement `pull_request`, et rien sinon. |
 | `database-url` | Où garder l'historique. Par défaut un fichier SQLite dans l'espace de travail, qui disparaît avec le job. |
+| `api-url` | Pour `ingest` : envoyer le run à un testhunch hébergé au lieu d'une base. Le jeton vient de `TESTHUNCH_API_TOKEN`, posé en variable d'environnement de l'étape. |
 | `last` | Pour `ingest` : sur combien d'exécutions récentes portent les résumés (50 par défaut). Le classement, lui, apprend de tous les builds enregistrés. |
 | `summary-limit` | Pour `prioritize` : combien de tests afficher dans le résumé du job (20 par défaut). |
 | `record` | Pour `prioritize` : enregistrer le classement pour le mode fantôme (`true` par défaut). |
@@ -86,3 +87,29 @@ testhunch 0.3.0 : l'Action et la CLI ne peuvent pas diverger. Pour une garantie 
 Les entrées arrivent au script par des variables d'environnement, jamais interpolées dans un `run:`.
 Une valeur fabriquée ne peut donc pas exécuter de commandes sur votre runner.
 </Note>
+
+## Envoyer à un testhunch hébergé
+
+Au lieu d'une base que votre job doit joindre, `api-url` envoie le run au service :
+
+```yaml
+- if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+  uses: amazing-source/testhunch@v0.3.0
+  env:
+    TESTHUNCH_API_TOKEN: ${{ secrets.TESTHUNCH_API_TOKEN }}
+  with:
+    command: ingest
+    reports: junit.xml
+    api-url: https://api.exemple.fr
+```
+
+Les rapports partent tels quels et c'est le serveur qui les analyse. Une adresse en `http://` qui
+n'est pas la boucle locale est refusée, pour que le jeton ne circule jamais en clair. Demandez à
+l'exploitant du service un jeton qui n'ouvre que votre dépôt plutôt que le sien, qui les ouvre tous.
+
+<Warning>
+**Le mode fantôme ne fonctionne pas encore par ce chemin.** `prioritize --record` écrit le
+classement dans la base locale, alors que le run part sur le serveur : les deux ne se retrouvent
+pas, et le résumé du job ne montre donc ni rapport ni mesure de ce qu'un budget aurait manqué. Il
+dit seulement ce qui a été envoyé.
+</Warning>
