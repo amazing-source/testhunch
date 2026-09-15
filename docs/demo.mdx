@@ -1,0 +1,151 @@
+---
+title: "Faire une démonstration"
+description: "Montrer testhunch à quelqu'un en cinq minutes, sans rien préparer et sans rien exagérer."
+icon: "presentation"
+---
+
+Trois actes. Le premier montre le mécanisme sur un dépôt jetable, le deuxième montre les chiffres
+mesurés, le troisième montre le service en train de tourner. Aucun ne demande de préparation.
+
+<Warning>
+Le premier acte montre **comment ça marche**, pas **si ça marche**. Quatre tests et deux builds ne
+prouvent rien, et le dire soi-même vaut mieux que se le faire demander. Ce qui prouve quelque chose
+est dans l'acte 2.
+</Warning>
+
+## Acte 1 : le mécanisme, sur un dépôt jetable
+
+Deux minutes. Un dépôt neuf, deux builds, et un classement qui change.
+
+```bash
+mkdir demo && cd demo && git init && mkdir src tests
+cat > src/panier.py <<'EOF'
+def total(items):
+    return sum(items)
+EOF
+cat > src/remise.py <<'EOF'
+def remise(x):
+    return x * 0.9
+EOF
+cat > tests/test_panier.py <<'EOF'
+from src.panier import total
+
+def test_total_vide():
+    assert total([]) == 0
+
+def test_total_simple():
+    assert total([1, 2]) == 3
+EOF
+cat > tests/test_remise.py <<'EOF'
+from src.remise import remise
+
+def test_remise():
+    assert remise(100) == 90
+
+def test_remise_zero():
+    assert remise(0) == 0
+EOF
+git add -A && git commit -m "premier commit"
+```
+
+Le premier build, tout vert :
+
+```bash
+pytest -q --junitxml=junit.xml
+uvx testhunch ingest junit.xml
+```
+
+Cassez quelque chose, relancez, et enregistrez ce build rouge :
+
+```bash
+printf 'def remise(x):\n    return x * 0.8\n' > src/remise.py
+git commit -am "changer la remise"
+pytest -q --junitxml=junit.xml   # test_remise échoue
+uvx testhunch ingest junit.xml
+```
+
+Corrigez, puis demandez le classement :
+
+```bash
+printf 'def remise(x):\n    return x * 0.9\n' > src/remise.py
+git commit -am "corriger la remise"
+uvx testhunch prioritize --base HEAD~1
+```
+
+```
+   1.     0.267  tests.test_remise::test_remise  (failed in the latest build; takes about 2 ms)
+   2.         0  tests.test_remise::test_remise_zero  (takes about 1 ms)
+   3.         0  tests.test_panier::test_total_simple  (takes about 1 ms)
+   4.         0  tests.test_panier::test_total_vide  (takes about 2 ms)
+```
+
+Ce qu'il faut dire à voix haute : le seul test qui a un score est celui qui vient d'échouer, et la
+raison est écrite à côté. Les trois autres sont à zéro et leur ordre entre eux ne veut rien dire,
+c'est un départage par le commit. **Sur un historique de deux builds, il n'y a qu'un signal.** C'est
+exactement ce qu'on voit, et c'est déjà la moitié du produit : un classement qui s'explique ligne
+par ligne.
+
+`testhunch report` montre au passage les tests instables, les plus lents et ceux en échec, ce qui
+intéresse souvent plus l'auditoire que le classement lui-même.
+
+## Acte 2 : les chiffres, qui eux prouvent quelque chose
+
+Deux minutes, sans rien lancer : ouvrez
+[les mesures](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md).
+
+Ce qui porte, et qui se lit directement sur cette page :
+
+- **Des projets Java réels, rejoués build par build sur l'historique de leur CI.** Le tableau des
+  budgets donne, pour chaque part du temps de test, la part des builds cassés qui restent rouges.
+- **Chaque build n'est classé qu'à partir des builds terminés avant lui**, avec le vrai code
+  d'ingestion et de classement. Aucun chiffre n'est écrit à la main : ils sont tous engendrés par
+  les commandes du dossier `benchmarks`.
+- **Les projets mis de côté ne sont regardés qu'une fois**, et chaque regard est inscrit dans
+  [un registre](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/held-out-log.md)
+  que le code écrit lui-même avant de commencer. Compter ses lignes est la vérification.
+
+Et surtout, montrez la section **« les premiers échecs »** de cette même page : sur un test qui n'a
+jamais échoué, le classement y est mesuré comme **plus mauvais que le hasard**, avec la raison, un
+classement fondé sur la récence des échecs relègue par construction ce qui n'a jamais cassé.
+Personne ne croit une démonstration où tout marche ; montrer soi-même la limite, chiffrée, est ce
+qui rend le reste crédible.
+
+Si l'auditoire est technique, la page [testhunch sur testhunch](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/self.md)
+est la plus honnête du dépôt : sur notre propre CI, aucun test n'a jamais échoué, donc testhunch n'y
+démontre rien, et la page s'ouvre là-dessus.
+
+## Acte 3 : le service, en train de tourner
+
+Une minute. L'API hébergée répond pour de vrai :
+
+```bash
+curl https://api.testhunch.xyz/readyz
+```
+
+```json
+{"status":"ready"}
+```
+
+Sans jeton, tout le reste est refusé :
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  "https://api.testhunch.xyz/v1/report?repo=amazing-source/testhunch"
+```
+
+```
+401
+```
+
+Ce qu'il y a derrière, si on vous le demande : un serveur décrit par Terraform, atteint seulement
+par SSM, sans aucune règle entrante ; un jeton par dépôt, dont seule l'empreinte est stockée ;
+et le déploiement qui se fait en fusionnant, l'identité qui déploie ne sachant que nommer une image.
+
+## Ce qu'il ne faut pas faire
+
+- **Ne promettez pas un gain de temps sur le dépôt de la personne.** Il dépend entièrement de la
+  forme de sa suite. Proposez plutôt le mode fantôme, qui mesure sans rien sauter.
+- **Ne montrez pas le gain de temps de notre propre CI comme une réussite du classement.** Il vient
+  d'un seul test qui pèse l'essentiel du temps de la suite, et le diviseur de durée le met dehors ;
+  n'importe qui aurait le même résultat en le lançant à part. La page le dit avec le chiffre.
+- **Ne lancez pas le benchmark en direct.** Il demande 2,5 Go de données et des heures.

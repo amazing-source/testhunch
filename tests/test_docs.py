@@ -7,6 +7,7 @@ before it is found by us. It costs nothing to check here instead.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,3 +50,25 @@ def test_the_site_carries_no_em_dash() -> None:
     ]
 
     assert not guilty, f"em dashes in: {guilty}"
+
+
+def test_the_site_quotes_no_measured_figure() -> None:
+    """The site links to a measurement, it never repeats one (docs/adr/0019).
+
+    The check is narrow on purpose: a percentage or a score written with a decimal is what an
+    accuracy figure looks like, and it is the shape that went stale six times in the audit of
+    2026-09-15. Whole numbers are left alone, since they are usually counts in an example.
+    """
+    figure = re.compile(r"\d+[.,]\d+\s*%|\b0[.,]\d{3}\b")
+    guilty = []
+    for path in sorted(ROOT.joinpath("docs").rglob("*.mdx")):
+        text = path.read_text(encoding="utf-8")
+        # Fenced blocks are a command's own output, which a reader reproduces rather than trusts.
+        prose = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+        found = figure.findall(prose)
+        if found:
+            guilty.append(f"{path.relative_to(ROOT).as_posix()}: {found}")
+
+    assert not guilty, "measured figures belong in benchmarks/results, linked to: " + "; ".join(
+        guilty
+    )
