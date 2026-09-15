@@ -142,6 +142,22 @@ This is the third candidate set derived from looking at development results, and
 it returns, this line of search stops there. Each set takes a little more freedom with those
 projects, and the risk of fitting them is a thing to stop before discovering, not after.
 
+It failed too (benchmarks/results/study/cold-free.md): dropping the divisor is worth 0.001 on the
+slice, 0.692 to 0.691, and with the name added it lands where the name alone already did. The
+hypothesis was wrong — the divisor is not what annuls the signal.
+
+**Three families are now measured and eliminated**: the continuous proximity signals flood the
+ranking, the selective name signal costs nothing and buys almost nothing, and the cost divisor is
+not the cause. And 0.2.0's 0.455 is still unexplained by any of them.
+
+A fourth hypothesis is written down here and deliberately **not** tested: **the window**. 0.2.0
+ranked only the tests seen in its last 50 runs and ran everything else first, as unknown; ADR 0015
+removed that window, so testhunch now remembers every test forever. A test that has never failed is
+often a test that runs rarely, and 0.2.0 floated it to the front for free. Testing it would be the
+fourth turn of the same wheel, each turn chosen by looking at the same ten projects — which is how a
+ranking ends up fitted to them without anyone noticing. Whoever picks this up starts here, and
+starts by fixing a rule.
+
 ## Consequences
 
 - `benchmarks/firstfailures.py` becomes part of the decision, not a diagnostic: a candidate that is
