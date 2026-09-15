@@ -39,10 +39,19 @@ def _samples_of(name: str) -> set[str]:
     return {name, f"{name}_bucket", f"{name}_sum", f"{name}_count"}
 
 
-def test_the_version_is_reported_as_a_label(store: SqlStore) -> None:
-    exposition = Metrics(store=store, version="9.9.9").render()
+def test_the_version_and_the_image_are_reported_as_labels(store: SqlStore) -> None:
+    """Two deployments of the same development version differ only by the image."""
+    exposition = Metrics(store=store, version="9.9.9", image="ghcr.io/x/y:sha-abc").render()
 
-    assert 'testhunch_build_info{version="9.9.9"} 1' in exposition
+    assert 'testhunch_build_info{version="9.9.9",image="ghcr.io/x/y:sha-abc"} 1' in exposition
+
+
+def test_the_image_label_is_empty_when_nothing_named_one(
+    store: SqlStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("TESTHUNCH_IMAGE", raising=False)
+
+    assert 'image=""' in Metrics(store=store, version="9.9.9").render()
 
 
 def test_an_empty_database_still_answers(store: SqlStore) -> None:
