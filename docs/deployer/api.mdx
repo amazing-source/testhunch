@@ -1,0 +1,82 @@
+---
+title: "L'API HTTP"
+description: "Envoyer des rapports et demander un classement depuis une CI qui n'est pas GitHub Actions."
+icon: "server"
+---
+
+L'API sert à une chose : garder l'historique d'un côté et lancer les tests de l'autre. Utile si votre
+CI n'est pas GitHub Actions, ou si plusieurs dépôts partagent une même base.
+
+```bash
+docker run -p 8000:8000 \
+  -e TESTHUNCH_DATABASE_URL=postgresql://user@host/testhunch \
+  -e TESTHUNCH_API_TOKEN=... \
+  ghcr.io/amazing-source/testhunch:0.3.0
+```
+
+## Authentification
+
+Un jeton *bearer*, lu dans `TESTHUNCH_API_TOKEN` :
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" https://testhunch.example.com/v1/report?repo=acme/shop
+```
+
+<Warning>
+**Sans `TESTHUNCH_API_TOKEN`, l'API n'authentifie rien.** C'est voulu pour le développement local, et
+c'est une erreur en production. Le jeton est comparé en temps constant, mais un jeton absent ne se
+compare à rien du tout.
+</Warning>
+
+Un jeton par dépôt est prévu à la feuille de route ; aujourd'hui le jeton est partagé.
+
+## Vivacité et disponibilité
+
+| Route | Ce qu'elle dit |
+|---|---|
+| `GET /healthz` | Le processus répond. Ne dit **rien** sur la base. |
+| `GET /readyz` | La base répond aussi. Renvoie 503 sinon. |
+
+Les deux sont ouvertes, sans jeton, pour qu'un orchestrateur puisse les interroger.
+
+## Envoyer une exécution
+
+`POST /v1/runs`, en multipart : un champ `metadata` qui contient le JSON de l'exécution, et un ou
+plusieurs fichiers `reports`.
+
+```bash
+curl -X POST https://testhunch.example.com/v1/runs \
+  -H "Authorization: Bearer $TOKEN" \
+  -F 'metadata={"repo":"acme/shop","commit_sha":"a1b2c3d"}' \
+  -F reports=@junit.xml
+```
+
+`metadata` prend `repo` et `commit_sha`, tous deux obligatoires, et accepte en plus `branch`,
+`base_sha` et `changes`, la liste des fichiers modifiés. Sans `changes`, le classement reste possible
+mais ne sait rien du diff.
+
+**201** quand l'exécution est enregistrée, **200** quand les mêmes rapports pour le même commit
+l'étaient déjà : l'ingestion est idempotente, rejouer un job ne double pas l'historique.
+
+Les limites sont posées et renvoient 413 : **50 rapports** par exécution au plus, **10 Mio** par
+rapport. Un JSON de métadonnées invalide donne 422, un rapport illisible 400.
+
+## Demander un classement
+
+`POST /v1/prioritize`, avec le dépôt et les chemins modifiés :
+
+```bash
+curl -X POST https://testhunch.example.com/v1/prioritize \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"repo":"acme/shop","changed_paths":["src/panier.py"],"commit_sha":"a1b2c3d","limit":20}'
+```
+
+`commit_sha` n'est pas décoratif : c'est lui qui départage les scores égaux, exactement comme en
+ligne de commande. Le passer donne le même ordre que `testhunch prioritize` pour ce commit.
+
+## Lire le rapport
+
+`GET /v1/report?repo=acme/shop` renvoie les tests instables, lents et en échec, comme la commande du
+même nom, plus le nombre d'exécutions enregistrées. Deux paramètres facultatifs : `last_runs`, le
+nombre d'exécutions récentes couvertes (50 par défaut), et `limit`, le nombre de lignes par section
+(10 par défaut).

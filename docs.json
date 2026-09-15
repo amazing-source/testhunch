@@ -56,6 +56,18 @@
           "docs/sauter/vitest",
           "docs/sauter/jest"
         ]
+      },
+      {
+        "group": "Déployer",
+        "pages": ["docs/deployer/docker", "docs/deployer/api"]
+      },
+      {
+        "group": "Référence",
+        "pages": ["docs/reference/cli", "docs/reference/environnement"]
+      },
+      {
+        "group": "Mesures",
+        "pages": ["docs/mesures/index"]
       }
     ]
   },
