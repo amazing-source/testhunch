@@ -28,7 +28,24 @@ c'est une erreur en production. Le jeton est comparé en temps constant, mais un
 compare à rien du tout.
 </Warning>
 
-Un jeton par dépôt est prévu à la feuille de route ; aujourd'hui le jeton est partagé.
+### Un jeton par dépôt
+
+Le jeton de `TESTHUNCH_API_TOKEN` ouvre tous les dépôts : c'est celui de l'exploitant. Pour un
+client, une CI par exemple, on frappe un jeton qui n'ouvre qu'un dépôt, depuis la machine qui a la
+base :
+
+```bash
+testhunch token create --repo acme/shop --label "github actions"
+testhunch token list --repo acme/shop
+testhunch token revoke 3
+```
+
+Le secret n'est affiché qu'à sa création ; seule son empreinte SHA-256 est conservée. **Aucune route
+de l'API ne crée de jeton** : il faut la base pour en fabriquer un, donc aucune suite de requêtes,
+avec n'importe quel jeton, n'en produit un nouveau ni n'élargit un existant.
+
+Un jeton présenté sur un autre dépôt que le sien reçoit un `403`, un jeton inconnu ou révoqué un
+`401`. Le raisonnement est dans l'[ADR 0022](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0022-a-token-opens-one-repository.md).
 
 ## Vivacité et disponibilité
 

@@ -479,3 +479,62 @@ def test_both_databases_have_the_same_migrations() -> None:
     sqlite_versions = [version for version, _ in bundled_migrations("sqlite")]
     postgres_versions = [version for version, _ in bundled_migrations("postgres")]
     assert sqlite_versions == postgres_versions != []
+
+
+# -- tokens that open one repository (docs/adr/0022) ---------------------------------------
+
+
+def test_a_token_opens_the_repository_it_was_minted_for(store: SqlStore) -> None:
+    token_id = store.create_api_token(REPO, "a" * 64, "github actions")
+
+    assert store.repo_for_api_token("a" * 64) == REPO
+    assert token_id > 0
+
+
+def test_an_unknown_token_opens_nothing(store: SqlStore) -> None:
+    store.create_api_token(REPO, "a" * 64)
+
+    assert store.repo_for_api_token("b" * 64) is None
+
+
+def test_a_revoked_token_opens_nothing(store: SqlStore) -> None:
+    token_id = store.create_api_token(REPO, "a" * 64)
+
+    assert store.revoke_api_token(token_id) is True
+    assert store.repo_for_api_token("a" * 64) is None
+
+
+def test_revoking_twice_says_it_changed_nothing_the_second_time(store: SqlStore) -> None:
+    token_id = store.create_api_token(REPO, "a" * 64)
+
+    assert store.revoke_api_token(token_id) is True
+    assert store.revoke_api_token(token_id) is False
+
+
+def test_revoking_a_token_that_does_not_exist_changes_nothing(store: SqlStore) -> None:
+    assert store.revoke_api_token(4242) is False
+
+
+def test_the_same_hash_cannot_be_recorded_twice(store: SqlStore) -> None:
+    store.create_api_token(REPO, "a" * 64)
+
+    with pytest.raises(StoreError):
+        store.create_api_token("other/repo", "a" * 64)
+
+
+def test_listing_tokens_never_returns_the_hash(store: SqlStore) -> None:
+    store.create_api_token(REPO, "a" * 64, "github actions")
+    store.create_api_token("other/repo", "b" * 64)
+    revoked = store.create_api_token(REPO, "c" * 64)
+    store.revoke_api_token(revoked)
+
+    every = store.api_tokens()
+    mine = store.api_tokens(REPO)
+
+    assert [t.repo for t in every] == [REPO, "other/repo", REPO]
+    assert [t.token_id for t in mine] == [every[0].token_id, revoked]
+    assert [t.revoked for t in mine] == [False, True]
+    assert mine[0].label == "github actions"
+    assert every[1].label is None
+    assert all(t.created_at for t in every)
+    assert "a" * 64 not in str(every)

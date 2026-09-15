@@ -5,10 +5,11 @@ Run it with: uvicorn testhunch.api.app:create_app --factory
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import Annotated, Any, Literal
 
 from fastapi import (
@@ -20,6 +21,7 @@ from fastapi import (
     Header,
     HTTPException,
     Query,
+    Request,
     Response,
     UploadFile,
 )
@@ -35,6 +37,63 @@ MAX_REPORT_BYTES = 10 * 1024 * 1024
 MAX_REPORTS = 50
 
 _SHA = r"^[0-9a-f]{7,64}$"
+_BEARER = "Bearer "
+
+
+@dataclass(frozen=True, slots=True)
+class Caller:
+    """Who is asking. `repo` is None for the operator token, which opens every repository."""
+
+    repo: str | None
+
+    def may(self, repo: str) -> bool:
+        return self.repo is None or self.repo == repo
+
+
+def _unauthorized() -> HTTPException:
+    return HTTPException(
+        status_code=401,
+        detail="missing or invalid bearer token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def authenticate(request: Request, authorization: Annotated[str | None, Header()] = None) -> Caller:
+    """Who is asking (docs/adr/0022).
+
+    The operator token opens every repository. A token minted for one repository opens that one.
+    Anything else is a 401, and so is a revoked token, because `repo_for_api_token` does not
+    return revoked ones.
+
+    At module level, not inside `create_app`: with postponed annotations, a dependency named in an
+    `Annotated[...]` must be resolvable from the module's globals, and a closure is not.
+    """
+    token: str = request.app.state.api_token
+    if not token:
+        return Caller(repo=None)  # no token configured: local development only
+
+    presented = None
+    if authorization is not None and authorization.startswith(_BEARER):
+        presented = authorization[len(_BEARER) :]
+    if presented is None:
+        raise _unauthorized()
+    if secrets.compare_digest(presented, token):
+        return Caller(repo=None)
+
+    digest = hashlib.sha256(presented.encode()).hexdigest()
+    try:
+        repo = request.app.state.store.repo_for_api_token(digest)
+    except StoreError as exc:
+        raise HTTPException(status_code=503, detail="database unavailable") from exc
+    if repo is None:
+        raise _unauthorized()
+    return Caller(repo=repo)
+
+
+def _refuse_other_repos(caller: Caller, repo: str) -> None:
+    """A token minted for one repository cannot read or write another one (docs/adr/0022)."""
+    if not caller.may(repo):
+        raise HTTPException(status_code=403, detail="this token does not open that repository")
 
 
 class ChangeIn(BaseModel):
@@ -70,18 +129,9 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
     token = api_token if api_token is not None else os.environ.get("TESTHUNCH_API_TOKEN", "")
     store = open_store(url)
 
-    def require_token(authorization: Annotated[str | None, Header()] = None) -> None:
-        if not token:
-            return  # no token configured: local development only
-        expected = f"Bearer {token}".encode()
-        if authorization is None or not secrets.compare_digest(authorization.encode(), expected):
-            raise HTTPException(
-                status_code=401,
-                detail="missing or invalid bearer token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
     app = FastAPI(title="testhunch", version=__version__)
+    app.state.store = store
+    app.state.api_token = token
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
@@ -97,11 +147,14 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
             raise HTTPException(status_code=503, detail="database unavailable") from exc
         return {"status": "ready"}
 
-    v1 = APIRouter(prefix="/v1", dependencies=[Depends(require_token)])
+    # Authenticated at the router, so a route added later is closed even if its author forgets;
+    # each route then says which repository it touches, and that is what scoping checks.
+    v1 = APIRouter(prefix="/v1", dependencies=[Depends(authenticate)])
 
     @v1.post("/runs", status_code=201)
     def upload_run(
         response: Response,
+        caller: Annotated[Caller, Depends(authenticate)],
         metadata: Annotated[str, Form(description="RunMetadata as JSON")],
         reports: Annotated[list[UploadFile], File(description="JUnit XML files")],
     ) -> IngestResponse:
@@ -109,6 +162,7 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
             meta = RunMetadata.model_validate_json(metadata)
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
+        _refuse_other_repos(caller, meta.repo)
         if len(reports) > MAX_REPORTS:
             raise HTTPException(status_code=413, detail=f"at most {MAX_REPORTS} reports per run")
 
@@ -141,10 +195,12 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
 
     @v1.get("/report")
     def report(
+        caller: Annotated[Caller, Depends(authenticate)],
         repo: Annotated[str, Query(min_length=1, max_length=200)],
         last_runs: Annotated[int, Query(ge=1, le=1000)] = 50,
         limit: Annotated[int, Query(ge=1, le=1000)] = 10,
     ) -> dict[str, Any]:
+        _refuse_other_repos(caller, repo)
         return {
             "repo": repo,
             "runs": store.run_count(repo),
@@ -154,7 +210,10 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
         }
 
     @v1.post("/prioritize")
-    def prioritize(body: PrioritizeRequest) -> list[dict[str, Any]]:
+    def prioritize(
+        caller: Annotated[Caller, Depends(authenticate)], body: PrioritizeRequest
+    ) -> list[dict[str, Any]]:
+        _refuse_other_repos(caller, body.repo)
         ranked = rank(store.history(body.repo), body.changed_paths, seed=body.commit_sha or "")
         return [asdict(r) for r in ranked[: body.limit]]
 

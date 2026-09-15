@@ -33,6 +33,22 @@ export TESTHUNCH_API_TOKEN=...
 testhunch ingest junit.xml --base origin/main --api https://api.exemple.fr
 ```
 
+## `token`
+
+Les jetons qui n'ouvrent qu'un dépôt, frappés depuis la machine qui a la base et jamais par l'API.
+
+```bash
+testhunch token create --repo acme/shop --label "github actions"
+testhunch token list
+testhunch token revoke 3
+```
+
+| Sous-commande | Rôle |
+|---|---|
+| `create` | Frappe un jeton pour `--repo` et l'affiche une seule fois |
+| `list` | Les jetons, leur état et leur étiquette, jamais leur secret |
+| `revoke` | Ferme un jeton définitivement |
+
 ## `report`
 
 Les tests instables, les plus lents et ceux en échec.

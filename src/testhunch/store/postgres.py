@@ -64,6 +64,9 @@ class PostgresStore(SqlStore):
             ")"
         )
 
+    def now_expression(self) -> str:
+        return "now()"
+
     def _lock_for_migration(self, session: Session) -> None:
         session.one("SELECT pg_advisory_xact_lock(?)", (_MIGRATION_LOCK,))
 

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
+import secrets
 import sys
 from collections.abc import Sequence
 from dataclasses import asdict
@@ -77,6 +79,22 @@ def _parser() -> argparse.ArgumentParser:
         "e.g. https://api.example.com; the token comes from TESTHUNCH_API_TOKEN",
     )
     ingest.set_defaults(handler=_ingest)
+
+    # Tokens are minted against the database, never through the API: the only way to make one is
+    # to already have the server (docs/adr/0022).
+    token = commands.add_parser("token", parents=[common], help="tokens that open one repository")
+    token_commands = token.add_subparsers(dest="token_command", required=True)
+
+    token_create = token_commands.add_parser("create", help="mint a token for one repository")
+    token_create.add_argument("--label", help="what this token is for, e.g. 'github actions'")
+    token_create.set_defaults(handler=_token_create)
+
+    token_list = token_commands.add_parser("list", help="the tokens, without their secrets")
+    token_list.set_defaults(handler=_token_list)
+
+    token_revoke = token_commands.add_parser("revoke", help="close a token for good")
+    token_revoke.add_argument("id", type=_positive, help="the token's id, from `token list`")
+    token_revoke.set_defaults(handler=_token_revoke)
 
     report = commands.add_parser("report", parents=[common], help="flaky, slow and failing tests")
     report.add_argument("--last", type=_positive, default=50, help="runs to look back over")
@@ -265,6 +283,35 @@ def _ingest(args: argparse.Namespace) -> int:
     else:
         print(f"already ingested as run {outcome.run_id}; nothing changed")
     return 0
+
+
+def _token_create(args: argparse.Namespace) -> int:
+    """Mint a token, store only its hash, and print it once (docs/adr/0022)."""
+    secret = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(secret.encode()).hexdigest()
+    token_id = _store(args).create_api_token(_repo(args), digest, args.label)
+    print(f"token {token_id} for {_repo(args)}, shown once and never stored:\n{secret}")
+    return 0
+
+
+def _token_list(args: argparse.Namespace) -> int:
+    tokens = _store(args).api_tokens(args.repo)
+    if not tokens:
+        print("no token yet")
+        return 0
+    for token in tokens:
+        state = "revoked" if token.revoked else "open"
+        label = f"  {token.label}" if token.label else ""
+        print(f"{token.token_id:>4}  {state:<7}  {token.created_at}  {token.repo}{label}")
+    return 0
+
+
+def _token_revoke(args: argparse.Namespace) -> int:
+    if _store(args).revoke_api_token(args.id):
+        print(f"token {args.id} revoked")
+        return 0
+    print(f"testhunch: error: no open token with id {args.id}", file=sys.stderr)
+    return 2
 
 
 def _report(args: argparse.Namespace) -> int:

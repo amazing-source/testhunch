@@ -82,6 +82,20 @@ class IngestOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class ApiToken:
+    """A token that opens one repository, as it is listed back (docs/adr/0022).
+
+    The token itself is never here: only its hash is stored, and the hash is never returned.
+    """
+
+    token_id: int
+    repo: str
+    label: str | None
+    created_at: str
+    revoked: bool
+
+
+@dataclass(frozen=True, slots=True)
 class FlakyTest:
     """A test that both passed and failed on the same commit, i.e. with identical code.
 
