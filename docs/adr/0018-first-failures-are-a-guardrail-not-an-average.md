@@ -104,6 +104,22 @@ The lesson is about the shape of the signal, not its strength: what worked was *
 only on a file-stem match, so it never flooded the ranking. A continuous similarity cannot be made
 selective by lowering its weight, as these thirty candidates show.
 
+## The step that follows, and the freedom it takes
+
+`name`, the signal that *is* 0.2.0's file-stem affinity, was never among those thirty: the code
+files it under the history signals, and the step iterated the proximity ones. It is tried now, in
+the same two forms and at the same three weights, as `STEPS["selective"]`, under the rule above,
+unchanged.
+
+This candidate set was chosen **after** seeing that the continuous signals fail and that 0.2.0
+keeps the property they could not buy back. That is a degree of freedom the first step did not
+take, and it is the reason development projects exist (ADR 0013) — but it is written here rather
+than left implicit. The rule that decides is untouched, and the held-out projects stay untouched
+until there is something frozen to measure on them.
+
+The signal has already been tried in its `always` form, in steps 1, 2 and 4, and rejected on the
+mean. It may well fail again. What is new is only the form and the slice it is judged on.
+
 ## Consequences
 
 - `benchmarks/firstfailures.py` becomes part of the decision, not a diagnostic: a candidate that is

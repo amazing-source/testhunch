@@ -113,15 +113,17 @@ STEPS["step-4"] = Step(
 )
 
 
-def cold_start(current: Candidate) -> tuple[Candidate, ...]:
-    """Each proximity signal at each weight, in the two forms of docs/adr/0018.
+def cold_start(
+    current: Candidate, signals: Sequence[str] = PROXIMITY_SIGNALS
+) -> tuple[Candidate, ...]:
+    """Each signal at each weight, in the two forms of docs/adr/0018.
 
     `always` is the form the study's steps already tried: the signal is added to every test's
     score. `cold` adds it only to a test whose failure priority is 0, so it speaks exactly where
     the history says nothing and leaves the rest of the ranking untouched.
     """
     candidates: list[Candidate] = []
-    for signal in PROXIMITY_SIGNALS:
+    for signal in signals:
         for weight in WEIGHTS:
             others = tuple((s, w) for s, w in current.weights if s != signal)
             candidates.append(
@@ -146,6 +148,16 @@ def cold_start(current: Candidate) -> tuple[Candidate, ...]:
 STEPS["cold-start"] = Step(
     STEP_3_KEPT,
     cold_start(STEP_3_KEPT),
+    references=(LatestFailure(), ProductRanking()),
+)
+
+# The step that follows it (docs/adr/0018, amended): the same forms, but with the one signal the
+# first step could not try, because the code files it under the history signals rather than the
+# proximity ones — `name`, which is testhunch 0.2.0's own file-stem affinity. It is selective where
+# the five proximity signals are continuous, and being continuous is what sank them.
+STEPS["selective"] = Step(
+    STEP_3_KEPT,
+    cold_start(STEP_3_KEPT, ("name",)),
     references=(LatestFailure(), ProductRanking()),
 )
 
