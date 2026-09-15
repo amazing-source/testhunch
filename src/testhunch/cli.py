@@ -28,6 +28,7 @@ from testhunch.runners import (
 )
 from testhunch.shadow import ShadowPoint, budget_cut, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
+from testhunch.upload import UploadError, metadata_json, upload_run
 
 
 def run() -> None:
@@ -38,7 +39,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         code: int = args.handler(args)
-    except (ReportError, GitError, StoreError, OSError) as exc:
+    except (ReportError, GitError, StoreError, UploadError, OSError) as exc:
         print(f"testhunch: error: {exc}", file=sys.stderr)
         return 2
     return code
@@ -69,6 +70,12 @@ def _parser() -> argparse.ArgumentParser:
     ingest.add_argument("--commit", default="HEAD", help="commit that was tested (default HEAD)")
     ingest.add_argument("--branch", help="branch that was tested (default: detected)")
     ingest.add_argument("--base", help="also record files changed since this ref, e.g. origin/main")
+    ingest.add_argument(
+        "--api",
+        default=os.environ.get("TESTHUNCH_API_URL", ""),
+        help="send the run to a hosted testhunch instead of a database (env TESTHUNCH_API_URL), "
+        "e.g. https://api.example.com; the token comes from TESTHUNCH_API_TOKEN",
+    )
     ingest.set_defaults(handler=_ingest)
 
     report = commands.add_parser("report", parents=[common], help="flaky, slow and failing tests")
@@ -221,9 +228,25 @@ def _expand(patterns: Sequence[str]) -> list[Path]:
 
 def _ingest(args: argparse.Namespace) -> int:
     paths = _expand(args.reports)
-    results, digest = parse_reports(path.read_bytes() for path in paths)
     commit = rev_parse(args.commit)
     changes = changed_files(args.base, commit) if args.base else ()
+    branch = args.branch or current_branch()
+
+    if args.api:
+        # The server parses the reports, so nothing is parsed twice and the digest that makes
+        # ingestion idempotent is computed on the bytes that arrived.
+        metadata = metadata_json(
+            _repo(args), commit, branch, rev_parse(args.base) if args.base else None, changes
+        )
+        answer = upload_run(args.api, os.environ.get("TESTHUNCH_API_TOKEN", ""), metadata, paths)
+        what = f"{answer.get('results')} results from {len(paths)} report(s)"
+        if answer.get("created"):
+            print(f"sent {what} to {args.api} as run {answer.get('run_id')}")
+        else:
+            print(f"already sent as run {answer.get('run_id')}; nothing changed")
+        return 0
+
+    results, digest = parse_reports(path.read_bytes() for path in paths)
     store = _store(args)
     outcome = store.ingest(
         RunInput(
@@ -231,7 +254,7 @@ def _ingest(args: argparse.Namespace) -> int:
             commit_sha=commit,
             report_digest=digest,
             results=results,
-            branch=args.branch or current_branch(),
+            branch=branch,
             base_sha=rev_parse(args.base) if args.base else None,
             changes=changes,
         )

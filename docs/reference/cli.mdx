@@ -22,6 +22,16 @@ testhunch ingest junit.xml 'reports/**/*.xml' --base origin/main
 | `--commit` | Le commit testé (`HEAD` par défaut) |
 | `--branch` | La branche testée (détectée par défaut) |
 | `--base` | Enregistre aussi les fichiers modifiés depuis cette référence |
+| `--api` | Envoie le run à un testhunch hébergé au lieu d'une base (variable `TESTHUNCH_API_URL`) |
+
+Avec `--api`, aucune base locale n'est ouverte : les rapports partent tels quels et c'est le serveur
+qui les analyse. Le jeton vient de `TESTHUNCH_API_TOKEN`, et une adresse en `http://` qui n'est pas
+la boucle locale est refusée, pour que le jeton ne circule jamais en clair.
+
+```bash
+export TESTHUNCH_API_TOKEN=...
+testhunch ingest junit.xml --base origin/main --api https://api.exemple.fr
+```
 
 ## `report`
 
