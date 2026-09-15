@@ -61,9 +61,21 @@ facturer. C'est le signal qui compte quand on paie avec du crédit.
 
 ## Ce que ça coûte
 
-Environ 18 dollars par mois : à peu près 16 pour l'instance `t3.small`, 2 pour le disque de 20 Go,
-le bucket restant dans les centimes. `terraform destroy` supprime tout, y compris l'historique
-enregistré dans Postgres, qui vit sur le disque de l'instance et n'est sauvegardé nulle part.
+Environ 20 dollars par mois : à peu près 16 pour l'instance `t3.small`, 2 pour son disque et 2 pour
+le disque de données, le bucket restant dans les centimes.
+
+## Détruire la pile
+
+`terraform destroy` **échoue volontairement** sur le disque de données, qui porte l'historique de
+tous les dépôts ([ADR 0024](../docs/adr/0024-the-data-outlives-the-server.md)). Pour détruire quand
+même, il faut le dire explicitement :
+
+```bash
+terraform state rm aws_ebs_volume.data   # le disque quitte l'état, et reste dans le compte
+terraform destroy                        # puis supprimez le disque à la main si vous le voulez
+```
+
+Le disque n'est sauvegardé nulle part : le perdre, c'est perdre l'historique.
 
 ## Ce qui n'y est pas encore
 
@@ -71,9 +83,8 @@ enregistré dans Postgres, qui vit sur le disque de l'instance et n'est sauvegar
   Internet et la base, et on ne peut pas le révoquer pour un dépôt sans le révoquer pour tous. Les
   jetons par dépôt sont l'item suivant de la feuille de route.
 - **Aucune limitation de débit.** Une inondation non authentifiée coûte quand même du CPU.
-- **Changer le script de démarrage remplace l'instance**, et le volume Postgres part avec elle.
-  C'était sans conséquence tant que la base était vide ; ça n'en sera plus une fois qu'elle portera
-  quelque chose. Il faudra un volume qui survive à l'instance, ou une base gérée.
+- **Aucune sauvegarde.** Le disque de données survit au remplacement de l'instance, mais rien ne le
+  copie : un instantané programmé est l'étape suivante évidente, et elle n'est pas faite.
 - **Le bucket ne sert à rien pour l'instant.** L'API range ses résultats dans Postgres et ne garde
   aucune copie du XML qu'on lui envoie. Le bucket attend le code qui écrira dedans.
 - **L'état Terraform reste sur votre machine**, et il contient les secrets engendrés en clair. Il

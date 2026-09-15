@@ -19,6 +19,31 @@ docker compose version
 
 install -d -m 0750 /opt/testhunch
 
+# The disk that outlives this instance (docs/adr/0024). Terraform attaches it after the instance
+# exists, so it is not there at the first second of boot: wait for a disk that is not the root one.
+# Identifying it by name would be a lie on Nitro, where /dev/sdf is presented as an NVMe device.
+root_disk="$(lsblk -no PKNAME "$(findmnt -no SOURCE /)")"
+for _ in $(seq 90); do
+  data_disk="$(lsblk -dn -o NAME,TYPE | awk '$2 == "disk" { print $1 }' | grep -v "^$${root_disk}$" | head -1)"
+  if [ -n "$${data_disk:-}" ]; then break; fi
+  sleep 2
+done
+if [ -z "$${data_disk:-}" ]; then
+  echo "::error title=testhunch::no data volume appeared" >&2
+  exit 1
+fi
+device="/dev/$${data_disk}"
+
+# Formatted only when it holds no filesystem: on every boot after the first, this volume already
+# carries the database, and mkfs would be the one command that destroys what all of this protects.
+if ! blkid "$${device}" > /dev/null 2>&1; then
+  mkfs.ext4 -L testhunch-data "$${device}"
+fi
+install -d /var/lib/testhunch
+grep -q 'LABEL=testhunch-data' /etc/fstab   || echo 'LABEL=testhunch-data /var/lib/testhunch ext4 defaults,nofail 0 2' >> /etc/fstab
+mount -a
+install -d /var/lib/testhunch/postgres /var/lib/testhunch/caddy /var/lib/testhunch/caddy-config
+
 # The secrets stay out of the instance's user data, which any process on the instance can read
 # from the metadata service. They are fetched once, into a file only root can read.
 postgres_password="$(aws ssm get-parameter --region '${region}' --name '${postgres_parameter}' \
@@ -57,7 +82,7 @@ services:
       POSTGRES_PASSWORD: $${POSTGRES_PASSWORD}
       POSTGRES_DB: testhunch
     volumes:
-      - pgdata:/var/lib/postgresql
+      - /var/lib/testhunch/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U testhunch -d testhunch"]
       interval: 5s
@@ -91,18 +116,11 @@ services:
       - "443:443"
     volumes:
       - /opt/testhunch/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddydata:/data
-      - caddyconfig:/config
+      - /var/lib/testhunch/caddy:/data
+      - /var/lib/testhunch/caddy-config:/config
     depends_on:
       api:
         condition: service_healthy
-%{ endif ~}
-
-volumes:
-  pgdata:
-%{ if api_domain != "" ~}
-  caddydata:
-  caddyconfig:
 %{ endif ~}
 EOF
 
@@ -111,6 +129,9 @@ cat > /etc/systemd/system/testhunch.service <<'EOF'
 Description=testhunch: Postgres and the API
 Requires=docker.service
 After=docker.service
+# Never start on an empty directory because the disk was not mounted yet: that would initialise a
+# second, empty database beside the real one.
+RequiresMountsFor=/var/lib/testhunch
 
 [Service]
 Type=oneshot
