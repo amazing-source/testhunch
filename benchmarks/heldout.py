@@ -34,7 +34,7 @@ class NotFrozen(RuntimeError):
     """The checkout is not a commit that others can look at: the run must not happen."""
 
 
-def _git(*args: str) -> str:
+def _git(*args: str, strip: bool = True) -> str:
     try:
         done = subprocess.run(
             ["git", *args], capture_output=True, text=True, encoding="utf-8", check=False
@@ -45,7 +45,9 @@ def _git(*args: str) -> str:
         ) from exc
     if done.returncode != 0:
         raise NotFrozen(f"`git {' '.join(args)}` failed: {done.stderr.strip()}")
-    return done.stdout.strip()
+    # `git status --porcelain` starts an unstaged line with a space, which stripping would eat,
+    # shifting every column of the first entry. Callers that parse columns ask for it unstripped.
+    return done.stdout.strip() if strip else done.stdout
 
 
 # What a held-out run writes: its results, and the ledger row inside them. Changes here never
@@ -60,11 +62,12 @@ def _uncommitted() -> str:
     seen. Results are that code's output, not the code: a campaign is often two commands, and the
     first one's results and ledger row must not stop the second.
     """
-    return "\n".join(
-        line
-        for line in _git("status", "--porcelain").splitlines()
-        if not line[3:].strip().strip('"').startswith(OUTPUT)
-    )
+    # -z: entries separated by NUL, so a path with a space or an accent is never quoted or escaped.
+    entries = [e for e in _git("status", "--porcelain", "-z", strip=False).split("\0") if e]
+    # Each entry is two status letters, a space, then the path. A rename adds its old path as an
+    # entry of its own, without that prefix: it does not start with OUTPUT, so it blocks, which is
+    # the safe way round.
+    return "\n".join(entry for entry in entries if not entry[3:].startswith(OUTPUT))
 
 
 def frozen_commit(ledger: Path | None = None) -> str:
