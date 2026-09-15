@@ -90,6 +90,27 @@ l'[ADR 0007](../../docs/adr/0007-selections-leave-out-known-low-ranked-tests.md)
 les pull requests, relancer toute la suite sur la branche principale — n'est pas une précaution de
 principe mais une pièce portante.
 
+**Et cette régression, c'est notre étude qui l'a introduite.** Mesurée sur la même tranche
+([détail](study/cold-start.md)) :
+
+| | A déjà échoué | N'a jamais échoué |
+|---|---:|---:|
+| classement actuel | **0,123** | 0,692 |
+| testhunch 0.2.0 | 0,148 | **0,455** |
+| aléatoire | 0,460 | 0,470 |
+
+La 0.2.0 n'était pas pire que le hasard sur les premiers échecs ; la version que l'étude a retenue
+l'est. La 0.2.0 portait un signal de démarrage à froid — son affinité de nom, de poids 2,0,
+appliquée à tous les tests — que l'étude a remplacé par `test_file_changed*0.5`, lequel ne se
+déclenche que sur un cinquième des jobs. L'échange a rapporté 0,018 d'APFDc moyen et coûté la
+propriété qui protégeait le code neuf.
+
+Trente candidats ont essayé de la récupérer avec les signaux de proximité continus, **aucun n'y
+arrive** : même à poids 0,1 et appliqués seulement là où l'historique se tait, ils noient le
+classement (0,123 → 0,331 sur le bon régime) sans jamais atteindre l'aléatoire sur l'autre. Ce qui
+marchait était **sélectif**, déclenché sur une correspondance de radical de fichier, et baisser le
+poids d'un signal continu ne le rend pas sélectif.
+
 ## RTPTorrent : 20 projets Java, 110 126 jobs Travis CI
 
 Méthode : [ADR 0010](../../docs/adr/0010-benchmark-replays-rtptorrent-in-build-order.md). Données :
