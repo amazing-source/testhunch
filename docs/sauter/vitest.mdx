@@ -1,11 +1,15 @@
 ---
 title: "Vitest"
 description: "Un motif négatif pour `-t`, et pourquoi la liste des tests doit venir d'une vraie exécution."
+icon: "zap"
 ---
 
 ```bash
 vitest list --json --no-static-parse > vitest-list.json
-vitest run -t "$(testhunch select --budget 25% --runner vitest --vitest-list vitest-list.json --base origin/main)"
+
+vitest run -t "$(testhunch select \
+  --budget 25% --runner vitest \
+  --vitest-list vitest-list.json --base origin/main)"
 ```
 
 Le motif produit ressemble à :

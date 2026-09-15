@@ -1,10 +1,11 @@
 ---
 title: "Jest"
 description: "Des fichiers entiers plutôt que des tests, et la raison pour laquelle c'est le seul choix honnête ici."
+icon: "check"
 ---
 
 ```bash
-jest --testPathIgnorePatterns "$(testhunch select --budget 25% --runner jest --base origin/main)"
+jest --testPathIgnorePatterns "$(testhunch select \n  --budget 25% --runner jest --base origin/main)"
 ```
 
 Le motif produit ressemble à :

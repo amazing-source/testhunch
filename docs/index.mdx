@@ -1,6 +1,8 @@
 ---
 title: "testhunch"
 description: "Apprend de l'historique de votre CI quels tests un changement risque de casser, et les lance en premier."
+icon: "compass"
+sidebarTitle: "Vue d'ensemble"
 ---
 
 testhunch lit les rapports **JUnit XML** que votre lanceur produit déjà, plus `git diff`. Rien
@@ -30,6 +32,12 @@ ne sera livré que s'il bat l'heuristique actuelle, et la comparaison sera publi
   </Card>
   <Card title="Comment le classement est calculé" href="/docs/concepts/classement" icon="list-ordered">
     Le score, ses raisons, et ce qu'il fait des tests qu'il ne connaît pas.
+  </Card>
+  <Card title="L'Action GitHub" href="/docs/ci/action" icon="git-branch">
+    Classer avant les tests, enregistrer après, lire le résumé dans le job.
+  </Card>
+  <Card title="Sauter des tests" href="/docs/sauter/index" icon="scissors">
+    Les budgets, les six lanceurs, et ce qui tourne toujours quoi qu'il arrive.
   </Card>
 </CardGroup>
 
