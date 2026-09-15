@@ -156,6 +156,17 @@ data "aws_iam_policy_document" "server" {
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.reports.arn]
   }
+
+  dynamic "statement" {
+    # Alertmanager signs its own requests with this role, so no key is kept on the instance.
+    for_each = aws_sns_topic.alerts
+
+    content {
+      sid       = "RaiseAnAlert"
+      actions   = ["sns:Publish"]
+      resources = [statement.value.arn]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "server" {
@@ -198,6 +209,12 @@ resource "aws_instance" "server" {
     image_parameter     = aws_ssm_parameter.image.name
     postgres_image      = var.postgres_image
     caddy_image         = var.caddy_image
+    prometheus_image    = var.prometheus_image
+    alertmanager_image  = var.alertmanager_image
+    node_exporter_image = var.node_exporter_image
+    metrics_retention   = var.metrics_retention
+    alert_email         = var.alert_email
+    alerts_topic        = one(aws_sns_topic.alerts[*].arn)
     api_domain          = var.api_domain
     compose_version     = var.compose_version
     postgres_parameter  = aws_ssm_parameter.postgres.name

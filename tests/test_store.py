@@ -538,3 +538,15 @@ def test_listing_tokens_never_returns_the_hash(store: SqlStore) -> None:
     assert every[1].label is None
     assert all(t.created_at for t in every)
     assert "a" * 64 not in str(every)
+
+
+def test_repos_lists_every_repository_with_a_run_once(store: SqlStore) -> None:
+    store.ingest(run("c1", "d1", case("a", Status.PASSED), repo="acme/shop"))
+    store.ingest(run("c2", "d2", case("a", Status.PASSED), repo="acme/shop"))
+    store.ingest(run("c3", "d3", case("a", Status.PASSED), repo="acme/api"))
+
+    assert store.repos() == ["acme/api", "acme/shop"]
+
+
+def test_repos_is_empty_before_any_run(store: SqlStore) -> None:
+    assert store.repos() == []

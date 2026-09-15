@@ -43,6 +43,8 @@ install -d /var/lib/testhunch
 grep -q 'LABEL=testhunch-data' /etc/fstab   || echo 'LABEL=testhunch-data /var/lib/testhunch ext4 defaults,nofail 0 2' >> /etc/fstab
 mount -a
 install -d /var/lib/testhunch/postgres /var/lib/testhunch/caddy /var/lib/testhunch/caddy-config
+# Prometheus runs as uid 65534 in its image and writes its own data directory.
+install -d -o 65534 -g 65534 /var/lib/testhunch/prometheus /var/lib/testhunch/alertmanager
 
 # The secrets stay out of the instance's user data, which any process on the instance can read
 # from the metadata service. They are fetched once, into a file only root can read.
@@ -69,11 +71,126 @@ EOF
 # Caddy answers on ${api_domain} and asks Let's Encrypt for the certificate itself, then renews it
 # on its own. It reaches the API over the compose network, so the API still publishes nothing but
 # its loopback port (docs/adr/0021).
+#
+# /metrics is not proxied. It names every repository the service knows, and it is for Prometheus,
+# which reaches the API over the compose network and never through this (docs/adr/0027). The API
+# refuses it without the operator token too: this is the outer of the two locks, not the only one.
 cat > /opt/testhunch/Caddyfile <<'EOF'
 ${api_domain} {
-	reverse_proxy api:8000
+	handle /metrics {
+		respond 404
+	}
+	handle {
+		reverse_proxy api:8000
+	}
 }
 EOF
+%{ endif ~}
+
+# What Prometheus scrapes and what it complains about (docs/adr/0027). The token is the operator's,
+# read from the same .env the API gets it from, so the two cannot drift apart.
+# Prometheus and Alertmanager run as uid 65534, so the directory has to be enterable and the
+# configuration readable by them. The token is the one file here that is not.
+install -d -m 0755 /opt/testhunch/prometheus
+printf '%s\n' "$${api_token}" > /opt/testhunch/prometheus/token
+chown 65534:65534 /opt/testhunch/prometheus/token
+chmod 0400 /opt/testhunch/prometheus/token
+
+cat > /opt/testhunch/prometheus/prometheus.yml <<'EOF'
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules.yml
+%{ if alert_email != "" ~}
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+%{ endif ~}
+
+scrape_configs:
+  - job_name: testhunch
+    metrics_path: /metrics
+    authorization:
+      credentials_file: /etc/prometheus/token
+    static_configs:
+      - targets: ["api:8000"]
+
+  - job_name: machine
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+EOF
+
+cat > /opt/testhunch/prometheus/rules.yml <<'EOF'
+groups:
+  - name: testhunch
+    rules:
+      - alert: ApiDown
+        expr: up{job="testhunch"} == 0
+        for: 5m
+        annotations:
+          summary: "The API has not answered a scrape for five minutes."
+
+      - alert: DatabaseDown
+        expr: testhunch_database_up == 0
+        for: 5m
+        annotations:
+          summary: "The API is up but Postgres does not answer."
+
+      - alert: DataDiskFilling
+        expr: >-
+          node_filesystem_avail_bytes{mountpoint="/var/lib/testhunch"}
+          / node_filesystem_size_bytes{mountpoint="/var/lib/testhunch"} < 0.15
+        for: 15m
+        annotations:
+          summary: "Less than 15% left on the disk that holds the history."
+
+      # The service level objective. Of the runs that went red, how many the half-time budget
+      # would still have caught. Guarded on the count: a rate over three runs is not a rate,
+      # and this project's own history says first failures are where it is weakest (ADR 0018).
+      - alert: ShadowModeMissesTooMany
+        expr: >-
+          (
+            sum by (repo) (testhunch_shadow_failing_runs{budget="0.5"})
+            - sum by (repo) (testhunch_shadow_caught_runs{budget="0.5"})
+          ) / sum by (repo) (testhunch_shadow_failing_runs{budget="0.5"}) > 0.1
+          and sum by (repo) (testhunch_shadow_failing_runs{budget="0.5"}) >= 20
+        for: 1h
+        annotations:
+          summary: "{{ $labels.repo }}: half the test time would miss more than one red build in ten."
+EOF
+%{ if alert_email != "" ~}
+
+cat > /opt/testhunch/prometheus/alertmanager.yml <<'EOF'
+route:
+  receiver: sns
+  group_wait: 1m
+  group_interval: 10m
+  repeat_interval: 24h
+
+receivers:
+  - name: sns
+    sns_configs:
+      # No credentials here: Alertmanager signs with the instance role (docs/adr/0027).
+      - topic_arn: ${alerts_topic}
+        sigv4:
+          region: ${region}
+        subject: '{{ .CommonLabels.alertname }}'
+EOF
+%{ endif ~}
+
+# Written under umask 077, which is right for .env and wrong for these: they hold no secret and
+# are read by a container that is not root.
+chmod 0644 /opt/testhunch/prometheus/prometheus.yml /opt/testhunch/prometheus/rules.yml
+%{ if alert_email != "" ~}
+chmod 0644 /opt/testhunch/prometheus/alertmanager.yml
 %{ endif ~}
 
 # The API listens on the loopback only. Nothing routes to it from outside the instance, and the
@@ -112,6 +229,51 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+  prometheus:
+    image: ${prometheus_image}
+    restart: unless-stopped
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${metrics_retention}
+      # Never let metrics be the reason the history runs out of disk.
+      - --storage.tsdb.retention.size=2GB
+      - --web.listen-address=0.0.0.0:9090
+    volumes:
+      - /opt/testhunch/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/testhunch/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - /opt/testhunch/prometheus/token:/etc/prometheus/token:ro
+      - /var/lib/testhunch/prometheus:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090" # loopback only: reach it with an SSM port forward
+
+  node-exporter:
+    image: ${node_exporter_image}
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      # The machine's disks and memory are the point; the rest is noise on one server.
+      - --collector.disable-defaults
+      - --collector.filesystem
+      - --collector.meminfo
+      - --collector.loadavg
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+%{ if alert_email != "" ~}
+
+  alertmanager:
+    image: ${alertmanager_image}
+    restart: unless-stopped
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - /opt/testhunch/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - /var/lib/testhunch/alertmanager:/alertmanager
+%{ endif ~}
 %{ if api_domain != "" ~}
 
   caddy:

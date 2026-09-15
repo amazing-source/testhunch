@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import secrets
+import time
 from dataclasses import asdict, dataclass
 from typing import Annotated, Any, Literal
 
@@ -28,6 +29,7 @@ from fastapi import (
 from pydantic import BaseModel, Field, ValidationError
 
 from testhunch import __version__
+from testhunch.api.metrics import Metrics
 from testhunch.junit import ReportError, parse_reports
 from testhunch.models import FileChange, RunInput
 from testhunch.prioritize import rank
@@ -91,6 +93,16 @@ def authenticate(request: Request, authorization: Annotated[str | None, Header()
     return Caller(repo=repo)
 
 
+def operator_only(caller: Annotated[Caller, Depends(authenticate)]) -> Caller:
+    """For what is about the service rather than about one repository, such as /metrics.
+
+    A repository's token would otherwise read every repository's name off the exposition.
+    """
+    if caller.repo is not None:
+        raise HTTPException(status_code=403, detail="this token does not open the whole service")
+    return caller
+
+
 def _refuse_other_repos(caller: Caller, repo: str) -> None:
     """A token minted for one repository cannot read or write another one (docs/adr/0022)."""
     if not caller.may(repo):
@@ -143,6 +155,23 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
     app = FastAPI(title="testhunch", version=__version__)
     app.state.store = store
     app.state.api_token = token
+    metrics = Metrics(store=store, version=__version__)
+    app.state.metrics = metrics
+
+    @app.middleware("http")
+    async def time_requests(request: Request, call_next: Any) -> Response:
+        started = time.monotonic()
+        response: Response = await call_next(request)
+        # The route's template, never the requested path: a path is whatever the caller typed, and
+        # one label per typo is how a metrics endpoint runs a database out of memory.
+        route = getattr(request.scope.get("route"), "path", "unmatched")
+        metrics.requests.observe(route, response.status_code, time.monotonic() - started)
+        return response
+
+    @app.get("/metrics", dependencies=[Depends(operator_only)])
+    def expose_metrics() -> Response:
+        """The Prometheus exposition (docs/adr/0027). Not reachable from outside the instance."""
+        return Response(content=metrics.render(), media_type="text/plain; version=0.0.4")
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
