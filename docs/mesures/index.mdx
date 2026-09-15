@@ -1,0 +1,75 @@
+---
+title: "Ce qui a été mesuré"
+description: "La méthode, les garde-fous, et où lire les chiffres. Cette page n'en porte aucun."
+icon: "ruler"
+sidebarTitle: "Méthode"
+---
+
+Cette page explique **comment** testhunch est mesuré. Elle ne contient aucun chiffre, et c'est
+délibéré : un nombre mesuré vit dans un seul fichier, celui qu'écrit la commande qui l'a calculé.
+Recopié ici, il deviendrait faux à la prochaine campagne sans que personne ne s'en aperçoive
+([ADR 0019](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0019-the-documentation-site-carries-no-number-of-its-own.md)).
+
+<CardGroup cols={2}>
+  <Card title="Résultats du benchmark" icon="chart-bar" href="https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md">
+    Projet par projet, y compris là où testhunch s'en sort mal.
+  </Card>
+  <Card title="L'étude du classement" icon="microscope" href="https://github.com/amazing-source/testhunch/tree/main/benchmarks/results/study">
+    Comment cette version a été choisie, étape par étape.
+  </Card>
+</CardGroup>
+
+## Le principe : aucun modèle ne voit le futur
+
+Chaque exécution est classée **uniquement à partir des exécutions terminées avant elle**, avec le
+vrai code d'ingestion et de classement, pas une réimplémentation. Le taux d'échec, l'instabilité, la
+récence, la durée : tout est recalculé au fil du rejeu.
+
+Les jobs qui ont pu tourner en même temps sont classés avant qu'aucun d'eux ne soit enregistré. Un
+build ne s'informe donc jamais de lui-même.
+
+## Deux sources, deux limites
+
+**RTPTorrent** donne 20 projets Java et de l'historique Travis CI réel. C'est beaucoup de données,
+mais des données anciennes, par classe de test et sans relances : un échec instable n'y est pas
+distinguable d'un vrai échec par une relance.
+
+**Le banc d'essai** rejoue quatre projets commit par commit dans des conteneurs figés, résultats par
+test, relancés une fois en cas d'échec. C'est plus proche d'un usage réel, et c'est quatre projets,
+donc pas un échantillon.
+
+Quand l'historique réel contient trop peu d'échecs, des mutants d'un seul jeton sont glissés dans les
+lignes que chaque commit a changées. C'est une approximation, et elle avantage testhunch : un mutant
+dans un fichier dont le nom ressemble à celui de ses tests est plus facile à trouver qu'un vrai bug.
+C'est écrit là où les résultats sont publiés.
+
+## Le garde-fou qui coûte cher
+
+Les projets sont séparés **avant tout réglage** : dix pour régler, dix jamais regardés pendant les
+réglages, mesurés une seule fois à la fin, avec une version figée d'avance
+([ADR 0013](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0013-development-projects-tune-held-out-projects-measure.md)).
+
+Et parce qu'une règle que personne ne vérifie n'est pas une règle, tout rejeu d'un projet mis de côté
+**s'inscrit dans un registre** avant de commencer, et refuse de partir d'un dépôt modifié ou non
+poussé ([ADR 0016](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0016-every-look-at-the-held-out-projects-is-recorded.md)).
+Compter les lignes de ce registre est la façon dont un lecteur vérifie que la règle a tenu.
+
+Ce que le code ne peut pas empêcher est écrit au lieu d'être tu : les chiffres publiés ont été lus
+par la personne qui a réglé ensuite.
+
+## Ce que testhunch fait mal
+
+Sur un test qui n'a jamais échoué, testhunch fait **moins bien que le hasard**. C'est structurel, et
+c'est traité comme une barre à franchir plutôt que dilué dans une moyenne
+([ADR 0018](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0018-first-failures-are-a-guardrail-not-an-average.md)).
+
+Trois familles de signaux ont été essayées pour le corriger, et les trois ont échoué. La recherche a
+été arrêtée et le constat publié plutôt que poursuivi jusqu'à trouver quelque chose : chaque nouvelle
+tentative sur les mêmes dix projets rapproche d'un réglage taillé pour eux.
+
+## Vérifier vous-même
+
+La façon la plus honnête de savoir si testhunch vous sert n'est pas de lire ces pages, c'est de le
+faire mesurer sur **votre** historique. C'est exactement ce que fait le
+[mode fantôme](/docs/ci/filet-de-securite) : il enregistre ce qu'un budget aurait manqué, sans rien
+sauter, aussi longtemps que vous voulez avant de décider.

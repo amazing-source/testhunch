@@ -1,0 +1,87 @@
+---
+title: "La ligne de commande"
+description: "Les six commandes, leurs options, et ce que chacune écrit."
+icon: "square-terminal"
+---
+
+Toutes les commandes acceptent `--db` (ou `TESTHUNCH_DATABASE_URL`) et `--repo`. Sans `--repo`,
+testhunch lit `GITHUB_REPOSITORY`, sinon le dépôt git courant. Le schéma se crée et se met à jour au
+démarrage de chacune.
+
+## `ingest`
+
+Enregistre un ou plusieurs rapports JUnit XML.
+
+```bash
+testhunch ingest junit.xml 'reports/**/*.xml' --base origin/main
+```
+
+| Option | Rôle |
+|---|---|
+| `reports` | Fichiers ou motifs glob, développés par testhunch et non par le shell |
+| `--commit` | Le commit testé (`HEAD` par défaut) |
+| `--branch` | La branche testée (détectée par défaut) |
+| `--base` | Enregistre aussi les fichiers modifiés depuis cette référence |
+
+## `report`
+
+Les tests instables, les plus lents et ceux en échec.
+
+| Option | Rôle |
+|---|---|
+| `--last` | Sur combien d'exécutions récentes porte le rapport |
+| `--limit` | Lignes par section |
+| `--format` | `text`, `json` ou `markdown` |
+
+## `prioritize`
+
+Ordonne les tests pour un changement.
+
+```bash
+testhunch prioritize --base origin/main --limit 20
+```
+
+| Option | Rôle |
+|---|---|
+| `--base` | Classe pour les fichiers modifiés depuis cette référence |
+| `--changed` | Classe pour ces chemins, donnés à la main |
+| `--limit` | N'affiche que les N premiers |
+| `--format` | `text`, `json`, `keys` ou `markdown` |
+| `--record` | Enregistre le classement pour le mode fantôme |
+| `--commit` | Le commit sur le point d'être testé : il départage les scores égaux, et `--record` enregistre pour lui |
+
+`--base` et `--changed` s'excluent.
+
+## `select`
+
+La liste des tests connus qu'un budget laisse de côté, au format d'un lanceur.
+
+```bash
+testhunch select --budget 25% --runner pytest --base origin/main
+```
+
+| Option | Rôle |
+|---|---|
+| `--budget` | Part du temps de test attendu, par exemple `25%`. Obligatoire |
+| `--budget-unit` | `time` (défaut) ou `tests` |
+| `--runner` | `pytest`, `go`, `surefire`, `nextest`, `vitest` ou `jest`. Obligatoire |
+| `--go-test-list` | Avec `--runner go` : la sortie de `go test -list '.*' ./...` |
+| `--vitest-list` | Avec `--runner vitest` : la sortie de `vitest list --json --no-static-parse` |
+| `--learning-runs` | Part des builds qui lancent tout et enregistrent le classement (25 % par défaut, `0%` pour désactiver) |
+
+Le détail par lanceur est sur [sa page](/docs/sauter/index).
+
+## `shadow`
+
+Ce que sauter les tests les moins bien classés aurait manqué, sur les exécutions dont le classement a
+été enregistré.
+
+| Option | Rôle |
+|---|---|
+| `--last` | Exécutions récentes avec un classement enregistré à utiliser |
+| `--format` | `text`, `json` ou `markdown` |
+
+## `migrate`
+
+Crée ou met à jour le schéma. Les autres commandes le font déjà au démarrage ; celle-ci sert à le
+faire seule, par exemple dans un conteneur d'initialisation.

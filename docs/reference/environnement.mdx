@@ -1,0 +1,33 @@
+---
+title: "Variables d'environnement"
+description: "Les deux variables que testhunch lit, et celles qu'il trouve déjà posées par la CI."
+icon: "settings"
+---
+
+## Ce que testhunch lit
+
+| Variable | Rôle |
+|---|---|
+| `TESTHUNCH_DATABASE_URL` | Où vit l'historique. Équivaut à `--db`. Par défaut `sqlite:///.testhunch/history.db` |
+| `TESTHUNCH_API_TOKEN` | Le jeton *bearer* que l'API exige. **Vide, l'API n'authentifie rien** |
+
+Une URL Postgres s'écrit `postgresql://utilisateur:motdepasse@hote:5432/base`. Une URL SQLite est un
+chemin, `sqlite:///chemin/vers/history.db`.
+
+<Warning>
+Passez l'URL et le jeton par un secret, jamais en clair dans un fichier de workflow. L'URL contient
+un mot de passe, et le jeton ouvre l'écriture de tout l'historique.
+</Warning>
+
+## Ce qu'il trouve tout seul
+
+testhunch lit `GITHUB_REPOSITORY` pour connaître le nom du dépôt quand `--repo` n'est pas donné, et
+sinon interroge git. Dans l'Action, `GITHUB_BASE_REF` sert à choisir la référence de comparaison sur
+un événement `pull_request`, ce qui évite d'écrire `base:` à la main.
+
+## Pour les lanceurs
+
+Une seule, et elle n'appartient pas à testhunch : Jest a besoin de
+`JEST_JUNIT_ADD_FILE_ATTRIBUTE=true` pour que jest-junit écrive le chemin de chaque fichier dans son
+rapport. Sans elle, testhunch ne peut écarter aucun fichier, et tout tourne
+([voir la page Jest](/docs/sauter/jest)).

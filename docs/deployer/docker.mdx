@@ -1,0 +1,65 @@
+---
+title: "Docker et Postgres"
+description: "La stack locale, l'image publiée, et comment garder l'historique entre deux jobs de CI."
+icon: "container"
+---
+
+Tant que l'historique tient dans un fichier SQLite jeté à la fin du job, testhunch n'apprend rien.
+Pour s'en servir vraiment, il lui faut une base qui survit.
+
+## La stack locale
+
+```bash
+docker compose up --build
+curl http://localhost:8000/readyz
+```
+
+Trois services : Postgres, un service `migrate` qui passe une fois pour créer ou mettre à jour le
+schéma, puis l'API qui ne démarre qu'une fois la migration terminée. Les ports ne sont ouverts que
+sur `127.0.0.1`.
+
+<Warning>
+Les identifiants du `compose.yaml` sont écrits en clair et ne valent que pour cette stack locale.
+N'allez pas les reprendre ailleurs.
+</Warning>
+
+## L'image publiée
+
+Chaque version publie une image sur GHCR, en deux étiquettes :
+
+```text
+ghcr.io/amazing-source/testhunch:0.3.0
+ghcr.io/amazing-source/testhunch:0.3
+```
+
+L'image contient la CLI et l'API. Elle lit sa configuration dans l'environnement.
+
+## Brancher la CI sur Postgres
+
+Dans l'Action, passez l'URL depuis un secret :
+
+```yaml
+- uses: amazing-source/testhunch@v0.3.0
+  with:
+    command: ingest
+    reports: junit.xml
+    database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
+```
+
+En ligne de commande, c'est `--db` ou la variable `TESTHUNCH_DATABASE_URL` :
+
+```bash
+testhunch ingest junit.xml --db postgresql://user@host/testhunch
+```
+
+SQLite et Postgres sont tenus par la même couche SQL, écrite une fois pour les deux, et par une
+suite de tests de contrat qui tourne sur les deux
+([ADR 0003](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0003-one-sql-layer-for-sqlite-and-postgres.md)).
+Ce que vous lisez sur l'une, vous le lisez sur l'autre.
+
+## La première mise à jour prend son temps
+
+Le schéma se crée et se met à jour au démarrage de n'importe quelle commande, sans rien lancer à la
+main. En venant de la 0.2.0, la première commande **reconstruit l'historique par build** à partir des
+exécutions déjà enregistrées. C'est automatique, mais sur un gros historique ce n'est pas instantané :
+prévoyez-le si votre job a un délai serré.
