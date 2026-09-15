@@ -122,6 +122,16 @@ class PrioritizeRequest(BaseModel):
     # The commit about to be tested, which orders equal scores as `testhunch prioritize` does.
     commit_sha: str | None = Field(default=None, pattern=_SHA)
     limit: int | None = Field(default=None, ge=1)
+    # Keep this ranking, so that shadow mode can measure it against the run that follows. The
+    # server records what it served, and knows which run its history stopped at (docs/adr/0023).
+    record: bool = False
+    base_sha: str | None = Field(default=None, pattern=_SHA)
+
+
+class PrioritizeResponse(BaseModel):
+    ranked: list[dict[str, Any]]
+    total: int
+    prediction_id: int | None = None
 
 
 def create_app(database_url: str | None = None, api_token: str | None = None) -> FastAPI:
@@ -212,10 +222,37 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
     @v1.post("/prioritize")
     def prioritize(
         caller: Annotated[Caller, Depends(authenticate)], body: PrioritizeRequest
-    ) -> list[dict[str, Any]]:
+    ) -> PrioritizeResponse:
         _refuse_other_repos(caller, body.repo)
-        ranked = rank(store.history(body.repo), body.changed_paths, seed=body.commit_sha or "")
-        return [asdict(r) for r in ranked[: body.limit]]
+        try:
+            ranked = rank(store.history(body.repo), body.changed_paths, seed=body.commit_sha or "")
+        except StoreError as exc:
+            raise HTTPException(status_code=503, detail="database unavailable") from exc
+
+        prediction_id = None
+        if body.record and ranked:
+            if body.commit_sha is None:
+                raise HTTPException(
+                    status_code=422, detail="recording a ranking needs the commit it is for"
+                )
+            # Read after the history the ranking came from, so it can only be newer than what the
+            # ranking saw: at worst a run is left out of the shadow report, never judged by a
+            # ranking that had already seen it.
+            last_run_id = store.latest_run_id(body.repo)
+            if last_run_id is not None:
+                prediction_id = store.record_prediction(
+                    body.repo,
+                    body.commit_sha,
+                    ranked,
+                    last_run_id=last_run_id,
+                    base_sha=body.base_sha,
+                )
+
+        return PrioritizeResponse(
+            ranked=[asdict(r) for r in ranked[: body.limit]],
+            total=len(ranked),
+            prediction_id=prediction_id,
+        )
 
     app.include_router(v1)
     return app

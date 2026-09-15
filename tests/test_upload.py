@@ -18,7 +18,7 @@ from typing import Any, ClassVar
 import pytest
 
 from testhunch.models import FileChange
-from testhunch.upload import UploadError, metadata_json, runs_url, upload_run
+from testhunch.upload import UploadError, endpoint, metadata_json, upload_run
 
 
 class Recorder(BaseHTTPRequestHandler):
@@ -150,18 +150,18 @@ def test_a_server_that_is_not_there_says_so(tmp_path: Path) -> None:
 
 def test_the_token_is_never_sent_in_the_clear_to_a_remote_host() -> None:
     with pytest.raises(UploadError, match="refusing to send the token in the clear"):
-        runs_url("http://api.example.com")
+        endpoint("http://api.example.com", "/v1/runs")
 
 
 def test_a_loopback_address_may_skip_tls() -> None:
-    assert runs_url("http://127.0.0.1:8000") == "http://127.0.0.1:8000/v1/runs"
-    assert runs_url("http://localhost:8000/") == "http://localhost:8000/v1/runs"
+    assert endpoint("http://127.0.0.1:8000", "/v1/runs") == "http://127.0.0.1:8000/v1/runs"
+    assert endpoint("http://localhost:8000/", "/v1/runs") == "http://localhost:8000/v1/runs"
 
 
 def test_https_anywhere_is_allowed() -> None:
-    assert runs_url("https://api.example.com/") == "https://api.example.com/v1/runs"
+    assert endpoint("https://api.example.com/", "/v1/runs") == "https://api.example.com/v1/runs"
 
 
 def test_a_scheme_that_is_not_http_is_refused() -> None:
     with pytest.raises(UploadError, match="must be http or https"):
-        runs_url("ftp://api.example.com")
+        endpoint("ftp://api.example.com", "/v1/runs")

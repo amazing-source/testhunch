@@ -107,9 +107,12 @@ Les rapports partent tels quels et c'est le serveur qui les analyse. Une adresse
 n'est pas la boucle locale est refusée, pour que le jeton ne circule jamais en clair. Demandez à
 l'exploitant du service un jeton qui n'ouvre que votre dépôt plutôt que le sien, qui les ouvre tous.
 
+Avec `api-url`, `prioritize` demande aussi le classement au serveur, qui **garde ce qu'il a servi**
+quand `record` est actif. Le classement et le run qui suit vivent donc dans la même base, et le mode
+fantôme a de quoi comparer ([ADR 0023](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0023-the-server-keeps-the-ranking-it-served.md)).
+
 <Warning>
-**Le mode fantôme ne fonctionne pas encore par ce chemin.** `prioritize --record` écrit le
-classement dans la base locale, alors que le run part sur le serveur : les deux ne se retrouvent
-pas, et le résumé du job ne montre donc ni rapport ni mesure de ce qu'un budget aurait manqué. Il
-dit seulement ce qui a été envoyé.
+**Le résumé du job ne montre pas encore le rapport du mode fantôme par ce chemin.** Les mesures sont
+bien enregistrées côté serveur, mais `testhunch shadow` lit encore une base et non l'API : le résumé
+dit ce qui a été envoyé, sans le tableau. La lecture viendra ensuite.
 </Warning>

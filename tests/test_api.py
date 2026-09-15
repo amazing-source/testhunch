@@ -91,13 +91,16 @@ def test_upload_is_idempotent_and_feeds_the_report(client: TestClient) -> None:
         "src/cart.vitest.test.js::cart total > fails on purpose"
     ]
 
-    ranked = client.post(
+    answer = client.post(
         "/v1/prioritize",
         json={"repo": "acme/shop", "changed_paths": ["src/cart.js"], "limit": 2},
         headers=AUTH,
     ).json()
-    assert len(ranked) == 2
-    assert ranked[0]["key"] == "src/cart.vitest.test.js::cart total > fails on purpose"
+    # `total` is every ranked test, `ranked` only the ones the limit kept: a caller asking for two
+    # still learns how many there were, which is what the job summary says (docs/adr/0023).
+    assert (len(answer["ranked"]), answer["total"]) == (2, 3)
+    assert answer["prediction_id"] is None
+    assert answer["ranked"][0]["key"] == "src/cart.vitest.test.js::cart total > fails on purpose"
 
 
 @pytest.mark.parametrize(
@@ -196,3 +199,89 @@ def test_a_revoked_token_is_refused_like_an_unknown_one(
     response = client.get("/v1/report", params={"repo": "acme/shop"}, headers=headers)
 
     assert response.status_code == 401
+
+
+# -- the server keeps the ranking it served (docs/adr/0023) --------------------------------
+
+
+def a_run_exists(client: TestClient) -> None:
+    upload(
+        client,
+        {"repo": "acme/shop", "commit_sha": SHA, "changes": [{"path": "src/cart.js"}]},
+        (FIXTURES / "vitest.xml").read_bytes(),
+        AUTH,
+    )
+
+
+def test_recording_keeps_the_ranking_the_server_just_made(
+    client: TestClient, sqlite_url: str
+) -> None:
+    a_run_exists(client)
+    other = "b" * 40
+
+    answer = client.post(
+        "/v1/prioritize",
+        json={"repo": "acme/shop", "commit_sha": other, "record": True, "limit": 1},
+        headers=AUTH,
+    ).json()
+
+    assert answer["prediction_id"] is not None
+    assert (len(answer["ranked"]), answer["total"]) == (1, 3)
+
+    # The proof is not that a row exists: it is that the run which follows pairs with it, which is
+    # the whole point of recording. Shadow mode only sees runs newer than the ranking.
+    upload(
+        client,
+        {"repo": "acme/shop", "commit_sha": other},
+        (FIXTURES / "vitest.xml").read_bytes() + b"<!-- a later build -->",
+        AUTH,
+    )
+    paired = open_store(sqlite_url).shadow_runs("acme/shop", last_runs=10)
+    assert len(paired) == 1
+    # The whole ranking was kept, not the single row the limit returned.
+    assert len(paired[0].positions) == 3
+
+
+def test_a_ranking_is_kept_only_when_asked(client: TestClient, sqlite_url: str) -> None:
+    a_run_exists(client)
+
+    answer = client.post(
+        "/v1/prioritize", json={"repo": "acme/shop", "commit_sha": "b" * 40}, headers=AUTH
+    ).json()
+
+    assert answer["prediction_id"] is None
+
+
+def test_recording_without_a_commit_is_refused(client: TestClient) -> None:
+    a_run_exists(client)
+
+    response = client.post(
+        "/v1/prioritize", json={"repo": "acme/shop", "record": True}, headers=AUTH
+    )
+
+    assert response.status_code == 422
+    assert "commit" in response.json()["detail"]
+
+
+def test_an_empty_history_records_nothing_and_says_so_plainly(client: TestClient) -> None:
+    answer = client.post(
+        "/v1/prioritize",
+        json={"repo": "acme/never-seen", "commit_sha": SHA, "record": True},
+        headers=AUTH,
+    ).json()
+
+    assert (answer["ranked"], answer["total"], answer["prediction_id"]) == ([], 0, None)
+
+
+def test_a_scoped_token_cannot_record_for_another_repository(
+    client: TestClient, sqlite_url: str
+) -> None:
+    a_run_exists(client)
+
+    response = client.post(
+        "/v1/prioritize",
+        json={"repo": "acme/shop", "commit_sha": "b" * 40, "record": True},
+        headers=scoped(sqlite_url, "acme/other"),
+    )
+
+    assert response.status_code == 403

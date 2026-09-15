@@ -82,10 +82,12 @@ case "${TESTHUNCH_COMMAND}" in
   prioritize)
     out="${RUNNER_TEMP}/testhunch"
     mkdir -p "${out}"
+    api="${TESTHUNCH_INPUT_API_URL}"
     rank() {
-      testhunch prioritize ${base:+--base "${base}"} "$@"
+      testhunch prioritize ${base:+--base "${base}"} ${api:+--api "${api}"} "$@"
     }
-    # Recorded once, with the first of the three identical rankings.
+    # Recorded once, with the first of the three identical rankings. With --api the server ranks
+    # and keeps what it served, so the ranking and the run that follows meet in one database.
     rank ${record:+"${record}"} --format json > "${out}/ranking.json"
     rank --format keys > "${out}/ranking.txt"
     rank --format markdown --limit "${TESTHUNCH_SUMMARY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"

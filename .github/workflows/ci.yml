@@ -270,6 +270,38 @@ jobs:
           assert any(t["key"] == "shop::tests::fails_on_purpose" for t in report["failing"]), report
           EOF
 
+      # The other half of the hosted loop: the server ranks from its own history and keeps what it
+      # served, so that the run sent afterwards can be measured against it (docs/adr/0023).
+      - name: Rank against the hosted API, and have it keep the ranking
+        id: hosted
+        uses: ./
+        env:
+          TESTHUNCH_API_TOKEN: an-operator-token-for-this-job
+        with:
+          command: prioritize
+          base: HEAD
+          api-url: http://127.0.0.1:8000
+
+      - name: Check the hosted ranking, and that shadow mode can now measure it
+        env:
+          RANKING_KEYS: ${{ steps.hosted.outputs.ranking-keys }}
+        run: |
+          test "$(head -n 1 "$RANKING_KEYS")" = "shop::tests::fails_on_purpose"
+          test "$(wc -l < "$RANKING_KEYS")" -eq 6
+          cp tests/fixtures/junit/nextest.xml "$RUNNER_TEMP/later.xml"
+          echo '<!-- a later build -->' >> "$RUNNER_TEMP/later.xml"
+          TESTHUNCH_API_TOKEN=an-operator-token-for-this-job \
+            uvx --from . testhunch ingest "$RUNNER_TEMP/later.xml" \
+              --api http://127.0.0.1:8000 --commit "$(git rev-parse HEAD)"
+          TESTHUNCH_DATABASE_URL=sqlite:///hosted.db uvx --from . testhunch shadow \
+            --repo "${GITHUB_REPOSITORY}" --format json | tee "$RUNNER_TEMP/hosted-shadow.json"
+          python3 - "$RUNNER_TEMP/hosted-shadow.json" <<'EOF'
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          assert report["runs"] == 1, report
+          assert report["budgets"][0]["caught_runs"] == 1, report
+          EOF
+
   docker:
     name: Docker image and compose stack
     runs-on: ubuntu-latest
