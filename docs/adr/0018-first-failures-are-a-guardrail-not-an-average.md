@@ -28,9 +28,11 @@ Two things the measurement settled:
   on time (0.554 against 0.721) because quick tests run first, while its *position* is worse.
 
 The study of ADR 0014 never saw this. Its steps judged every candidate on the mean over all failing
-jobs, where the 94% with a usable history drown the 6% without. Step 3 rejected `path_similarity`,
-`token_similarity` and `name_similarity` on that mean, and kept `test_file_changed`, the one signal
-that is binary and fires on about a fifth of the jobs.
+jobs, where the 94% with a usable history drown the 6% without. Step 3 rejected
+`subject_file_changed`, `path_similarity`, `token_similarity` and `name_similarity` on that mean,
+and kept `test_file_changed`, the one signal that is binary. It fires, for at least one known test,
+on **20.4% of the failing jobs**: 929 of the 4 545 of the development projects, counted over the
+same replay the study uses.
 
 ## Decision
 
@@ -73,14 +75,29 @@ it does: a test whose failure has decayed keeps a small priority, so a large eno
 a never-failed test in front of it. That is exactly why both slices are measured rather than only
 the one the change is aimed at. A test holds this behaviour, so nobody rediscovers it by surprise.
 
+The rule reads **"failure priority is zero"** and is applied to the letter, which is not quite the
+same sentence as "the history says nothing". The priority decays by a factor of five per build, so
+it reaches exactly zero — a floating-point underflow, not a rounding — after 463 builds without a
+failure, and six of the ten development projects run longer than that (okhttp 3 531 builds, HikariCP
+1 498, jOOQ 1 319, buck 999, deeplearning4j 915, Achilles 632). On those, the cold form also fires
+on tests that did fail once, long ago. The rule stays as it was fixed: rewriting it to
+`last_failure < 0` after seeing the results would be the degree of freedom this ADR spends its
+length refusing. What that narrower reading would have measured is **not known** — it was not run,
+and it will not be, for the same reason the fourth hypothesis below will not be. The fact is
+written here instead, and a test holds the underflow so the next reader inherits it rather than
+rediscovering it.
+
 ## What this decision was made knowing
 
 The proximity signals had already been measured **alone, with no history**, on the development
 projects before this ADR was written (`--signals`,
 benchmarks/results/study/first-failures-signals.md): on the first-failure slice they place the
-failing test between 0.335 and 0.351, against 0.47 for random and 0.692 for the whole current
-ranking. So the direction was known; what was not is how they behave once combined with the
-history, which is what the step measures and what the rule above decides.
+failing test between 0.334 and 0.454 — the three similarity signals at 0.334, 0.353 and 0.358,
+`test_file_changed` at 0.425, `subject_file_changed` at 0.454 — against 0.469 for random and 0.638
+for the whole current ranking. That page counts only the 118 first-failure jobs whose changed files
+are known, so its figures are not comparable with the 0.692 measured over all 283. So the direction
+was known; what was not is how they behave once combined with the history, which is what the step
+measures and what the rule above decides.
 
 ## What the step it describes found
 
@@ -91,14 +108,14 @@ The proximity signals are **continuous**: they give a non-zero value to every te
 failed. Even at weight 0.1 and applied only at cold start, that outweighs the decayed priority of a
 test that failed three builds ago, which is down to 0.006. So the ranking drowns: the best candidate
 moves the first-failure position from 0.692 to 0.633 — never reaching random — while the regime
-that works collapses from 0.123 to 0.331, and the primary measure loses 0.026 with an interval
+that works collapses from 0.123 to 0.331, and the primary measure loses 0.025 with an interval
 entirely below zero.
 
 And the reference line says something worse about us: **testhunch 0.2.0 scores 0.455 on that slice,
 better than random, while the version this study kept scores 0.692.** The regression was introduced
 by our own study. 0.2.0 carried a cold-start signal — its name affinity, weight 2.0, applied to
-every test — and the study replaced it with `test_file_changed*0.5`, which fires on about a fifth of
-the jobs. It bought 0.018 of mean APFDc and sold the property that protected new code.
+every test — and the study replaced it with `test_file_changed*0.5`, which fires on a fifth of them
+(20.4%, measured above). It bought 0.018 of mean APFDc and sold the property that protected new code.
 
 The lesson is about the shape of the signal, not its strength: what worked was **selective**, firing
 only on a file-stem match, so it never flooded the ranking. A continuous similarity cannot be made
