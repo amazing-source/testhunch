@@ -54,6 +54,14 @@ cutting with them afterwards would report a budget nobody could have spent. Migr
 duration. Every duration equal makes a time budget behave as a count budget anyway, so this is for
 saying it on purpose, not for rescuing a degenerate case.
 
+## What this decision was made knowing
+
+The held-out numbers of the study were already published when this was decided, and whoever made
+the decision had read them: that is what said the gain is in time. No candidate budget was tried
+against a held-out score, and no held-out project was replayed before choosing — the choice is
+about what a budget should control, not about what scores best. It is still weaker evidence than a
+rule fixed before anything was measured, and ADR 0016 exists because no code can fix that.
+
 ## Consequences
 
 - The same `--budget 25%` now leaves out more tests than before, and saves about a quarter of the
