@@ -35,7 +35,7 @@
     "groups": [
       {
         "group": "Prise en main",
-        "pages": ["docs/index", "docs/demarrer"]
+        "pages": ["docs/index", "docs/demarrer", "docs/demo"]
       },
       {
         "group": "Concepts",
