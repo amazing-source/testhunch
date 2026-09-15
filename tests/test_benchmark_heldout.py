@@ -16,7 +16,14 @@ import pytest
 
 from benchmarks import heldout
 from benchmarks.harness.__main__ import main as harness_main
-from benchmarks.heldout import LEDGER, NotFrozen, frozen_commit, record_peek
+from benchmarks.heldout import (
+    LEDGER,
+    SEPARATOR,
+    NotFrozen,
+    frozen_commit,
+    read_ledger,
+    record_peek,
+)
 from benchmarks.rtptorrent.__main__ import main as rtptorrent_main
 from benchmarks.split import (
     RTPTORRENT_DEVELOPMENT,
@@ -213,6 +220,49 @@ def test_no_row_is_ever_removed_from_the_ledger_in_the_repository() -> None:
     assert len(rows(LEDGER)) >= 3
     # Every row carries its six columns, so counting them means something.
     assert all(row.count("|") == 7 for row in rows(LEDGER))
+
+
+def test_every_row_of_the_ledger_is_inside_its_table() -> None:
+    """A row below the table is a row nobody counts, and that is the whole point of the ledger.
+
+    Prose was once left under the last row; because rows are appended at the end, the two written
+    after it became a lazy continuation of that paragraph. They were still in the file, so the test
+    above passed, while a reader of the rendered page saw a table two looks short.
+    """
+    preamble, found = read_ledger(LEDGER.read_text(encoding="utf-8"), LEDGER)
+
+    assert found == rows(LEDGER)  # nothing below the table that is not a row
+    assert preamble.endswith(SEPARATOR + "\n")
+
+
+def test_a_row_is_appended_inside_the_table_not_at_the_end_of_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(heldout, "frozen_commit", lambda ledger=None: "0" * 40)
+    ledger = tmp_path / "log.md"
+    record_peek("benchmarks.study held-out", ["a@b"], "candidate-x", "9.9.9", ledger)
+
+    record_peek("benchmarks.study held-out", ["c@d"], "candidate-y", "9.9.9", ledger)
+
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    table = lines[lines.index(SEPARATOR) + 1 :]
+    assert table == rows(ledger) and len(table) == 2
+
+
+def test_prose_below_the_table_refuses_the_run_rather_than_losing_a_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The shape a new row cannot be added to: say so, before the replay, rather than guess."""
+    monkeypatch.setattr(heldout, "frozen_commit", lambda ledger=None: "0" * 40)
+    ledger = tmp_path / "log.md"
+    record_peek("benchmarks.study held-out", ["a@b"], "candidate-x", "9.9.9", ledger)
+    with ledger.open("a", encoding="utf-8") as out:
+        out.write("\nA note somebody added under the table.\n")
+
+    with pytest.raises(heldout.LedgerUnreadable, match="push out of it"):
+        record_peek("benchmarks.study held-out", ["c@d"], "candidate-y", "9.9.9", ledger)
+
+    assert len(rows(ledger)) == 1  # and the run that could not be recorded wrote nothing
 
 
 def test_phase_six_chooses_its_model_away_from_the_held_out_projects() -> None:

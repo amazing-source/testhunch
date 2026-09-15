@@ -17,21 +17,37 @@ from pathlib import Path
 # directory must still write to the repository's own ledger, or it would leave no trace at all.
 LEDGER = Path(__file__).resolve().parents[1] / "benchmarks" / "results" / "held-out-log.md"
 
-_HEADER = """# Looks at the held-out projects
+SEPARATOR = "|---|---|---|---|---|---|"
+
+_HEADER = f"""# Looks at the held-out projects
 
 Written by the benchmark commands themselves (`benchmarks/heldout.py`), one row per run that reads
 a held-out project, appended before the replay starts. A version is tuned on the development
 projects; the held-out projects only measure it (docs/adr/0013). Counting these rows is how a
-reader checks that the rule was followed: many rows for the same version, with the ranking changing
-in between, would mean the held-out projects had become a tuning set (docs/adr/0016).
+reader checks that the rule was followed: many rows, with the ranking changing in between, would
+mean the held-out projects had become a tuning set (docs/adr/0016).
+
+**Version is the package version, and it cannot tell two campaigns apart.** It has stayed at 0.2.0
+while the ranking changed twice (docs/adr/0015, 0017), so a reader comparing rows compares the
+**Commit** and **Replayed** columns, which do move. Counting the rows is the check; the version
+beside them is not.
+
+The first three rows were entered by hand from git history when the ledger was created
+(docs/adr/0016); every row after them was written by the command that made the run. The first is
+the Phase 3 benchmark, run before ADR 0013 split the projects at all: it is listed because its
+numbers are public and cannot be unseen, not because it broke a rule that did not yet exist.
 
 | Date (UTC) | Commit | Version | Command | Replayed | Projects |
-|---|---|---|---|---|---|
+{SEPARATOR}
 """
 
 
 class NotFrozen(RuntimeError):
     """The checkout is not a commit that others can look at: the run must not happen."""
+
+
+class LedgerUnreadable(RuntimeError):
+    """The ledger holds something a new row would lose, so nothing is written to it."""
 
 
 def _git(*args: str, strip: bool = True) -> str:
@@ -92,6 +108,28 @@ def frozen_commit(ledger: Path | None = None) -> str:
     return commit
 
 
+def read_ledger(text: str, ledger: Path) -> tuple[str, list[str]]:
+    """The ledger's preamble and its rows, refusing to rewrite what it cannot account for.
+
+    A row belongs *inside* the table, not at the end of the file. Prose was once left below the
+    last row, and every row appended after it became a continuation of that paragraph: the rows
+    were in the file but no longer in the table, so a reader counting the table counted too few.
+    Rather than guess where such a line should go, this refuses and says so, before any replay.
+    """
+    preamble, separator, tail = text.partition(SEPARATOR + "\n")
+    if not separator:
+        raise LedgerUnreadable(f"{ledger} has no table to append a row to")
+    rows = [line for line in tail.splitlines() if line.strip()]
+    stray = [line for line in rows if not line.startswith("|")]
+    if stray:
+        raise LedgerUnreadable(
+            f"{ledger} holds lines below its table that a new row would push out of it. Move them "
+            "above the table first, so every row keeps rendering as one (docs/adr/0016):\n"
+            + "\n".join(stray)
+        )
+    return preamble + separator, rows
+
+
 def record_peek(
     command: str,
     projects: Sequence[str],
@@ -99,7 +137,7 @@ def record_peek(
     version: str,
     ledger: Path | None = None,
 ) -> str:
-    """Append this run to the ledger and return the frozen commit it replays.
+    """Add this run to the ledger and return the frozen commit it replays.
 
     Called before the replay: a run that is interrupted, or whose numbers are thrown away, still
     leaves its row. Hiding a look then means deleting a line someone can find in git history.
@@ -107,13 +145,21 @@ def record_peek(
     ledger = LEDGER if ledger is None else ledger
     commit = frozen_commit(ledger)
     ledger.parent.mkdir(parents=True, exist_ok=True)
-    if not ledger.exists():
-        ledger.write_text(_HEADER, encoding="utf-8")
-    day = datetime.now(UTC).strftime("%Y-%m-%d")
-    row = (
-        f"| {day} | `{commit[:12]}` | {version} | `{command}` | {replayed} | "
-        f"{', '.join(projects)} |\n"
+    preamble, rows = (
+        read_ledger(ledger.read_text(encoding="utf-8"), ledger)
+        if ledger.exists()
+        else (_HEADER, [])
     )
-    with ledger.open("a", encoding="utf-8") as out:
-        out.write(row)
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    rows.append(
+        f"| {day} | `{commit[:12]}` | {version} | `{command}` | {replayed} | "
+        f"{', '.join(projects)} |"
+    )
+    # Written whole, then moved into place: a ledger half-written by an interrupted run would
+    # lose the very rows it exists to keep.
+    pending = ledger.with_name(ledger.name + ".pending")
+    # Bytes, not text: on Windows `write_text` would turn every newline into CRLF and rewrite the
+    # whole ledger, so a one-row append would read as a diff touching every row.
+    pending.write_bytes((preamble + "\n".join(rows) + "\n").encode("utf-8"))
+    pending.replace(ledger)
     return commit
