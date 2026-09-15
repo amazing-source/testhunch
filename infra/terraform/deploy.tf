@@ -42,6 +42,8 @@ resource "aws_ssm_document" "deploy" {
 
 locals {
   deploys_from_github = var.github_repository != ""
+  github_owner        = split("/", var.github_repository)[0]
+  github_name         = try(split("/", var.github_repository)[1], "")
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -69,12 +71,20 @@ data "aws_iam_policy_document" "github_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # One repository, one branch. A pull request from a fork gets a different subject and is
-    # refused by STS before any of this account's permissions are consulted.
+    # One repository, one branch. A pull request, or a push to any other branch, gets a different
+    # subject and is refused by STS before any of this account's permissions are consulted.
+    #
+    # Two forms, because GitHub now writes the immutable numeric ids of the owner and of the
+    # repository into the subject: `repo:owner@206353265/name@1368439955:ref:refs/heads/main`.
+    # Those ids are the point of the new form, and nothing here can look them up, so they are the
+    # only part left to a wildcard. The owner and the repository name stay pinned exactly.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/main"]
+      values = [
+        "repo:${local.github_owner}/${local.github_name}:ref:refs/heads/main",
+        "repo:${local.github_owner}@*/${local.github_name}@*:ref:refs/heads/main",
+      ]
     }
   }
 }
