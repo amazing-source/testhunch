@@ -21,6 +21,13 @@ def summary(results: Sequence[dict[str, Any]]) -> str:
         "project next to this one. Results are per test class, from Travis CI builds of Java "
         "projects, without retries.",
         "",
+        "**The two tables below do not count the same faults, on purpose.** The budget table "
+        "leaves out a class that both passed and failed within the same job: that is flaky, not a "
+        "miss (docs/adr/0006), and a job whose only failures are flaky is not a failing job for "
+        "it. The APFD table counts every class with a failing row, which is what the dataset "
+        "authors' schedules count, so that comparison is between the same faults. The `Failing` "
+        "column belongs to the first table and is therefore the smaller count of the two.",
+        "",
         "## What running a share of the known test classes would have kept",
         "",
         "Per change: failing jobs still caught, where a job is caught when at least one of its "

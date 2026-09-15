@@ -8,7 +8,7 @@
 | 25% | 61 of 68 | 289 of 388 | 52164 of 169524 | 22% |
 | 50% | 62 of 68 | 346 of 388 | 76016 of 169524 | 45% |
 
-Mean APFD on the 25 jobs the authors' schedules cover:
+Mean APFD on the 25 jobs the authors' schedules cover. It counts every class with a failing row, as their schedules do, where the table above leaves out the flaky ones (docs/adr/0006): the two are not over the same jobs.
 
 | Schedule | Mean APFD |
 |---|---:|
