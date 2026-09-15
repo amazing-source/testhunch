@@ -319,3 +319,31 @@ def test_a_scoped_token_cannot_read_another_repositorys_shadow_report(
     assert (
         client.get("/v1/shadow", params={"repo": "acme/other"}, headers=headers).status_code == 403
     )
+
+
+# -- metrics (docs/adr/0027) ----------------------------------------------------------------
+
+
+def test_metrics_needs_the_operator_token(client: TestClient, sqlite_url: str) -> None:
+    """A repository's token would read every repository's name off the exposition."""
+    assert client.get("/metrics").status_code == 401
+    assert client.get("/metrics", headers=scoped(sqlite_url, "acme/shop")).status_code == 403
+
+    response = client.get("/metrics", headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "testhunch_build_info" in response.text
+
+
+def test_requests_are_counted_under_the_route_and_not_the_path_typed(client: TestClient) -> None:
+    """One label per typo is how a metrics endpoint runs a process out of memory."""
+    client.get("/v1/report", params={"repo": "acme/shop"}, headers=AUTH)
+    client.get("/v1/report", params={"repo": "acme/other"}, headers=AUTH)
+    client.get("/nothing-here")
+
+    exposition = client.get("/metrics", headers=AUTH).text
+
+    assert 'testhunch_requests_total{route="/v1/report",status="200"} 2' in exposition
+    assert 'testhunch_requests_total{route="unmatched",status="404"} 1' in exposition
+    assert "acme/other" not in exposition.split("testhunch_runs")[0]

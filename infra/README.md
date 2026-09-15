@@ -76,12 +76,37 @@ shell et ne lit aucun secret.
 eval "$(terraform output -raw port_forward)"   # dans un terminal, laissez-le tourner
 curl http://127.0.0.1:8000/readyz              # dans un autre
 curl -H "Authorization: Bearer $(terraform output -raw api_token)" \
-  http://127.0.0.1:8000/v1/repos
+  "http://127.0.0.1:8000/v1/report?repo=votre-compte/votre-depot"
 ```
 
 Ce jeton-là est celui de l'exploitant : il ouvre tout. Une CI reçoit le sien, qui n'ouvre qu'un
 dépôt, frappé sur le serveur par `testhunch token create <dépôt>`
 ([ADR 0022](../docs/adr/0022-a-token-opens-one-repository.md)).
+
+## Les métriques et les alertes
+
+Prometheus tourne sur la machine et récupère l'API toutes les trente secondes
+([ADR 0027](../docs/adr/0027-the-objective-is-what-shadow-mode-would-have-missed.md)). Pour le
+regarder, ramenez son port comme celui de l'API :
+
+```bash
+aws ssm start-session --region eu-west-3 --target "$(terraform output -raw instance_id)" \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["9090"],"localPortNumber":["9090"]}'
+```
+
+`/metrics` n'est pas public : Caddy ne le relaie pas, et l'API le refuse à tout ce qui n'est pas le
+jeton de l'exploitant. Il nomme tous les dépôts que le service connaît.
+
+**L'objectif de niveau de service, c'est le taux de tests manqués en mode fantôme** : sur les runs
+passés au rouge, combien un budget de la moitié du temps de tests aurait quand même attrapés.
+L'alerte se déclenche au-delà d'un run rouge manqué sur dix, tenu une heure, et refuse de diviser
+par moins de vingt runs rouges. Les autres alertes sont ordinaires : API muette, base injoignable,
+disque de données à moins de 15 % libre.
+
+Les alertes partent par SNS, signées par le rôle de l'instance, donc aucun mot de passe SMTP ne
+traîne sur la machine. Elles utilisent la même adresse que l'alerte de facturation ci-dessous, et
+**AWS envoie un lien de confirmation qu'il faut cliquer** : tant qu'il ne l'est pas, rien n'arrive.
 
 ## L'alerte de facturation
 
@@ -98,7 +123,9 @@ facturer. C'est le signal qui compte quand on paie avec du crédit.
 ## Ce que ça coûte
 
 Environ 20 dollars par mois : à peu près 16 pour l'instance `t3.small`, 2 pour son disque et 2 pour
-le disque de données, le bucket restant dans les centimes.
+le disque de données, le bucket restant dans les centimes. Prometheus, Alertmanager et
+node-exporter tournent sur la même machine et ne coûtent rien de plus, sinon environ 300 Mo de
+mémoire ; SNS reste gratuit à ce volume.
 
 ## Détruire la pile
 

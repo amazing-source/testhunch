@@ -68,6 +68,29 @@ variable "caddy_image" {
   default     = "caddy:2-alpine"
 }
 
+variable "prometheus_image" {
+  type    = string
+  default = "prom/prometheus:v3.14.0"
+}
+
+variable "alertmanager_image" {
+  description = "Used only when alert_email is set: without an address there is nobody to tell."
+  type        = string
+  default     = "prom/alertmanager:v0.34.0"
+}
+
+variable "node_exporter_image" {
+  description = "The machine itself: what Prometheus cannot see from inside a container."
+  type        = string
+  default     = "prom/node-exporter:v1.12.1"
+}
+
+variable "metrics_retention" {
+  description = "How long Prometheus keeps its samples. It shares the data disk with Postgres."
+  type        = string
+  default     = "30d"
+}
+
 variable "root_volume_gb" {
   description = "The root disk, which also holds the Postgres volume."
   type        = number

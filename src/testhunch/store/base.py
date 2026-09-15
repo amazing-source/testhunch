@@ -408,6 +408,11 @@ class SqlStore(ABC):
 
     # -- reads ----------------------------------------------------------------------------
 
+    def repos(self) -> list[str]:
+        """Every repository with at least one run, in order. Used to report on all of them."""
+        with self.session(write=False) as s:
+            return [str(row[0]) for row in s.all("SELECT DISTINCT repo FROM runs ORDER BY repo")]
+
     def run_count(self, repo: str) -> int:
         with self.session(write=False) as s:
             row = s.one("SELECT COUNT(*) FROM runs WHERE repo = ?", (repo,))
