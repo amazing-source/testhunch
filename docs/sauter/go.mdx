@@ -1,11 +1,15 @@
 ---
 title: "Go"
 description: "Un motif pour `go test -skip`, et les trois conditions qui protègent les sous-tests."
+icon: "boxes"
 ---
 
 ```bash
 go test -list '.*' ./... > golist.txt
-go test ./... -skip "$(testhunch select --budget 25% --runner go --go-test-list golist.txt --base origin/main)"
+
+go test ./... -skip "$(testhunch select \
+  --budget 25% --runner go \
+  --go-test-list golist.txt --base origin/main)"
 ```
 
 `--go-test-list` prend la sortie de `go test -list '.*' ./...` sur le code à tester. testhunch en a

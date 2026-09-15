@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 176 28" role="img" aria-label="testhunch">
+  <rect x="0" y="4" width="24" height="4.5" rx="2.25" fill="#3DBFA8"/>
+  <rect x="0" y="11.75" width="16" height="4.5" rx="2.25" fill="#F2F4F3"/>
+  <rect x="0" y="19.5" width="9" height="4.5" rx="2.25" fill="#F2F4F3"/>
+  <text x="34" y="21.5" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="19" font-weight="650" letter-spacing="-0.5" fill="#F2F4F3">testhunch</text>
+</svg>

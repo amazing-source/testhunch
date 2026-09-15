@@ -1,10 +1,11 @@
 ---
 title: "Maven Surefire"
 description: "Une valeur `-Dtest` faite d'exclusions, et ce que les méthodes paramétrées imposent."
+icon: "coffee"
 ---
 
 ```bash
-mvn test "-Dtest=$(testhunch select --budget 25% --runner surefire --base origin/main)"
+mvn test "-Dtest=$(testhunch select \n  --budget 25% --runner surefire --base origin/main)"
 ```
 
 La valeur produite est une liste d'exclusions, par exemple :

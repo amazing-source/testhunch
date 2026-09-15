@@ -1,10 +1,11 @@
 ---
 title: "cargo-nextest"
 description: "Un filterset avec des correspondances exactes, et pourquoi la suite enregistrée compte."
+icon: "cog"
 ---
 
 ```bash
-cargo nextest run -E "$(testhunch select --budget 25% --runner nextest --base origin/main)"
+cargo nextest run -E "$(testhunch select \n  --budget 25% --runner nextest --base origin/main)"
 ```
 
 La sortie est un filterset, par exemple :
