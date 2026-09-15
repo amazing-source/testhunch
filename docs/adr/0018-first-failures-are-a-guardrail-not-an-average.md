@@ -108,7 +108,7 @@ The proximity signals are **continuous**: they give a non-zero value to every te
 failed. Even at weight 0.1 and applied only at cold start, that outweighs the decayed priority of a
 test that failed three builds ago, which is down to 0.006. So the ranking drowns: the best candidate
 moves the first-failure position from 0.692 to 0.633 — never reaching random — while the regime
-that works collapses from 0.123 to 0.331, and the primary measure loses 0.025 with an interval
+that works collapses from 0.124 to 0.335, and the primary measure loses 0.025 with an interval
 entirely below zero.
 
 And the reference line says something worse about us: **testhunch 0.2.0 scores 0.455 on that slice,
@@ -188,3 +188,13 @@ starts by fixing a rule.
   (Machalica et al., Table I). On this slice `token_similarity` is the strongest single signal.
   Both can hold — their model had many other features, ours has nothing when the history is silent —
   and the contradiction is published rather than quietly dropped.
+
+**Corrected after publication.** The guardrail table on the study pages first counted a job whose
+failing tests the ranking had never seen as "had failed before" — 4 262 jobs where
+`benchmarks/firstfailures.py`, which drops them, counted 4 182. Those 80 are the opposite of that
+slice, and they flattered it: an unseen test runs first (ADR 0006), so their position is near the
+top. Two pages published side by side therefore disagreed about the same slice. The engine now marks
+them as belonging to neither, the three steps were replayed, and the column moved by a thousandth or
+two, always in the direction that makes the ranking look slightly worse: the current version's
+0.123 is 0.124, and the best cold candidate's collapse, 0.331, is 0.335. No other figure on those
+pages changed, and the numbers quoted above are the corrected ones.
