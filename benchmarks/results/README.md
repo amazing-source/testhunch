@@ -1,19 +1,44 @@
 # Résultats du benchmark
 
-Mesurés le 14 septembre 2026, avec le classement de référence de testhunch 0.2.0 : affinité de nom
-avec les fichiers modifiés, récence des échecs, taux d'échec sur les 50 dernières exécutions. Aucun
-modèle appris. Chaque chiffre vient d'un rejeu où chaque exécution est classée uniquement à partir
-des exécutions terminées avant elle, avec le vrai code d'ingestion et de classement de testhunch.
+Mesurés le 15 septembre 2026 avec le classement de référence de testhunch tel que l'étude des
+heuristiques l'a retenu ([ADR 0014](../../docs/adr/0014-the-ranking-study-measures-time-to-red-against-latest-failure.md),
+[ADR 0015](../../docs/adr/0015-testhunch-ranks-by-latest-failure-per-unit-of-time.md)) : la récence
+des échecs du test comptée en builds, plus un bonus quand le changement touche son propre fichier,
+le tout divisé par sa durée habituelle. Aucun modèle appris.
+
+Les budgets sont désormais des **parts du temps de test attendu**, et non des parts du nombre de
+tests ([ADR 0017](../../docs/adr/0017-a-budget-is-a-share-of-the-test-time.md)). C'est le changement
+qui explique l'essentiel des écarts avec la campagne précédente : la colonne « rattrapés » et la
+colonne « temps » ne se lisent plus séparément.
+
+Chaque chiffre vient d'un rejeu où chaque exécution est classée uniquement à partir des exécutions
+terminées avant elle, avec le vrai code d'ingestion et de classement de testhunch. Les projets mis
+de côté n'ont été rejoués qu'une fois, et ce regard est inscrit dans
+[le registre](held-out-log.md) ([ADR 0016](../../docs/adr/0016-every-look-at-the-held-out-projects-is-recorded.md)) :
+RTPTorrent au commit `159548f`, le banc d'essai à `06e054a`, dont le code de mesure est identique.
 
 Les pages générées, en anglais, donnent le détail par projet :
 
 - [RTPTorrent](rtptorrent/README.md) : 20 projets Java, historique réel de Travis CI.
-- [Banc d'essai](harness/) : pallets/click (pytest) et spf13/cobra (Go), commit par commit et avec
-  mutants.
+- [Banc d'essai](harness/) : click et cobra (projets de développement), fastapi et ollama (mis de
+  côté), commit par commit et avec mutants.
+- [Étude des heuristiques](study/) : comment cette version a été choisie, et ce qu'elle vaut face à
+  « les tests qui ont échoué le plus récemment d'abord ».
 
-Les budgets sont ceux du mode fantôme (ADR 0006) : ne lancer que les 10 %, 25 % ou 50 % de tests
-connus les mieux classés. Les tests que le classement ne connaît pas tournent toujours, donc un peu
-plus que le budget tourne.
+## Ce qu'il faut retenir, y compris ce qui est moins bon
+
+**À budget nominal égal, testhunch dépense à peu près deux fois moins de temps de test qu'en
+0.2.0.** C'est le gain, et il est net. Mais il ne se paie pas de rien :
+
+- le **rappel par build** — le build reste-t-il rouge — s'améliore à 10 % et à 25 % du temps, et
+  **se dégrade à 50 %** : 91,8 % contre 94,1 % pour la 0.2.0 ;
+- le **rappel par test** baisse à tous les budgets. Beaucoup de tests en échec ne tournent plus, le
+  build devient rouge quand même.
+
+Autrement dit : pour attraper vite qu'un changement casse quelque chose, cette version est
+meilleure et bien moins chère. Pour savoir *tout* ce qu'un changement casse, elle est moins bonne à
+budget nominal égal. Une comparaison à temps réellement égal reste à faire ; elle demanderait un
+second regard aux projets mis de côté et n'a pas été dépensée.
 
 ## RTPTorrent : 20 projets Java, 110 126 jobs Travis CI
 
@@ -23,11 +48,13 @@ CC-BY-4.0). Chaque fichier lu est vérifié par son CRC-32 et listé dans le JSO
 résultats sont **par classe de test**, sans relances, et les jobs ont été rejoués dans l'ordre de
 leurs identifiants.
 
-| Budget | Jobs en échec rattrapés (médiane des projets) | Classes en échec lancées (médiane) | Temps de test lancé (médiane) |
+Médianes des 20 projets, la 0.2.0 entre parenthèses :
+
+| Budget | Jobs en échec rattrapés | Classes en échec lancées | Temps de test lancé |
 |---:|---:|---:|---:|
-| 10 % | 78 % (le pire projet : 60 %) | 59 % | 22 % (le pire : 62 %) |
-| 25 % | 87 % (le pire : 73 %) | 75 % | 44 % (le pire : 67 %) |
-| 50 % | 94 % (le pire : 82 %) | 91 % | 69 % (le pire : 85 %) |
+| 10 % | **80,8 %** (78,3 %) — pire : 47,7 % | 55,4 % (59,5 %) | **10,4 %** (21,7 %) — pire : 51,1 % |
+| 25 % | **90,4 %** (86,9 %) — pire : 61,7 % | 71,4 % (75,2 %) | **23,6 %** (43,6 %) — pire : 72,8 % |
+| 50 % | 91,8 % (**94,1 %**) — pire : 78,7 % | 86,9 % (90,6 %) | **48,5 %** (69,1 %) — pire : 80,9 % |
 
 Un job est rattrapé quand au moins une de ses classes en échec tourne : le build reste rouge
 (rappel par changement). Les classes en échec lancées sont le rappel par test. Le temps lancé est la
@@ -36,89 +63,85 @@ part de la durée des classes qui aurait tourné ; le reste est le temps économ
 **Comme ordre d'exécution** (APFD, la mesure du papier RTPTorrent, calculée sur les 6 189 jobs en
 échec que couvrent les ordres des auteurs du jeu de données) :
 
-| Ordre | APFD moyen |
-|---|---:|
-| optimal (connu après coup, borne haute) | 0,926 |
-| **recently-failed** (les tests qui ont échoué récemment d'abord) | **0,847** |
-| **testhunch** | **0,832** |
-| matrice fichiers × tests, naïve | 0,625 |
-| matrice fichiers × tests, probabilité conditionnelle | 0,527 |
-| aléatoire | 0,499 |
-| ordre d'origine | 0,314 |
+| Ordre | APFD moyen | en 0.2.0 |
+|---|---:|---:|
+| optimal (connu après coup, borne haute) | 0,926 | 0,926 |
+| **recently-failed** (les tests qui ont échoué récemment d'abord) | **0,847** | 0,847 |
+| **testhunch** | **0,845** | 0,832 |
+| matrice fichiers × tests, naïve | 0,625 | 0,625 |
+| matrice fichiers × tests, probabilité conditionnelle | 0,527 | 0,527 |
+| aléatoire | 0,499 | 0,499 |
+| ordre d'origine | 0,314 | 0,314 |
+
+L'écart avec recently-failed passe de −0,015 à −0,002, et testhunch la devance maintenant sur
+**13 projets sur 20**, contre 10 en 0.2.0. L'APFD ignore la durée des tests par construction : il ne
+voit donc rien du gain principal de cette version, qui est du temps. C'est la raison pour laquelle
+l'étude a pris l'APFDc comme mesure principale (ADR 0014).
 
 ### Là où testhunch s'en sort mal
 
-- **Recently-failed fait mieux au total** et devance testhunch sur 10 des 20 projets. testhunch
-  fait mieux que l'ordre d'origine et l'aléatoire sur les 20 projets, et que les deux matrices des
-  auteurs sur 19 et 20 projets.
-- **Le rappel par test est faible sur plusieurs projets** : à 10 %, 32 % des classes en échec
-  tournent sur LittleProxy et HikariCP, 19 à 20 % sur jade4j, dynjs, DSpace et wicket-bootstrap.
-  Le build reste souvent rouge quand même, parce qu'une seule classe en échec suffit.
-- **SonarQube** : à 10 %, 62 % du temps de test tourne encore. La fenêtre d'historique compte les
-  50 dernières exécutions, et non les 50 derniers builds. Or SonarQube lance beaucoup de jobs par
-  build : beaucoup de classes restent inconnues et tournent toujours. De plus, 32 321 de ses 53 307
-  jobs n'ont aucun commit associé dans le jeu de données, donc aucun fichier modifié connu.
+- **Deux projets dépensent beaucoup plus que leur budget.** jade4j lance 29,6 % de ses classes mais
+  **51,1 % de son temps** à un budget de 10 %, SonarQube 8,3 % des classes pour 40,7 % du temps. Le
+  budget ne gouverne que le temps des classes que testhunch connaît ; celles qu'il n'a jamais vues
+  tournent toujours (ADR 0006, 0007), et sur ces deux projets elles sont nombreuses et lentes. Aucun
+  classement n'y peut rien : l'étude mesure que même le meilleur ordre possible, connu après coup,
+  a besoin de 49 % du temps pour rattraper 90 % des builds cassés.
+- **optiq et LittleProxy perdent du rappel par build** : 68,5 % contre 79,2 %, et 63,6 % contre
+  76,6 %, à 25 %. Ce sont deux des plus petits échantillons (130 et 77 jobs en échec), mais ce sont
+  les pires cas et ils s'affichent.
+- **À 50 % du temps, la 0.2.0 rattrapait plus de builds.** Un budget de 50 % du temps lance moins de
+  tests qu'un budget de 50 % des tests : c'est le prix de contrôler le coût réel.
+- **Le rappel par test reste faible sur plusieurs projets** : à 10 %, 20,3 % des classes en échec
+  tournent sur le pire projet. Le build reste souvent rouge quand même, parce qu'une seule classe en
+  échec suffit.
 
 ### Limites
 
 - Des classes Java, des builds Travis CI que le papier date « de 2007 à 2016 », sans relances : un
   échec instable ne se distingue pas d'un vrai échec.
-- Le JSON de SonarQube indique `"commit": null`, car `git rev-parse` a échoué à la fin de ce rejeu
-  de 53 minutes, pendant que la machine manquait de mémoire. Les 20 projets ont été lancés par le
-  même script, depuis un worktree détaché au commit `bc417f1`, dont le journal affiche ce commit au
-  démarrage. Les 19 autres JSON l'enregistrent.
+- SonarQube reste le projet le plus lourd du lot : 53 307 jobs, dont 32 321 sans aucun commit
+  associé dans le jeu de données, donc sans fichier modifié connu.
+- Les 10 projets de développement ont été rejoués au commit `06e054a`, les 10 projets mis de côté à
+  `159548f`. Le code de mesure est identique entre les deux ; seul le garde-fou du registre a changé
+  entre-temps, et la différence est vérifiable dans l'historique git.
 
-## Banc d'essai : click et cobra, commit par commit
+## Banc d'essai : quatre projets, commit par commit
 
 Méthode : [ADR 0011](../../docs/adr/0011-harness-replays-real-projects-in-pinned-containers.md) et
 [ADR 0012](../../docs/adr/0012-mutants-seed-faults-in-the-lines-a-commit-changed.md). Les 200
-derniers commits de premier parent de [pallets/click](https://github.com/pallets/click) (pytest,
-jusqu'à `6aabf099`) et de [spf13/cobra](https://github.com/spf13/cobra) (Go, jusqu'à `adbc8813`)
-ont chacun lancé leur suite complète dans un conteneur. Les résultats sont **par test**, relancés
-une fois en cas d'échec. Les 400 commits se sont tous construits.
-
-### Historique réel
-
-| Projet | Commits évalués | Commits en échec confirmé | Rattrapés à 10 / 25 / 50 % | Tests lancés à 10 / 25 / 50 % |
-|---|---:|---:|---:|---:|
-| pallets/click | 199 | 1 | 0 / 0 / 0 | 11 % / 26 % / 51 % |
-| spf13/cobra | 199 | 0 | – | 10 % / 25 % / 50 % |
-
-Le seul échec confirmé est une vraie régression publiée sur la branche principale de click :
-[`6c4a77b`](https://github.com/pallets/click/commit/6c4a77ba24854dab793a8ff72110a0a24c403c9f),
-« Use `default=True` as a sentinel for non-boolean flags », modifie `src/click/core.py`. Il casse
-4 tests de `tests/test_options.py` et `tests/test_termui.py`, et a été annulé le jour même.
-**testhunch le manque à tous les budgets** : aucun de ces tests n'avait échoué avant, et leur nom
-ne rappelle pas `core`. Sur les 11 autres commits de click dont la suite a échoué, les tests
-`test_echo_via_pager` ont échoué une fois puis réussi à la relance : ils comptent comme instables,
-pas comme des échecs à rattraper.
+derniers commits de premier parent de chaque projet ont lancé leur suite complète dans un conteneur.
+Les résultats sont **par test**, relancés une fois en cas d'échec. click et cobra servent au
+développement, fastapi et ollama sont mis de côté ([ADR 0013](../../docs/adr/0013-development-projects-tune-held-out-projects-measure.md)).
 
 ### Mutants dans les lignes changées par chaque commit
 
-| Projet | Mutants essayés | Détectés par un test | Mutants rattrapés à 10 / 25 / 50 % | Tests détecteurs lancés à 10 / 25 / 50 % | Temps de test lancé à 10 / 25 / 50 % |
-|---|---:|---:|---:|---:|---:|
-| pallets/click | 132 | 90 | 84 % / 92 % / 97 % | 17 % / 34 % / 64 % | 11 % / 23 % / 46 % |
-| spf13/cobra | 111 | 62 | 68 % / 84 % / 92 % | 18 % / 31 % / 66 % | voir plus bas |
+Mutants rattrapés, et part du temps de test dépensée ; la 0.2.0 entre parenthèses là où elle a été
+mesurée :
 
-Sur click, 41 mutants n'ont été détectés par aucun test et 1 n'a produit aucun rapport. Sur cobra,
-26 n'ont pas été détectés et 23 ne compilaient pas. Aucun de ces mutants n'entre dans les
-pourcentages.
+| Projet | Mutants détectés | 10 % | 25 % | 50 % |
+|---|---:|---:|---:|---:|
+| pallets/click | 90 | 81 (76) — 7 % du temps | 86 (83) — 17 % | 86 (87) — 37 % |
+| spf13/cobra | 62 | 38 (42) — 24 % | 44 (52) — 24 % | 53 (57) — 24 % |
+| fastapi/fastapi *(mis de côté)* | 22 | 18 — 10 % | 20 — 26 % | 22 — 52 % |
+| ollama/ollama *(mis de côté)* | 158 | 145 — 1 % | **157 — 11 %** | 158 — 40 % |
+
+- **ollama est le meilleur cas du benchmark** : 157 mutants sur 158 rattrapés pour 11 % du temps de
+  test. Ses tests utiles sont rapides, et le classement les met devant.
+- **Les 3 vraies régressions d'ollama sont rattrapées dès 10 %**, avec leurs 7 tests cassés, pour un
+  temps arrondi à 0 %. C'est le contraire du seul vrai échec de click, un commit annulé le jour même,
+  que testhunch manque toujours à tous les budgets : aucun des tests cassés n'avait échoué avant.
+- **cobra est le pire cas, et il se dégrade** : 53 mutants sur 62 à 50 %, contre 57 en 0.2.0. Sa
+  durée n'est pas mesurable — `go test` écrit la durée de chaque test au centième de seconde et
+  presque toutes valent 0 — donc le budget de temps y perd son sens et se comporte comme un budget
+  de nombre de tests, sans le contrôler pour autant (sa part de temps reste bloquée à 24 %). Un
+  lanceur qui ne rapporte pas de durée utilisable devrait passer `--budget-unit tests`.
 
 ### Limites
 
-- Deux projets, pas un échantillon : ils ont été choisis avant de voir un résultat, pour les
-  raisons de l'ADR 0011.
+- Quatre projets, pas un échantillon. Les deux projets de développement ont été choisis avant de
+  voir un résultat, les deux projets mis de côté par une règle publiée à l'avance (ADR 0013).
 - Un mutant d'un seul jeton, dans un fichier dont le nom ressemble à celui de ses tests, favorise
-  l'affinité de nom de testhunch. La seule vraie régression, elle, est manquée.
-- **Le temps de cobra n'est pas mesurable** : `go test` écrit la durée de chaque test au centième
-  de seconde (`%.2fs`), et presque tous valent 0. Les quelques tests qui ont une durée font donc
-  basculer la part du temps d'un coup : sur l'historique réel, 3 % du temps à 10 % et à 25 %, puis
-  99 % à 50 %.
-- Les images ont été reconstruites à chaque reprise de la collecte, qu'une panne réseau et deux
-  manques de mémoire ont interrompue. Ce sont les mêmes Dockerfiles, avec une image de base
-  épinglée par digest et gotestsum épinglé par version. Chaque JSON liste les ID d'images
-  utilisés. Dans les images encore présentes : `less` 668-1, Python 3.12.14 et uv 0.12.13 pour
-  click ; Go 1.27.1 et gotestsum 1.13.0 pour cobra.
-- Les runs ont été collectés avec le banc d'essai de `6094bec`, puis de `a4a2b88`, qui ajoute
-  seulement une nouvelle tentative quand l'installation échoue (aucun des runs gardés n'en a eu
-  besoin). L'évaluation a été faite à `a4a2b88`.
+  testhunch. Les vraies régressions, elles, sont deux cas : trois rattrapées sur ollama, une
+  manquée sur click.
+- Les images ont été reconstruites à chaque reprise de la collecte. Ce sont les mêmes Dockerfiles,
+  avec une image de base épinglée par digest. Chaque JSON liste les ID d'images utilisés.

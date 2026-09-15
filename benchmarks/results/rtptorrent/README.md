@@ -8,27 +8,27 @@ Per change: failing jobs still caught, where a job is caught when at least one o
 
 | Project | Jobs | Failing | Failing jobs caught at 10% / 25% / 50% | Failing classes caught at 10% / 25% / 50% | Test time run at 10% / 25% / 50% |
 |---|---:|---:|---:|---:|---:|
-| adamfisk@LittleProxy | 580 | 77 | 60% / 77% / 90% | 32% / 55% / 87% | 17% / 34% / 70% |
-| apache@sling | 1502 | 846 | 92% / 94% / 97% | 93% / 95% / 97% | 25% / 44% / 62% |
-| brettwooldridge@HikariCP | 1659 | 94 | 65% / 73% / 89% | 32% / 48% / 72% | 22% / 34% / 70% |
-| CloudifySource@cloudify | 5205 | 563 | 94% / 95% / 96% | 85% / 90% / 94% | 16% / 26% / 40% |
-| deeplearning4j@deeplearning4j | 1037 | 585 | 85% / 96% / 98% | 75% / 90% / 96% | 23% / 47% / 80% |
-| doanduyhai@Achilles | 995 | 68 | 72% / 79% / 87% | 47% / 61% / 75% | 19% / 26% / 29% |
-| DSpace@DSpace | 3332 | 217 | 67% / 80% / 88% | 20% / 50% / 93% | 21% / 43% / 69% |
-| dynjs@dynjs | 1018 | 55 | 76% / 87% / 96% | 20% / 37% / 63% | 28% / 56% / 67% |
-| eclipse@jetty.project | 381 | 316 | 89% / 90% / 94% | 85% / 86% / 93% | 21% / 33% / 72% |
-| facebook@buck | 1146 | 477 | 94% / 95% / 96% | 95% / 97% / 98% | 21% / 34% / 59% |
-| Graylog2@graylog2-server | 10621 | 190 | 95% / 98% / 98% | 92% / 97% / 99% | 15% / 37% / 61% |
-| jcabi@jcabi-github | 3240 | 429 | 71% / 74% / 94% | 57% / 65% / 84% | 8% / 24% / 53% |
-| jOOQ@jOOQ | 3242 | 534 | 90% / 93% / 95% | 88% / 91% / 94% | 34% / 64% / 83% |
-| jsprit@jsprit | 1085 | 59 | 85% / 86% / 93% | 64% / 76% / 91% | 30% / 51% / 66% |
-| julianhyde@optiq | 1806 | 130 | 61% / 79% / 82% | 51% / 74% / 77% | 22% / 61% / 85% |
-| l0rdn1kk0n@wicket-bootstrap | 1109 | 414 | 97% / 97% / 98% | 20% / 47% / 93% | 9% / 26% / 45% |
-| neuland@jade4j | 931 | 96 | 80% / 89% / 98% | 19% / 42% / 74% | 23% / 46% / 80% |
-| SonarSource@sonarqube | 53305 | 3131 | 73% / 77% / 85% | 70% / 77% / 82% | 62% / 67% / 75% |
-| square@okhttp | 9771 | 1946 | 67% / 78% / 88% | 58% / 71% / 85% | 27% / 54% / 69% |
-| thinkaurelius@titan | 1074 | 280 | 73% / 85% / 92% | 61% / 78% / 90% | 22% / 44% / 80% |
-| **All projects** | 103039 | 10507 | 79% / 84% / 91% | 50% / 66% / 88% | 37% / 52% / 70% |
+| adamfisk@LittleProxy | 580 | 77 | 48% / 64% / 79% | 20% / 35% / 58% | 11% / 24% / 38% |
+| apache@sling | 1502 | 846 | 87% / 95% / 98% | 71% / 90% / 98% | 6% / 22% / 49% |
+| brettwooldridge@HikariCP | 1659 | 94 | 55% / 62% / 79% | 40% / 52% / 69% | 7% / 19% / 43% |
+| CloudifySource@cloudify | 5205 | 563 | 87% / 93% / 97% | 73% / 83% / 92% | 14% / 20% / 47% |
+| deeplearning4j@deeplearning4j | 1037 | 585 | 90% / 95% / 96% | 74% / 79% / 87% | 15% / 21% / 31% |
+| doanduyhai@Achilles | 995 | 68 | 74% / 90% / 91% | 47% / 74% / 89% | 9% / 22% / 45% |
+| DSpace@DSpace | 3332 | 217 | 69% / 78% / 91% | 33% / 63% / 85% | 11% / 26% / 52% |
+| dynjs@dynjs | 1018 | 55 | 78% / 78% / 84% | 56% / 68% / 84% | 8% / 17% / 31% |
+| eclipse@jetty.project | 381 | 316 | 83% / 94% / 98% | 76% / 87% / 94% | 11% / 25% / 52% |
+| facebook@buck | 1146 | 477 | 93% / 95% / 99% | 86% / 96% / 99% | 9% / 25% / 51% |
+| Graylog2@graylog2-server | 10621 | 190 | 97% / 97% / 99% | 97% / 97% / 97% | 15% / 34% / 58% |
+| jcabi@jcabi-github | 3240 | 429 | 77% / 85% / 92% | 63% / 75% / 87% | 11% / 29% / 55% |
+| jOOQ@jOOQ | 3242 | 534 | 86% / 91% / 94% | 81% / 86% / 90% | 15% / 25% / 48% |
+| jsprit@jsprit | 1085 | 59 | 85% / 92% / 92% | 52% / 55% / 87% | 9% / 22% / 43% |
+| julianhyde@optiq | 1806 | 130 | 48% / 68% / 80% | 43% / 60% / 80% | 10% / 17% / 41% |
+| l0rdn1kk0n@wicket-bootstrap | 1109 | 414 | 97% / 98% / 98% | 39% / 62% / 83% | 10% / 26% / 49% |
+| neuland@jade4j | 931 | 96 | 91% / 96% / 96% | 79% / 84% / 88% | 51% / 73% / 81% |
+| SonarSource@sonarqube | 53305 | 3131 | 78% / 83% / 89% | 55% / 68% / 80% | 41% / 48% / 60% |
+| square@okhttp | 9771 | 1946 | 52% / 67% / 80% | 41% / 57% / 72% | 8% / 20% / 43% |
+| thinkaurelius@titan | 1074 | 280 | 56% / 82% / 91% | 42% / 61% / 83% | 8% / 24% / 50% |
+| **All projects** | 103039 | 10507 | 76% / 84% / 91% | 52% / 69% / 84% | 24% / 36% / 55% |
 
 ## Mean APFD against the dataset authors' schedules
 
@@ -36,30 +36,30 @@ On the failing jobs their schedules cover, the same jobs for every schedule of a
 
 | Project | Jobs | testhunch | untreated | random | recently-failed | matrix-naive | matrix-conditional-prob | optimal-failure |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| adamfisk@LittleProxy | 62 | 0.666 | 0.461 | 0.473 | 0.705 | 0.664 | 0.648 | 0.910 |
-| apache@sling | 812 | 0.942 | 0.009 | 0.503 | 0.964 | 0.365 | 0.263 | 0.996 |
-| brettwooldridge@HikariCP | 125 | 0.765 | 0.611 | 0.477 | 0.710 | 0.664 | 0.640 | 0.902 |
-| CloudifySource@cloudify | 496 | 0.870 | 0.214 | 0.500 | 0.918 | 0.762 | 0.712 | 0.979 |
-| deeplearning4j@deeplearning4j | 566 | 0.854 | 0.496 | 0.490 | 0.862 | 0.768 | 0.657 | 0.925 |
-| doanduyhai@Achilles | 25 | 0.828 | 0.268 | 0.527 | 0.576 | 0.480 | 0.300 | 0.982 |
-| DSpace@DSpace | 82 | 0.714 | 0.393 | 0.517 | 0.714 | 0.562 | 0.482 | 0.822 |
-| dynjs@dynjs | 41 | 0.827 | 0.400 | 0.515 | 0.653 | 0.565 | 0.511 | 0.911 |
-| eclipse@jetty.project | 325 | 0.922 | 0.181 | 0.496 | 0.861 | 0.380 | 0.265 | 0.995 |
-| facebook@buck | 341 | 0.940 | 0.485 | 0.492 | 0.964 | 0.748 | 0.570 | 0.987 |
-| Graylog2@graylog2-server | 247 | 0.836 | 0.477 | 0.513 | 0.813 | 0.731 | 0.640 | 0.868 |
-| jcabi@jcabi-github | 337 | 0.671 | 0.294 | 0.507 | 0.719 | 0.472 | 0.460 | 0.849 |
-| jOOQ@jOOQ | 523 | 0.844 | 0.242 | 0.509 | 0.922 | 0.690 | 0.544 | 0.979 |
-| jsprit@jsprit | 51 | 0.845 | 0.473 | 0.539 | 0.624 | 0.610 | 0.521 | 0.986 |
-| julianhyde@optiq | 68 | 0.767 | 0.188 | 0.532 | 0.723 | 0.458 | 0.262 | 0.866 |
-| l0rdn1kk0n@wicket-bootstrap | 342 | 0.649 | 0.331 | 0.492 | 0.635 | 0.572 | 0.488 | 0.674 |
-| neuland@jade4j | 96 | 0.671 | 0.516 | 0.515 | 0.752 | 0.705 | 0.613 | 0.822 |
-| SonarSource@sonarqube | 618 | 0.773 | 0.284 | 0.495 | 0.753 | 0.621 | 0.529 | 0.859 |
-| square@okhttp | 778 | 0.837 | 0.490 | 0.494 | 0.917 | 0.833 | 0.729 | 0.958 |
-| thinkaurelius@titan | 254 | 0.856 | 0.258 | 0.493 | 0.785 | 0.459 | 0.362 | 0.970 |
-| **All jobs** | 6189 | 0.832 | 0.314 | 0.499 | 0.847 | 0.625 | 0.527 | 0.926 |
+| adamfisk@LittleProxy | 62 | 0.661 | 0.461 | 0.473 | 0.705 | 0.664 | 0.648 | 0.910 |
+| apache@sling | 812 | 0.973 | 0.009 | 0.503 | 0.964 | 0.365 | 0.263 | 0.996 |
+| brettwooldridge@HikariCP | 125 | 0.741 | 0.611 | 0.477 | 0.710 | 0.664 | 0.640 | 0.902 |
+| CloudifySource@cloudify | 496 | 0.891 | 0.214 | 0.500 | 0.918 | 0.762 | 0.712 | 0.979 |
+| deeplearning4j@deeplearning4j | 566 | 0.871 | 0.496 | 0.490 | 0.862 | 0.768 | 0.657 | 0.925 |
+| doanduyhai@Achilles | 25 | 0.794 | 0.268 | 0.527 | 0.576 | 0.480 | 0.300 | 0.982 |
+| DSpace@DSpace | 82 | 0.745 | 0.393 | 0.517 | 0.714 | 0.562 | 0.482 | 0.822 |
+| dynjs@dynjs | 41 | 0.738 | 0.400 | 0.515 | 0.653 | 0.565 | 0.511 | 0.911 |
+| eclipse@jetty.project | 325 | 0.900 | 0.181 | 0.496 | 0.861 | 0.380 | 0.265 | 0.995 |
+| facebook@buck | 341 | 0.936 | 0.485 | 0.492 | 0.964 | 0.748 | 0.570 | 0.987 |
+| Graylog2@graylog2-server | 247 | 0.831 | 0.477 | 0.513 | 0.813 | 0.731 | 0.640 | 0.868 |
+| jcabi@jcabi-github | 337 | 0.676 | 0.294 | 0.507 | 0.719 | 0.472 | 0.460 | 0.849 |
+| jOOQ@jOOQ | 523 | 0.852 | 0.242 | 0.509 | 0.922 | 0.690 | 0.544 | 0.979 |
+| jsprit@jsprit | 51 | 0.843 | 0.473 | 0.539 | 0.624 | 0.610 | 0.521 | 0.986 |
+| julianhyde@optiq | 68 | 0.771 | 0.188 | 0.532 | 0.723 | 0.458 | 0.262 | 0.866 |
+| l0rdn1kk0n@wicket-bootstrap | 342 | 0.652 | 0.331 | 0.492 | 0.635 | 0.572 | 0.488 | 0.674 |
+| neuland@jade4j | 96 | 0.713 | 0.516 | 0.515 | 0.752 | 0.705 | 0.613 | 0.822 |
+| SonarSource@sonarqube | 618 | 0.801 | 0.284 | 0.495 | 0.753 | 0.621 | 0.529 | 0.859 |
+| square@okhttp | 778 | 0.871 | 0.490 | 0.494 | 0.917 | 0.833 | 0.729 | 0.958 |
+| thinkaurelius@titan | 254 | 0.829 | 0.258 | 0.493 | 0.785 | 0.459 | 0.362 | 0.970 |
+| **All jobs** | 6189 | 0.845 | 0.314 | 0.499 | 0.847 | 0.625 | 0.527 | 0.926 |
 
 - testhunch is ahead of untreated on 20 of 20 projects.
 - testhunch is ahead of random on 20 of 20 projects.
-- testhunch is ahead of recently-failed on 10 of 20 projects.
+- testhunch is ahead of recently-failed on 13 of 20 projects.
 - testhunch is ahead of matrix-naive on 19 of 20 projects.
 - testhunch is ahead of matrix-conditional-prob on 20 of 20 projects.

@@ -80,9 +80,7 @@ Le classement a été rejoué sur de vrais historiques de CI : chaque exécution
 par projet, y compris ceux où testhunch s'en sort mal, sont dans
 [benchmarks/results](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md).
 
-Deux campagnes, avec deux classements différents : lisez bien lequel est mesuré.
-
-### Le classement actuel, face à « les tests qui ont échoué récemment d'abord »
+### Face à « les tests qui ont échoué récemment d'abord »
 
 Le vrai risque de ce projet était que testhunch n'apporte rien de plus que cette stratégie très
 simple. Une étude par ajouts successifs l'a mesuré ([ADR 0014](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0014-the-ranking-study-measures-time-to-red-against-latest-failure.md)) :
@@ -106,27 +104,43 @@ Face à « échoué récemment », l'écart est de **+0,028** (intervalle de con
 Sur le banc d'essai mis de côté, le classement actuel obtient 0,980 contre 0,937 sur les 158 mutants
 d'ollama/ollama, et fait jeu égal sur les 22 mutants de fastapi/fastapi.
 
-### Les budgets, mesurés avec le classement de la 0.2.0
+Comme **ordre d'exécution** mesuré par l'APFD, la mesure du papier RTPTorrent, qui ignore la durée
+des tests par construction : 0,845 contre 0,847 pour « échoué récemment », et devant elle sur 13
+projets sur 20 (contre 0,832 et 10 projets sur 20 pour la 0.2.0). L'APFD ne voit rien du gain
+principal de cette version, qui est du temps ; c'est pourquoi l'étude a pris l'APFDc comme mesure.
 
-Ces chiffres-là datent de la phase 3 et n'ont **pas encore été refaits** avec le classement actuel ;
-c'est la prochaine étape de la [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md).
+### Ce qu'un budget rattrape, et ce qu'il coûte
 
 **RTPTorrent**, 20 projets Java et 110 126 jobs Travis CI réels, résultats par classe de test. En ne
-lançant que 25 % des classes connues (les inconnues tournent toujours), le projet médian :
+dépensant que 25 % du temps de test attendu sur les classes connues (les inconnues tournent
+toujours), le projet médian garde rouges **90 %** de ses jobs en échec, pour **24 %** de son temps de
+test. La 0.2.0, elle, gardait rouges 87 % des jobs pour 44 % du temps.
 
-- garde rouges **87 %** de ses jobs en échec (73 % pour le pire projet) ;
-- lance **75 %** de ses classes en échec ;
-- pour **44 %** de son temps de test (67 % pour le pire).
+| Budget | Jobs en échec rattrapés | Temps de test lancé | en 0.2.0 |
+|---:|---:|---:|---:|
+| 10 % | 81 % (pire : 48 %) | 10 % | 78 % pour 22 % |
+| 25 % | **90 %** (pire : 62 %) | **24 %** | 87 % pour 44 % |
+| 50 % | 92 % (pire : 79 %) | 49 % | **94 %** pour 69 % |
 
-**Banc d'essai**, 200 commits de pallets/click (pytest) et 200 de spf13/cobra (Go), résultats par
-test :
+À budget nominal égal, testhunch dépense donc à peu près **deux fois moins de temps de test** qu'en
+0.2.0. Mais le gain ne se paie pas de rien, et voici les deux mauvaises nouvelles :
 
-- Des mutants d'un seul jeton ont été glissés dans les lignes que chaque commit a changées. À 25 %
-  des tests, la 0.2.0 rattrape **92 %** des mutants détectés sur click (pour 23 % du temps de test)
-  et **84 %** sur cobra.
-- La seule vraie régression de ces historiques, un commit de click annulé le jour même, est
-  **manquée à tous les budgets** : les tests cassés n'avaient jamais échoué, et leur nom ne
-  ressemble pas au fichier modifié.
+- **à 50 %, la 0.2.0 rattrapait plus de builds** (94 % contre 92 %) : un budget de 50 % du temps
+  lance moins de tests qu'un budget de 50 % des tests ;
+- **le rappel par test baisse à tous les budgets** : moins de tests en échec tournent, le build
+  devient rouge quand même. Pour savoir *vite* qu'un changement casse quelque chose, cette version
+  est meilleure et bien moins chère ; pour savoir *tout* ce qu'il casse, elle est moins bonne.
+
+**Banc d'essai**, 200 commits chacun de quatre projets, résultats par test. Des mutants d'un seul
+jeton ont été glissés dans les lignes que chaque commit a changées :
+
+- **ollama/ollama** est le meilleur cas : **157 mutants sur 158** rattrapés pour **11 %** du temps de
+  test. Ses 3 vraies régressions sont rattrapées dès 10 %, avec leurs 7 tests cassés.
+- **click** rattrape 86 mutants sur 90 pour 17 % du temps. Mais sa seule vraie régression, un commit
+  annulé le jour même, est **manquée à tous les budgets** : les tests cassés n'avaient jamais échoué.
+- **cobra est le pire cas et il se dégrade** : 53 mutants sur 62 à 50 %, contre 57 en 0.2.0. `go test`
+  écrit les durées au centième de seconde et presque toutes valent 0 : le budget de temps y perd son
+  sens. Un lanceur sans durée utilisable devrait passer `--budget-unit tests`.
 
 ## Démarrage rapide
 

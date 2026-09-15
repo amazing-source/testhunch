@@ -4,16 +4,16 @@
 
 | Budget | Failing jobs caught | Failing classes caught | Classes run | Test time run |
 |---:|---:|---:|---:|---:|
-| 10% | 2281 of 3131 | 7575 of 10766 | 2295767 of 17089930 | 62% |
-| 25% | 2418 of 3131 | 8298 of 10766 | 4801899 of 17089930 | 67% |
-| 50% | 2660 of 3131 | 8816 of 10766 | 9677953 of 17089930 | 75% |
+| 10% | 2452 of 3131 | 5908 of 10766 | 1412819 of 17089930 | 41% |
+| 25% | 2601 of 3131 | 7345 of 10766 | 4931600 of 17089930 | 48% |
+| 50% | 2792 of 3131 | 8637 of 10766 | 10327447 of 17089930 | 60% |
 
 Mean APFD on the 618 jobs the authors' schedules cover:
 
 | Schedule | Mean APFD |
 |---|---:|
 | optimal-failure | 0.859 |
-| testhunch | 0.773 |
+| testhunch | 0.801 |
 | recently-failed | 0.753 |
 | matrix-naive | 0.621 |
 | matrix-conditional-prob | 0.529 |

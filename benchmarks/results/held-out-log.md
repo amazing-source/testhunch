@@ -16,3 +16,5 @@ The three rows above were entered by hand from git history, when the ledger was 
 (docs/adr/0016); every row after them is written by the command that made the run. The first is the
 Phase 3 benchmark, run before ADR 0013 split the projects at all: it is listed because its numbers
 are public and cannot be unseen, not because it broke a rule that did not yet exist.
+| 2026-09-14 | `159548f89499` | 0.2.0 | `benchmarks.rtptorrent` | the product's ranking | adamfisk@LittleProxy, apache@sling, CloudifySource@cloudify, DSpace@DSpace, jcabi@jcabi-github, jsprit@jsprit, julianhyde@optiq, l0rdn1kk0n@wicket-bootstrap, neuland@jade4j, SonarSource@sonarqube |
+| 2026-09-15 | `06e054a4d92c` | 0.2.0 | `benchmarks.harness evaluate` | the product's ranking | fastapi/fastapi, ollama/ollama |
