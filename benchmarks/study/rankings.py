@@ -120,6 +120,10 @@ class Candidate:
     # they speak where the history says nothing, and leave the rest of the ranking untouched
     # (docs/adr/0018). `weights` above are added to every test, as the study's steps did.
     cold_weights: tuple[tuple[str, float], ...] = ()
+    # The time exponent to use on a test whose failure priority is 0; None keeps `time_exponent`.
+    # 0.0 means the score is not divided by the duration at all there: dividing by a cost only
+    # arbitrates between tests whose risk is estimated, and there is none to estimate (ADR 0018).
+    cold_time_exponent: float | None = None
 
     def __post_init__(self) -> None:
         both = (*self.weights, *self.cold_weights)
@@ -148,16 +152,20 @@ class Candidate:
 
         def key(test: str) -> tuple[float, float, int, float, bytes]:
             record = records[test]
-            score = record.priority_at(now)
-            if not score:
-                # Nothing in the history: the cold-start signals are all this test has.
+            score = priority = record.priority_at(now)
+            exponent = self.time_exponent
+            if not priority:
+                # Nothing in the history: the cold-start signals are all this test has, and the
+                # cost may weigh differently when there is no risk estimate to weigh it against.
                 for name, weight in self.cold_weights:
                     score += weight * signals[name](test)
+                if self.cold_time_exponent is not None:
+                    exponent = self.cold_time_exponent
             for name, weight in self.weights:
                 score += weight * signals[name](test)
             duration = durations.get(test, 1.0)
-            if self.time_exponent:
-                score /= duration**self.time_exponent
+            if exponent:
+                score /= duration**exponent
             return (
                 -score,
                 duration,
