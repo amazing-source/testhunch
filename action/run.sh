@@ -58,9 +58,8 @@ case "${TESTHUNCH_COMMAND}" in
 
     # Patterns are passed quoted: testhunch expands them itself, the same way on every runner.
     if [ -n "${TESTHUNCH_INPUT_API_URL}" ]; then
-      # Sent to a hosted testhunch, so there is no local history to summarise here. Shadow mode
-      # still records its ranking locally, so it has nothing to compare against: the summary says
-      # what happened rather than printing empty tables.
+      # Sent to a hosted testhunch: the run goes up, and the shadow report comes back down from
+      # the server, which is where both halves of it live (docs/adr/0023).
       sent="$(testhunch ingest "${reports[@]}" ${base:+--base "${base}"} \
         --api "${TESTHUNCH_INPUT_API_URL}")"
       echo "${sent}"
@@ -68,6 +67,9 @@ case "${TESTHUNCH_COMMAND}" in
         echo "### testhunch"
         echo
         echo "${sent}"
+        echo
+        testhunch shadow --api "${TESTHUNCH_INPUT_API_URL}" --last "${TESTHUNCH_LAST}" \
+          --format markdown
       } >> "${GITHUB_STEP_SUMMARY}"
     else
       testhunch ingest "${reports[@]}" ${base:+--base "${base}"}

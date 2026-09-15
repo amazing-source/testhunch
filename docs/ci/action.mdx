@@ -111,8 +111,6 @@ Avec `api-url`, `prioritize` demande aussi le classement au serveur, qui **garde
 quand `record` est actif. Le classement et le run qui suit vivent donc dans la même base, et le mode
 fantôme a de quoi comparer ([ADR 0023](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0023-the-server-keeps-the-ranking-it-served.md)).
 
-<Warning>
-**Le résumé du job ne montre pas encore le rapport du mode fantôme par ce chemin.** Les mesures sont
-bien enregistrées côté serveur, mais `testhunch shadow` lit encore une base et non l'API : le résumé
-dit ce qui a été envoyé, sans le tableau. La lecture viendra ensuite.
-</Warning>
+Le résumé du job montre alors le rapport du mode fantôme tel que le serveur le calcule : c'est chez
+lui que vivent les deux moitiés qu'il compare, le classement qu'il a servi et les résultats qu'on
+lui a envoyés.

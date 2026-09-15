@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from secrets import token_hex
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from testhunch.models import FileChange, RankedTest
 
@@ -129,6 +129,18 @@ def fetch_ranking(
     return ranked, total, None if prediction is None else int(prediction)
 
 
+def fetch_shadow(
+    api_url: str, token: str, repo: str, last_runs: int, timeout: float = TIMEOUT_SECONDS
+) -> dict[str, Any]:
+    """The shadow report a hosted testhunch computes, in the shape `shadow --format json` prints.
+
+    The server evaluates it, because the rankings and the results it compares are both its own; the
+    client would have to download every recorded ranking to do the same arithmetic.
+    """
+    query = urlencode({"repo": repo, "last_runs": last_runs})
+    return _request(endpoint(api_url, f"/v1/shadow?{query}"), token, None, None, timeout)
+
+
 def _post_json(
     url: str, token: str, payload: dict[str, Any], timeout: float = TIMEOUT_SECONDS
 ) -> dict[str, Any]:
@@ -136,8 +148,16 @@ def _post_json(
 
 
 def _post(url: str, token: str, body: bytes, content_type: str, timeout: float) -> dict[str, Any]:
-    request = urllib.request.Request(url, data=body, method="POST")
-    request.add_header("Content-Type", content_type)
+    return _request(url, token, body, content_type, timeout)
+
+
+def _request(
+    url: str, token: str, body: bytes | None, content_type: str | None, timeout: float
+) -> dict[str, Any]:
+    """One request, one JSON object back. A body means POST, no body means GET."""
+    request = urllib.request.Request(url, data=body, method="POST" if body is not None else "GET")
+    if content_type is not None:
+        request.add_header("Content-Type", content_type)
     if token:
         request.add_header("Authorization", f"Bearer {token}")
 

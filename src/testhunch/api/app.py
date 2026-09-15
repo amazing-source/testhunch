@@ -31,6 +31,7 @@ from testhunch import __version__
 from testhunch.junit import ReportError, parse_reports
 from testhunch.models import FileChange, RunInput
 from testhunch.prioritize import rank
+from testhunch.shadow import evaluate
 from testhunch.store import DEFAULT_DATABASE_URL, StoreError, open_store
 
 MAX_REPORT_BYTES = 10 * 1024 * 1024
@@ -217,6 +218,27 @@ def create_app(database_url: str | None = None, api_token: str | None = None) ->
             "flaky": [asdict(t) for t in store.flaky_tests(repo, limit)],
             "slowest": [asdict(t) for t in store.slowest_tests(repo, last_runs, limit)],
             "failing": [asdict(t) for t in store.failing_tests(repo, last_runs, limit)],
+        }
+
+    @v1.get("/shadow")
+    def shadow(
+        caller: Annotated[Caller, Depends(authenticate)],
+        repo: Annotated[str, Query(min_length=1, max_length=200)],
+        last_runs: Annotated[int, Query(ge=1, le=1000)] = 50,
+    ) -> dict[str, Any]:
+        """What skipping tests would have missed, evaluated where both halves live.
+
+        The rankings and the results it compares are both the server's, so it does the arithmetic;
+        a client would have to download every recorded ranking to do the same (docs/adr/0023).
+        """
+        _refuse_other_repos(caller, repo)
+        runs = store.shadow_runs(repo, last_runs)
+        points = evaluate(runs)
+        return {
+            "repo": repo,
+            "runs": len(runs),
+            "failing_runs": points[0].failing_runs if points else 0,
+            "budgets": [asdict(p) for p in points],
         }
 
     @v1.post("/prioritize")

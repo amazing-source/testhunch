@@ -73,7 +73,8 @@ testhunch prioritize --base origin/main --limit 20
 | `--changed` | Classe pour ces chemins, donnés à la main |
 | `--limit` | N'affiche que les N premiers |
 | `--format` | `text`, `json`, `keys` ou `markdown` |
-| `--record` | Enregistre le classement pour le mode fantôme |
+| `--api` | Demande le classement à un testhunch hébergé, qui classe depuis son propre historique (variable `TESTHUNCH_API_URL`) |
+| `--record` | Enregistre le classement pour le mode fantôme ; avec `--api`, c'est le serveur qui garde ce qu'il a servi |
 | `--commit` | Le commit sur le point d'être testé : il départage les scores égaux, et `--record` enregistre pour lui |
 
 `--base` et `--changed` s'excluent.
@@ -105,7 +106,12 @@ Ce que sauter les tests les moins bien classés aurait manqué, sur les exécuti
 | Option | Rôle |
 |---|---|
 | `--last` | Exécutions récentes avec un classement enregistré à utiliser |
+| `--api` | Lire le rapport chez un testhunch hébergé au lieu d'une base (variable `TESTHUNCH_API_URL`) |
 | `--format` | `text`, `json` ou `markdown` |
+
+Avec `--api`, c'est le serveur qui évalue : le classement qu'il a servi et les résultats qu'on lui a
+envoyés sont tous les deux chez lui, et un client devrait télécharger chaque classement enregistré
+pour refaire le même calcul.
 
 ## `migrate`
 

@@ -285,3 +285,37 @@ def test_a_scoped_token_cannot_record_for_another_repository(
     )
 
     assert response.status_code == 403
+
+
+def test_the_shadow_report_is_read_from_the_server(client: TestClient) -> None:
+    """The whole hosted loop, through HTTP only: rank, keep, run, and read what it would miss."""
+    report = (FIXTURES / "vitest.xml").read_bytes()
+    upload(client, {"repo": "acme/shop", "commit_sha": SHA}, report, AUTH)
+    later = "b" * 40
+
+    kept = client.post(
+        "/v1/prioritize",
+        json={"repo": "acme/shop", "commit_sha": later, "record": True},
+        headers=AUTH,
+    ).json()
+    upload(client, {"repo": "acme/shop", "commit_sha": later}, report + b"<!-- later -->", AUTH)
+
+    shadow = client.get("/v1/shadow", params={"repo": "acme/shop"}, headers=AUTH).json()
+
+    assert kept["prediction_id"] is not None
+    assert (shadow["runs"], shadow["failing_runs"]) == (1, 1)
+    # The failing test was ranked first, so even the smallest budget turns the build red.
+    assert shadow["budgets"][0]["caught_runs"] == 1
+
+
+def test_a_scoped_token_cannot_read_another_repositorys_shadow_report(
+    client: TestClient, sqlite_url: str
+) -> None:
+    headers = scoped(sqlite_url, "acme/shop")
+
+    assert (
+        client.get("/v1/shadow", params={"repo": "acme/shop"}, headers=headers).status_code == 200
+    )
+    assert (
+        client.get("/v1/shadow", params={"repo": "acme/other"}, headers=headers).status_code == 403
+    )
