@@ -186,6 +186,8 @@ resource "aws_instance" "server" {
     region              = var.region
     image               = var.image
     postgres_image      = var.postgres_image
+    caddy_image         = var.caddy_image
+    api_domain          = var.api_domain
     compose_version     = var.compose_version
     postgres_parameter  = aws_ssm_parameter.postgres.name
     api_token_parameter = aws_ssm_parameter.api_token.name

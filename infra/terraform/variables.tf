@@ -36,6 +36,12 @@ variable "postgres_image" {
   default = "postgres:18"
 }
 
+variable "caddy_image" {
+  description = "The reverse proxy, used only when api_domain is set."
+  type        = string
+  default     = "caddy:2-alpine"
+}
+
 variable "root_volume_gb" {
   description = "The root disk, which also holds the Postgres volume."
   type        = number
