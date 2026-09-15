@@ -77,7 +77,7 @@ obtient un APFDc moyen de 0,735, et 0,835 quand elle tient compte en plus de la 
 
 ## Phase 5 : service hébergé
 
-- [ ] Terraform pour un seul serveur, d'abord en local puis sur AWS ou Azure : Postgres, API, worker, stockage objet pour les rapports bruts
+- [x] Terraform pour un seul serveur sur AWS ([ADR 0020](docs/adr/0020-one-server-reached-only-through-ssm.md)) : une `t3.small` à Paris, Postgres et l'API en conteneurs tenus par un service systemd, un bucket S3 pour les rapports bruts, et les secrets engendrés par Terraform dans Parameter Store. Aucune règle entrante et aucune clé SSH : on l'atteint par SSM. L'étape locale a été sautée à la demande du mainteneur, qui avait déjà un compte. Pas de worker, il n'y en a pas encore dans le code, et le bucket attend le code qui écrira dedans
 - [ ] Déploiement continu de `main` vers la préproduction, promotion manuelle en production
 - [ ] Métriques (Prometheus) et alertes, dont le taux de tests manqués en mode fantôme comme objectif de niveau de service
 - [ ] La CI de testhunch envoie son historique à l'API hébergée
