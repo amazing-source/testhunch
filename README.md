@@ -69,7 +69,7 @@ habituelle**. Le détail est sur
 
 Le classement a été rejoué sur de vrais historiques de CI : chaque exécution est classée uniquement
 à partir de celles terminées avant elle, avec le vrai code de testhunch. **Ces chiffres sont ceux du
-classement de la 0.3.0**, celle que `uvx testhunch` et `@v0.3.0` installent. Tous les résultats,
+classement de la 0.4.0**, celle que `uvx testhunch` et `@v0.4.0` installent. Tous les résultats,
 projet par projet, y compris ceux où testhunch s'en sort mal, sont dans
 [benchmarks/results](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md).
 
