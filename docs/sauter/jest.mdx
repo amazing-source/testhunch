@@ -1,0 +1,43 @@
+---
+title: "Jest"
+description: "Des fichiers entiers plutôt que des tests, et la raison pour laquelle c'est le seul choix honnête ici."
+---
+
+```bash
+jest --testPathIgnorePatterns "$(testhunch select --budget 25% --runner jest --base origin/main)"
+```
+
+Le motif produit ressemble à :
+
+```text
+<rootDir>/(?:src/pricing\.test\.js)$|/node_modules/
+```
+
+## Pourquoi des fichiers et pas des tests
+
+Le `-t` de Jest correspond, comme celui de Vitest, aux noms complets dans **tous** les fichiers. Mais
+Jest n'a aucune commande qui liste les noms de tests sans les exécuter : `--listTests` liste les
+fichiers. Impossible, donc, d'écarter l'hypothèse d'un test homonyme ailleurs.
+
+Plutôt que de viser des tests en espérant, testhunch écarte des **fichiers entiers**. C'est plus
+grossier, et c'est la seule chose qu'on puisse faire ici sans risquer d'emporter autre chose que la
+cible.
+
+`<rootDir>/` ancre le motif sur la racine du projet, pour qu'un fichier ne corresponde pas à un
+fichier de même nom dans un autre répertoire.
+
+<Warning>
+La valeur **remplace** le `testPathIgnorePatterns` du projet. C'est pourquoi elle répète la valeur par
+défaut de Jest, `/node_modules/`. Si votre configuration en ajoutait d'autres, ils seraient perdus.
+</Warning>
+
+## Ce qui empêche d'écarter un fichier
+
+Un fichier n'est écarté que si les trois conditions tiennent :
+
+1. **jest-junit a enregistré son chemin**, ce qui demande `JEST_JUNIT_ADD_FILE_ATTRIBUTE=true` ;
+2. **tous les tests connus qu'il contient sont écartés** ;
+3. **il n'a pas changé dans le diff**, parce qu'un test ajouté dedans serait écarté avec les autres.
+
+Vérifié avec de vraies exécutions de Jest 30.5.1 et jest-junit 17.0.0
+(`tests/fixtures/select/jest`).

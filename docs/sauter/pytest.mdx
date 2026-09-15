@@ -1,0 +1,32 @@
+---
+title: "pytest"
+description: "Désélectionner les tests connus classés sous le budget, avec le plugin livré dans testhunch."
+---
+
+```bash
+testhunch select --budget 25% --runner pytest --base origin/main > skip.txt
+pytest -p testhunch.pytest_plugin --testhunch-skip=skip.txt --junitxml=junit.xml
+```
+
+`select` écrit une clé de test par ligne. Le plugin, livré avec testhunch, désélectionne les items
+dont la clé figure dans le fichier.
+
+## Pourquoi un plugin plutôt qu'un filtre
+
+Le plugin calcule la clé de chaque item **exactement comme l'écrivain JUnit XML de pytest le fait**,
+y compris `--junitprefix`. Une clé vise donc le test pour lequel elle a été enregistrée, sans deviner
+de chemin de fichier ni interpréter un motif.
+
+C'est le seul lanceur des six où testhunch peut viser un test précis sans réserve, parce que c'est le
+seul où il s'exécute à l'intérieur du lanceur au lieu de lui passer une expression.
+
+<Note>
+Le plugin doit être chargé explicitement avec `-p testhunch.pytest_plugin`. testhunch ne s'installe
+pas comme un plugin actif par défaut : un outil qui saute des tests ne devrait pas pouvoir s'activer
+sans qu'on l'ait écrit.
+</Note>
+
+## Ce qui tourne quand même
+
+- tout test que testhunch ne connaît pas, donc tout test neuf ou renommé ;
+- tout, si `skip.txt` est vide, ce qui arrive sur un historique vide et sur les learning runs.
