@@ -39,7 +39,11 @@ ranking, never leak it.
 **Each job becomes a run**, one result per test class: failed when a method failed, errored when a
 method errored and none failed, skipped when every method was skipped, passed otherwise. Negative
 durations (a runner defect the authors report) are unknown, not zero. There are no retries in the
-data, so no failure is confirmed (ADR 0008), and flaky failures cannot be told apart.
+data, so no failure is confirmed (ADR 0008). Flakiness is still visible, by the rule of ADR 0004: a
+class listed twice in the same job, once passing and once failing, is flaky. That happens to 859 of
+the 22.5 million class results, and it leaves the budget metrics and APFD counting different faults
+— deliberately, since APFD has to count what the authors' schedules count to be comparable with
+them. Both pages say so, and how far the two counts diverge.
 
 **Changed files are the union of the job's commits' patches.** A job without a commit mapping has
 unknown changed files, not an empty change: it is ranked without them and counted in the report.

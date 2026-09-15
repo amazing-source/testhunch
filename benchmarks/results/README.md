@@ -122,6 +122,16 @@ CC-BY-4.0). Chaque fichier lu est vérifié par son CRC-32 et listé dans le JSO
 résultats sont **par classe de test**, sans relances, et les jobs ont été rejoués dans l'ordre de
 leurs identifiants.
 
+**Les deux tableaux qui suivent ne comptent pas les mêmes fautes, et c'est voulu.** Le tableau des
+budgets écarte une classe qui a réussi *et* échoué dans le même job : c'est de l'instabilité, pas un
+échec manqué ([ADR 0006](../../docs/adr/0006-shadow-mode-measures-misses-without-skipping.md)), et
+un job dont tous les échecs sont instables n'y est pas un job en échec. Le tableau d'APFD, lui,
+compte toute classe ayant une ligne en échec, comme les ordres des auteurs du jeu de données, pour
+que la comparaison porte sur les mêmes fautes. L'écart n'est pas anecdotique : sur les 20 projets,
+**197 des 14 679 jobs ayant au moins une classe en échec n'ont que des échecs instables** — 38 sur
+132 pour HikariCP, 73 sur 263 pour Graylog2, 41 sur 470 pour jcabi-github, aucun pour onze des vingt
+(compté sur le jeu de données avec `collapse`, la fonction que le benchmark lui-même applique).
+
 Médianes des 20 projets, la 0.2.0 entre parenthèses :
 
 | Budget | Jobs en échec rattrapés | Classes en échec lancées | Temps de test lancé |

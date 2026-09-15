@@ -124,7 +124,9 @@ def markdown(result: dict[str, Any]) -> str:
         return "\n".join(lines) + "\n"
     lines += [
         "",
-        f"Mean APFD on the {apfd_result['jobs']} jobs the authors' schedules cover:",
+        f"Mean APFD on the {apfd_result['jobs']} jobs the authors' schedules cover. It counts "
+        "every class with a failing row, as their schedules do, where the table above leaves out "
+        "the flaky ones (docs/adr/0006): the two are not over the same jobs.",
         "",
         "| Schedule | Mean APFD |",
         "|---|---:|",
@@ -147,6 +149,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--from-cache",
+        action="store_true",
+        help="rebuild the pages from the results already stored under --out, replaying nothing. "
+        "No replay produces no number, so there is no look to record (docs/adr/0016)",
+    )
     args = parser.parse_args(argv)
     projects = args.projects or (RTPTORRENT_HELD_OUT if args.held_out else RTPTORRENT_DEVELOPMENT)
     held_out = [project for project in projects if project in RTPTORRENT_HELD_OUT]
@@ -154,7 +162,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(
             f"held out, measured only with --held-out (docs/adr/0013): {', '.join(held_out)}"
         )
-    if held_out:
+    if held_out and not args.from_cache:
         # Written before the replay, from a frozen commit, so the look cannot be hidden (ADR 0016).
         try:
             record_peek("benchmarks.rtptorrent", held_out, "the product's ranking", __version__)
@@ -162,17 +170,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(str(exc))
     args.out.mkdir(parents=True, exist_ok=True)
     for project in projects:
-        result = run_project(fetch_project(project, args.cache))
-        (args.out / f"{project}.json").write_text(
-            json.dumps(result, indent=2) + "\n", encoding="utf-8"
-        )
-        (args.out / f"{project}.md").write_text(markdown(result), encoding="utf-8")
+        stored = args.out / f"{project}.json"
+        if args.from_cache:
+            if not stored.exists():
+                parser.error(f"no stored result at {stored} to rebuild the page from")
+            result = json.loads(stored.read_text(encoding="utf-8"))
+        else:
+            result = run_project(fetch_project(project, args.cache))
+            stored.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        # Bytes, as the study's pages are written: `write_text` would end every line with CRLF on
+        # Windows, so the same results would produce a different file depending on who ran them.
+        (args.out / f"{project}.md").write_bytes(markdown(result).encode("utf-8"))
         sys.stdout.write(markdown(result) + "\n")
     # Every project measured so far in this directory, not only the ones of this call.
     everything = [
         json.loads(path.read_text(encoding="utf-8")) for path in sorted(args.out.glob("*.json"))
     ]
-    (args.out / "README.md").write_text(summary(everything), encoding="utf-8")
+    (args.out / "README.md").write_bytes(summary(everything).encode("utf-8"))
     return 0
 
 

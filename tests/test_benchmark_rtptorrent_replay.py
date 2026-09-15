@@ -213,6 +213,27 @@ def test_the_benchmark_writes_json_and_markdown_per_project(
         encoding="utf-8"
     )
 
+    # Rebuilding the pages replays nothing, so it reads no held-out result it did not already
+    # have: no row is added to the ledger, and the numbers cannot move (docs/adr/0016).
+    before = (tmp_path / "adamfisk@LittleProxy.json").read_bytes()
+    rows = ledger.read_text(encoding="utf-8")
+    shutil.rmtree(cache)
+
+    assert main([*arguments, "--from-cache"]) == 0
+    assert (tmp_path / "adamfisk@LittleProxy.json").read_bytes() == before
+    assert ledger.read_text(encoding="utf-8") == rows
+
+
+def test_rebuilding_a_page_without_its_stored_result_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(heldout, "LEDGER", tmp_path / "held-out-log.md")
+
+    with pytest.raises(SystemExit) as refused:
+        main(["dynjs@dynjs", "--from-cache", "--out", str(tmp_path)])
+
+    assert refused.value.code == 2
+
 
 def test_the_summary_totals_projects_and_marks_missing_schedules() -> None:
     with_schedules = run_project(EXTRACT)
