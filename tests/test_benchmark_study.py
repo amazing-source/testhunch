@@ -534,6 +534,36 @@ def test_a_cold_signal_heavy_enough_does_reach_past_a_test_that_failed_before() 
     assert heavy[0] == "Fresh"
 
 
+def test_a_cold_signal_also_reaches_a_test_whose_priority_underflowed_to_zero() -> None:
+    """ "Failure priority is 0" is not quite "the history says nothing" (docs/adr/0018).
+
+    The priority decays by a factor of five per build, so after 463 builds without a failure it is
+    exactly 0.0 — an underflow, not a rounding — and a test that did fail, long ago, enters the
+    cold-start branch with the tests that never failed. Six of the ten development projects run
+    longer than that. The rule is kept as ADR 0018 fixed it, and the fact is held here.
+    """
+    early, late = "tests/test_cart.py::early", "tests/test_user.py::late"
+    builds = BuildHistory()
+    builds.record([[result(early, Status.FAILED), result(late)]])
+    builds.record([[result(early), result(late, Status.FAILED)]])
+    for _ in range(463):
+        builds.record([[result(early), result(late)]])
+    job = Trial(1, (early, late), frozenset({early}), {}, ("tests/test_cart.py",))
+    context = Context(builds, list)
+
+    # Both failed once, and both priorities have underflowed to exactly zero.
+    assert [builds.records[test].failures for test in (early, late)] == [1, 1]
+    assert [builds.records[test].priority_at(builds.builds) for test in (early, late)] == [0.0, 0.0]
+
+    plain = Candidate("plain").order(job, context)[0]
+    cold = Candidate("cold", cold_weights=(("test_file_changed", 2.0),)).order(job, context)[0]
+
+    # With every score at zero, only the more recent failure separates them.
+    assert plain[0] == late
+    # The cold-start signal reaches `early` all the same, though its history is not silent.
+    assert cold[0] == early
+
+
 def test_the_guardrail_table_splits_the_jobs_and_says_it_is_a_bar_not_a_target() -> None:
     results = [
         {

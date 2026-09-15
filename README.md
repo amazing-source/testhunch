@@ -168,7 +168,8 @@ jeton ont été glissés dans les lignes que chaque commit a changées :
 - **ollama/ollama** est le meilleur cas : **157 mutants sur 158** rattrapés pour **11 %** du temps de
   test. Ses 3 vraies régressions sont rattrapées dès 10 %, avec leurs 7 tests cassés.
 - **click** rattrape 86 mutants sur 90 pour 17 % du temps. Mais sa seule vraie régression, un commit
-  annulé le jour même, est **manquée à tous les budgets** : les tests cassés n'avaient jamais échoué.
+  annulé le jour même, est **manquée à 10 %**, et à 25 % un seul de ses 4 tests cassés tourne : aucun
+  n'avait échoué avant.
 - **cobra est le pire cas et il se dégrade** : 53 mutants sur 62 à 50 %, contre 57 en 0.2.0. `go test`
   écrit les durées au centième de seconde et presque toutes valent 0 : le budget de temps y perd son
   sens. Un lanceur sans durée utilisable devrait passer `--budget-unit tests`.

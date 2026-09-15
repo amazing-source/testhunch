@@ -27,8 +27,9 @@ Les pages générées, en anglais, donnent le détail par projet :
 
 ## Ce qu'il faut retenir, y compris ce qui est moins bon
 
-**À budget nominal égal, testhunch dépense à peu près deux fois moins de temps de test qu'en
-0.2.0.** C'est le gain, et il est net. Mais il ne se paie pas de rien :
+**À budget nominal égal, testhunch dépense deux fois moins de temps de test qu'en 0.2.0 à 10 % et à
+25 %** (10,4 % contre 21,7 %, 23,6 % contre 43,6 %), **et 30 % de moins à 50 %** (48,5 % contre
+69,1 %). C'est le gain, et il est net. Mais il ne se paie pas de rien :
 
 - le **rappel par build** — le build reste-t-il rouge — s'améliore à 10 % et à 25 % du temps, et
   **se dégrade à 50 %** : 91,8 % contre 94,1 % pour la 0.2.0 ;
@@ -84,8 +85,9 @@ Deux précisions que la page détaille :
 - **Ce n'est pas la faute de la règle des tests inconnus.** La position parmi les seuls tests connus
   (0,704) est la même que la position globale (0,692) : le biais est dans le classement lui-même.
 
-C'est le cas de la seule vraie régression de click, manquée à tous les budgets, et c'est le cas de
-tout bug écrit dans du code neuf. C'est aussi la raison pour laquelle le filet de sécurité de
+C'est le cas de la seule vraie régression de click — manquée à 10 % du temps de test, et rattrapée à
+25 % par un seul de ses quatre tests cassés — et c'est le cas de tout bug écrit dans du code neuf.
+C'est aussi la raison pour laquelle le filet de sécurité de
 l'[ADR 0007](../../docs/adr/0007-selections-leave-out-known-low-ranked-tests.md) — ne sauter que sur
 les pull requests, relancer toute la suite sur la branche principale — n'est pas une précaution de
 principe mais une pièce portante.
@@ -102,8 +104,9 @@ principe mais une pièce portante.
 La 0.2.0 n'était pas pire que le hasard sur les premiers échecs ; la version que l'étude a retenue
 l'est. La 0.2.0 portait un signal de démarrage à froid — son affinité de nom, de poids 2,0,
 appliquée à tous les tests — que l'étude a remplacé par `test_file_changed*0.5`, lequel ne se
-déclenche que sur un cinquième des jobs. L'échange a rapporté 0,018 d'APFDc moyen et coûté la
-propriété qui protégeait le code neuf.
+déclenche que sur un cinquième des jobs : 20,4 % exactement, 929 des 4 545 jobs en échec des projets
+de développement, comptés sur le rejeu même de l'étude ([ADR 0018](../../docs/adr/0018-first-failures-are-a-guardrail-not-an-average.md)).
+L'échange a rapporté 0,018 d'APFDc moyen et coûté la propriété qui protégeait le code neuf.
 
 Trente candidats ont essayé de la récupérer avec les signaux de proximité continus, **aucun n'y
 arrive** : même à poids 0,1 et appliqués seulement là où l'historique se tait, ils noient le
@@ -199,8 +202,9 @@ mesurée :
 - **ollama est le meilleur cas du benchmark** : 157 mutants sur 158 rattrapés pour 11 % du temps de
   test. Ses tests utiles sont rapides, et le classement les met devant.
 - **Les 3 vraies régressions d'ollama sont rattrapées dès 10 %**, avec leurs 7 tests cassés, pour un
-  temps arrondi à 0 %. C'est le contraire du seul vrai échec de click, un commit annulé le jour même,
-  que testhunch manque toujours à tous les budgets : aucun des tests cassés n'avait échoué avant.
+  temps arrondi à 0 %. Le seul vrai échec de click, un commit annulé le jour même, coûte bien plus
+  cher : manqué à 10 %, il n'est rattrapé à 25 % que par 1 de ses 4 tests cassés, et il faut 50 %
+  pour les lancer tous les quatre. Aucun d'eux n'avait échoué avant.
 - **cobra est le pire cas, et il se dégrade** : 53 mutants sur 62 à 50 %, contre 57 en 0.2.0. Sa
   durée n'est pas mesurable — `go test` écrit la durée de chaque test au centième de seconde et
   presque toutes valent 0 — donc le budget de temps y perd son sens et se comporte comme un budget

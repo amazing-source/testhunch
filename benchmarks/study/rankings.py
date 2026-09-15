@@ -116,9 +116,13 @@ class Candidate:
     weights: tuple[tuple[str, float], ...] = ()
     time_exponent: float | None = None
     window: int | None = None
-    # Signals added only to a test whose failure priority is 0, that is, one that has never failed:
-    # they speak where the history says nothing, and leave the rest of the ranking untouched
-    # (docs/adr/0018). `weights` above are added to every test, as the study's steps did.
+    # Signals added only to a test whose failure priority is 0: they speak where the history says
+    # nothing, and leave the rest of the ranking untouched (docs/adr/0018). `weights` above are
+    # added to every test, as the study's steps did.
+    # A priority of 0 is *nearly* the same thing as "never failed", not quite: it decays by a factor
+    # of five per build, so it underflows to exactly 0.0 after 463 builds without a failure, and a
+    # long-lived test that failed once, long ago, falls in here too (`test_cold_start_underflows`).
+    # The rule is applied to the letter, as ADR 0018 fixed it before any candidate ran.
     cold_weights: tuple[tuple[str, float], ...] = ()
     # The time exponent to use on a test whose failure priority is 0; None keeps `time_exponent`.
     # 0.0 means the score is not divided by the duration at all there: dividing by a cost only
