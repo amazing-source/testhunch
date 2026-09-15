@@ -46,6 +46,9 @@ class SQLiteStore(SqlStore):
             ") STRICT;"
         )
 
+    def now_expression(self) -> str:
+        return "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+
     def _lock_for_migration(self, session: Session) -> None:
         pass  # write sessions already hold SQLite's write lock (BEGIN IMMEDIATE)
 

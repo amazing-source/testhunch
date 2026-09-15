@@ -15,6 +15,7 @@ from importlib import resources
 from typing import Any, Protocol
 
 from testhunch.models import (
+    ApiToken,
     CaseHistory,
     FailingTest,
     FileChange,
@@ -103,6 +104,10 @@ class SqlStore(ABC):
     @property
     @abstractmethod
     def _migrations_table_ddl(self) -> str: ...
+
+    @abstractmethod
+    def now_expression(self) -> str:
+        """SQL for the current instant, in the shape this dialect stores timestamps in."""
 
     # -- schema ---------------------------------------------------------------------------
 
@@ -347,6 +352,59 @@ class SqlStore(ABC):
             s, "SELECT id, test_key FROM tests WHERE repo = ? AND test_key IN ({})", [repo], keys
         )
         return {key: int(test_id) for test_id, key in rows}
+
+    # -- tokens ---------------------------------------------------------------------------
+
+    def create_api_token(self, repo: str, token_sha256: str, label: str | None = None) -> int:
+        """Record a token for one repository. Only its hash is stored (docs/adr/0022)."""
+        with self.session() as s:
+            row = s.one(
+                "INSERT INTO api_tokens (repo, token_sha256, label) VALUES (?, ?, ?) RETURNING id",
+                (repo, token_sha256, label),
+            )
+            if row is None:  # pragma: no cover - RETURNING always gives a row here
+                raise StoreError("the token was not recorded")
+            return int(row[0])
+
+    def repo_for_api_token(self, token_sha256: str) -> str | None:
+        """The repository this token opens, or None if it is unknown or revoked."""
+        with self.session(write=False) as s:
+            row = s.one(
+                "SELECT repo FROM api_tokens WHERE token_sha256 = ? AND revoked_at IS NULL",
+                (token_sha256,),
+            )
+        return str(row[0]) if row else None
+
+    def api_tokens(self, repo: str | None = None) -> list[ApiToken]:
+        """Every token, or every token of one repository. The hash is never returned."""
+        sql = "SELECT id, repo, label, created_at, revoked_at FROM api_tokens"
+        params: Params = ()
+        if repo is not None:
+            sql += " WHERE repo = ?"
+            params = (repo,)
+        with self.session(write=False) as s:
+            rows = s.all(sql + " ORDER BY id", params)
+        return [
+            ApiToken(
+                token_id=int(r[0]),
+                repo=str(r[1]),
+                label=str(r[2]) if r[2] is not None else None,
+                created_at=str(r[3]),
+                revoked=r[4] is not None,
+            )
+            for r in rows
+        ]
+
+    def revoke_api_token(self, token_id: int) -> bool:
+        """Close a token for good. Returns whether it was open before."""
+        with self.session() as s:
+            row = s.one(
+                "UPDATE api_tokens SET revoked_at = "
+                + self.now_expression()
+                + " WHERE id = ? AND revoked_at IS NULL RETURNING id",
+                (token_id,),
+            )
+        return row is not None
 
     # -- reads ----------------------------------------------------------------------------
 

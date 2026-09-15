@@ -82,7 +82,7 @@ obtient un APFDc moyen de 0,735, et 0,835 quand elle tient compte en plus de la 
 - [ ] Déploiement continu de `main` vers la préproduction, promotion manuelle en production
 - [ ] Métriques (Prometheus) et alertes, dont le taux de tests manqués en mode fantôme comme objectif de niveau de service
 - [ ] La CI de testhunch envoie son historique à l'API hébergée
-- [ ] Des jetons par dépôt au lieu d'un jeton partagé
+- [x] Des jetons par dépôt au lieu d'un jeton partagé ([ADR 0022](docs/adr/0022-a-token-opens-one-repository.md)) : une table `api_tokens` qui ne garde que l'empreinte SHA-256, un jeton frappé par la CLI contre la base et jamais par l'API, donc aucune requête ne peut en produire un ni élargir le sien. Un jeton présenté sur un autre dépôt reçoit un 403, un jeton inconnu ou révoqué un 401. Le jeton de l'exploitant ouvre toujours tout
 - [ ] Partitionner `results` par date quand la table sera assez grosse pour le justifier
 
 ## Phase 6 : un modèle appris

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -122,3 +124,75 @@ def test_oversized_report_is_413(client: TestClient, monkeypatch: pytest.MonkeyP
     report = (FIXTURES / "pytest.xml").read_bytes()
     response = upload(client, {"repo": "acme/shop", "commit_sha": SHA}, report, headers=AUTH)
     assert response.status_code == 413
+
+
+# -- tokens that open one repository (docs/adr/0022) ---------------------------------------
+
+
+def scoped(sqlite_url: str, repo: str) -> dict[str, str]:
+    """Mint a token for `repo` the way the CLI does, and return the header that presents it."""
+    secret = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(secret.encode()).hexdigest()
+    open_store(sqlite_url).create_api_token(repo, digest, "test")
+    return {"Authorization": f"Bearer {secret}"}
+
+
+def test_a_scoped_token_uploads_to_its_own_repository(client: TestClient, sqlite_url: str) -> None:
+    report = (FIXTURES / "pytest.xml").read_bytes()
+
+    response = upload(
+        client, {"repo": "acme/shop", "commit_sha": SHA}, report, scoped(sqlite_url, "acme/shop")
+    )
+
+    assert response.status_code == 201
+
+
+def test_a_scoped_token_cannot_upload_to_another_repository(
+    client: TestClient, sqlite_url: str
+) -> None:
+    report = (FIXTURES / "pytest.xml").read_bytes()
+
+    response = upload(
+        client, {"repo": "acme/other", "commit_sha": SHA}, report, scoped(sqlite_url, "acme/shop")
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "this token does not open that repository"
+
+
+def test_a_scoped_token_cannot_read_another_repository(client: TestClient, sqlite_url: str) -> None:
+    headers = scoped(sqlite_url, "acme/shop")
+
+    assert (
+        client.get("/v1/report", params={"repo": "acme/shop"}, headers=headers).status_code == 200
+    )
+    assert (
+        client.get("/v1/report", params={"repo": "acme/other"}, headers=headers).status_code == 403
+    )
+
+
+def test_a_scoped_token_cannot_rank_another_repository(client: TestClient, sqlite_url: str) -> None:
+    headers = scoped(sqlite_url, "acme/shop")
+
+    mine = client.post("/v1/prioritize", json={"repo": "acme/shop"}, headers=headers)
+    theirs = client.post("/v1/prioritize", json={"repo": "acme/other"}, headers=headers)
+
+    assert mine.status_code == 200
+    assert theirs.status_code == 403
+
+
+def test_the_operator_token_still_opens_every_repository(client: TestClient) -> None:
+    for repo in ("acme/shop", "acme/other"):
+        assert client.get("/v1/report", params={"repo": repo}, headers=AUTH).status_code == 200
+
+
+def test_a_revoked_token_is_refused_like_an_unknown_one(
+    client: TestClient, sqlite_url: str
+) -> None:
+    headers = scoped(sqlite_url, "acme/shop")
+    store = open_store(sqlite_url)
+    store.revoke_api_token(store.api_tokens("acme/shop")[0].token_id)
+
+    response = client.get("/v1/report", params={"repo": "acme/shop"}, headers=headers)
+
+    assert response.status_code == 401
