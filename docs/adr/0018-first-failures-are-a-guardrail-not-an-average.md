@@ -82,6 +82,28 @@ failing test between 0.335 and 0.351, against 0.47 for random and 0.692 for the 
 ranking. So the direction was known; what was not is how they behave once combined with the
 history, which is what the step measures and what the rule above decides.
 
+## What the step it describes found
+
+Run on the development projects (benchmarks/results/study/cold-start.md): **no candidate of the
+thirty passes**, and two things came out of it that change where to look next.
+
+The proximity signals are **continuous**: they give a non-zero value to every test that has never
+failed. Even at weight 0.1 and applied only at cold start, that outweighs the decayed priority of a
+test that failed three builds ago, which is down to 0.006. So the ranking drowns: the best candidate
+moves the first-failure position from 0.692 to 0.633 — never reaching random — while the regime
+that works collapses from 0.123 to 0.331, and the primary measure loses 0.026 with an interval
+entirely below zero.
+
+And the reference line says something worse about us: **testhunch 0.2.0 scores 0.455 on that slice,
+better than random, while the version this study kept scores 0.692.** The regression was introduced
+by our own study. 0.2.0 carried a cold-start signal — its name affinity, weight 2.0, applied to
+every test — and the study replaced it with `test_file_changed*0.5`, which fires on about a fifth of
+the jobs. It bought 0.018 of mean APFDc and sold the property that protected new code.
+
+The lesson is about the shape of the signal, not its strength: what worked was **selective**, firing
+only on a file-stem match, so it never flooded the ranking. A continuous similarity cannot be made
+selective by lowering its weight, as these thirty candidates show.
+
 ## Consequences
 
 - `benchmarks/firstfailures.py` becomes part of the decision, not a diagnostic: a candidate that is
