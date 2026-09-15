@@ -30,7 +30,7 @@ from testhunch.runners import (
 )
 from testhunch.shadow import ShadowPoint, budget_cut, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
-from testhunch.upload import UploadError, metadata_json, upload_run
+from testhunch.upload import UploadError, fetch_ranking, metadata_json, upload_run
 
 
 def run() -> None:
@@ -110,6 +110,12 @@ def _parser() -> argparse.ArgumentParser:
 
     prioritize = commands.add_parser(
         "prioritize", parents=[common, ranking], help="order tests by how likely they are to fail"
+    )
+    prioritize.add_argument(
+        "--api",
+        default=os.environ.get("TESTHUNCH_API_URL", ""),
+        help="ask a hosted testhunch to rank, from its history instead of a local database "
+        "(env TESTHUNCH_API_URL); with --record the server keeps the ranking it served",
     )
     prioritize.add_argument("--limit", type=_positive, help="show only the top N tests")
     prioritize.add_argument(
@@ -651,7 +657,11 @@ def _markdown_cell(text: str) -> str:
 
 
 def _prioritize(args: argparse.Namespace) -> int:
-    store, repo = _store(args), _repo(args)
+    repo = _repo(args)
+    if args.api:
+        return _prioritize_hosted(args, repo)
+
+    store = _store(args)
     history = store.history(repo)
     if not history.cases:
         print(
@@ -672,14 +682,48 @@ def _prioritize(args: argparse.Namespace) -> int:
         _record(args, store, repo, ranked)
     if args.limit:
         ranked = ranked[: args.limit]
+    return _print_ranking(args, repo, ranked, total, len(paths))
 
+
+def _prioritize_hosted(args: argparse.Namespace, repo: str) -> int:
+    """Rank against a hosted testhunch (docs/adr/0023).
+
+    The server ranks from its own history and, with --record, keeps what it served: the ranking
+    and the run that follows then live in the same database, which is what shadow mode needs.
+    """
+    paths = _changed_paths(args)
+    ranked, total, prediction_id = fetch_ranking(
+        args.api,
+        os.environ.get("TESTHUNCH_API_TOKEN", ""),
+        {
+            "repo": repo,
+            "changed_paths": paths,
+            "commit_sha": _seed(args) or None,
+            "limit": args.limit,
+            "record": bool(args.record),
+            "base_sha": rev_parse(args.base) if args.base else None,
+        },
+    )
+    if prediction_id is not None:
+        # stderr, so that stdout stays exactly the ranking in the requested format.
+        print(
+            f"the server kept the ranking of {total} tests (ranking {prediction_id}); "
+            "`testhunch shadow` compares it with the results",
+            file=sys.stderr,
+        )
+    return _print_ranking(args, repo, ranked, total, len(paths))
+
+
+def _print_ranking(
+    args: argparse.Namespace, repo: str, ranked: list[RankedTest], total: int, changed: int
+) -> int:
     if args.format == "json":
         print(json.dumps([asdict(r) for r in ranked], indent=2))
     elif args.format == "keys":
         print("\n".join(r.key for r in ranked))
     elif args.format == "markdown":
         print(f"### testhunch ranking for {repo}\n")
-        print(f"Top {len(ranked)} of {total} tests for {len(paths)} changed file(s).")
+        print(f"Top {len(ranked)} of {total} tests for {changed} changed file(s).")
         rows = [
             (
                 str(position),

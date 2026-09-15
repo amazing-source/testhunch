@@ -19,7 +19,7 @@ from secrets import token_hex
 from typing import Any
 from urllib.parse import urlparse
 
-from testhunch.models import FileChange
+from testhunch.models import FileChange, RankedTest
 
 TIMEOUT_SECONDS = 30.0
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
@@ -51,8 +51,8 @@ def metadata_json(
     )
 
 
-def runs_url(api_url: str) -> str:
-    """Where a run is posted, and a refusal to send a token over a cleartext connection.
+def endpoint(api_url: str, path: str) -> str:
+    """One of the API's addresses, and a refusal to send a token over a cleartext connection.
 
     A bearer token in an `http://` request is readable by anything on the path, and the whole point
     of the token is that it is not. Only a loopback address is allowed to skip TLS, because nothing
@@ -65,7 +65,7 @@ def runs_url(api_url: str) -> str:
         raise UploadError(
             f"refusing to send the token in the clear to {parsed.hostname}: use https://"
         )
-    return f"{api_url.rstrip('/')}/v1/runs"
+    return f"{api_url.rstrip('/')}{path}"
 
 
 def _multipart(metadata: str, reports: Sequence[Path]) -> tuple[bytes, str]:
@@ -97,9 +97,45 @@ def upload_run(
     timeout: float = TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Post one run and its reports, and return what the API answered."""
-    url = runs_url(api_url)
+    url = endpoint(api_url, "/v1/runs")
     body, content_type = _multipart(metadata, reports)
+    return _post(url, token, body, content_type, timeout)
 
+
+def fetch_ranking(
+    api_url: str,
+    token: str,
+    payload: dict[str, Any],
+    timeout: float = TIMEOUT_SECONDS,
+) -> tuple[list[RankedTest], int, int | None]:
+    """Ask the hosted testhunch to rank, and to keep the ranking when `record` is set.
+
+    The server ranks from its own history and records what it served, so the ranking and the run
+    that follows meet in the same database. Ranking here and shipping the result up would let a
+    client record a ranking the server never made (docs/adr/0023).
+    """
+    answer = _post_json(endpoint(api_url, "/v1/prioritize"), token, payload, timeout)
+    ranked = [
+        RankedTest(
+            key=str(r["key"]),
+            score=float(r["score"]),
+            reasons=tuple(str(x) for x in r.get("reasons", ())),
+            expected_ms=float(r.get("expected_ms") or 0.0),
+        )
+        for r in answer.get("ranked", [])
+    ]
+    prediction = answer.get("prediction_id")
+    total = int(answer.get("total", len(ranked)))
+    return ranked, total, None if prediction is None else int(prediction)
+
+
+def _post_json(
+    url: str, token: str, payload: dict[str, Any], timeout: float = TIMEOUT_SECONDS
+) -> dict[str, Any]:
+    return _post(url, token, json.dumps(payload).encode(), "application/json", timeout)
+
+
+def _post(url: str, token: str, body: bytes, content_type: str, timeout: float) -> dict[str, Any]:
     request = urllib.request.Request(url, data=body, method="POST")
     request.add_header("Content-Type", content_type)
     if token:

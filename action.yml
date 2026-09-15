@@ -28,10 +28,10 @@ inputs:
     default: ""
   api-url:
     description: >-
-      For `ingest`: send the run to a hosted testhunch at this address instead of a database, for
-      example https://api.example.com. The token comes from the TESTHUNCH_API_TOKEN environment
-      variable, which you set from a secret on the step that uses this action. An http:// address
-      that is not the loopback is refused, so the token never travels in the clear.
+      Send the run to a hosted testhunch at this address instead of a database, and ask it for the
+      ranking, for example https://api.example.com. The token comes from the TESTHUNCH_API_TOKEN
+      environment variable, which you set from a secret on the step that uses this action. An
+      http:// address that is not the loopback is refused, so the token never travels in the clear.
     required: false
     default: ""
   last:

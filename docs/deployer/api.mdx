@@ -91,6 +91,20 @@ curl -X POST https://testhunch.example.com/v1/prioritize \
 `commit_sha` n'est pas décoratif : c'est lui qui départage les scores égaux, exactement comme en
 ligne de commande. Le passer donne le même ordre que `testhunch prioritize` pour ce commit.
 
+La réponse est un objet : `ranked`, les tests que `limit` a gardés ; `total`, combien il y en avait
+en tout ; et `prediction_id`, non nul quand le serveur a gardé ce classement.
+
+### Faire garder le classement au serveur
+
+Avec `"record": true`, le serveur conserve le classement qu'il vient de servir, pour que le mode
+fantôme puisse le comparer au run qui suivra. Il faut alors `commit_sha` : un classement qui ne dit
+pas ce qu'il prédit ne se compare à rien, et sans lui la réponse est 422.
+
+**Le client n'envoie jamais de classement.** Le serveur enregistre ce qu'il a servi, et lui seul.
+Autrement, n'importe quel client pourrait enregistrer une prédiction que le serveur n'a pas faite,
+et un rapport de mode fantôme ne vaut que si personne n'a pu écrire la prédiction après avoir vu le
+résultat ([ADR 0023](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0023-the-server-keeps-the-ranking-it-served.md)).
+
 ## Lire le rapport
 
 `GET /v1/report?repo=acme/shop` renvoie les tests instables, lents et en échec, comme la commande du
