@@ -19,9 +19,8 @@
   },
   "testhunch": {
     "version": "0.2.0",
-    "commit": "bc417f1d84d619a60e11beb224a36c32ddb7c133"
+    "commit": "06e054a4d92caa767278219af485abfffbd4b512"
   },
-  "history_runs": 50,
   "jobs": {
     "total": 383,
     "concurrent_groups": 193,
@@ -35,55 +34,58 @@
       "fraction": 0.1,
       "runs": 381,
       "failing_runs": 316,
-      "caught_runs": 280,
+      "caught_runs": 263,
       "failures": 384,
-      "caught_failures": 327,
+      "caught_failures": 291,
       "confirmed_failing_runs": 0,
       "caught_confirmed_runs": 0,
       "confirmed_failures": 0,
       "caught_confirmed_failures": 0,
-      "tests_run": 5889,
+      "tests_run": 5432,
       "tests_total": 58204,
-      "time_run_ms": 41023938,
-      "time_total_ms": 193502588
+      "time_run_ms": 20800770,
+      "time_total_ms": 193502588,
+      "runs_without_expected_time": 0
     },
     {
       "fraction": 0.25,
       "runs": 381,
       "failing_runs": 316,
-      "caught_runs": 283,
+      "caught_runs": 298,
       "failures": 384,
-      "caught_failures": 331,
+      "caught_failures": 335,
       "confirmed_failing_runs": 0,
       "caught_confirmed_runs": 0,
       "confirmed_failures": 0,
       "caught_confirmed_failures": 0,
-      "tests_run": 12213,
+      "tests_run": 19531,
       "tests_total": 58204,
-      "time_run_ms": 63609594,
-      "time_total_ms": 193502588
+      "time_run_ms": 48785819,
+      "time_total_ms": 193502588,
+      "runs_without_expected_time": 0
     },
     {
       "fraction": 0.5,
       "runs": 381,
       "failing_runs": 316,
-      "caught_runs": 297,
+      "caught_runs": 310,
       "failures": 384,
-      "caught_failures": 358,
+      "caught_failures": 362,
       "confirmed_failing_runs": 0,
       "caught_confirmed_runs": 0,
       "confirmed_failures": 0,
       "caught_confirmed_failures": 0,
-      "tests_run": 33287,
+      "tests_run": 47866,
       "tests_total": 58204,
-      "time_run_ms": 138560031,
-      "time_total_ms": 193502588
+      "time_run_ms": 100147809,
+      "time_total_ms": 193502588,
+      "runs_without_expected_time": 0
     }
   ],
   "apfd": {
     "jobs": 325,
     "mean": {
-      "testhunch": 0.9219189345345867,
+      "testhunch": 0.899809466319723,
       "untreated": 0.18113303548242835,
       "random": 0.4960732817919745,
       "recently-failed": 0.8606665933829354,

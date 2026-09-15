@@ -1,0 +1,139 @@
+{
+  "project": "ollama/ollama",
+  "end": "53fed26112817f7c55f664efb9e3f65f06cab7db",
+  "window": 200,
+  "images": [
+    "sha256:03605e740e356282e34420dfd717c5e5bf2a85c61fd139c4e2d23b271d46bd91",
+    "sha256:0395fd0b12197d609f4b8a2fe101f8edbd37186bae15788c94c86373cc72d031",
+    "sha256:10c74158763a114196b9a883670aa8b000ee07e0c1e6c4711f336df23caced6c",
+    "sha256:46a1d5ba96ecc25af3154695d952aa11f0abeca33b1b01b8c0c8e950faa305e1",
+    "sha256:56e36a7b916ca98a126d899f7bee47dfc86c222eba426981b5382affe84ed77a",
+    "sha256:ee187276654306d40750a8a97c38419414f43650ebf22376ed402eff584e4e68"
+  ],
+  "testhunch": {
+    "version": "0.2.0",
+    "commit": "06e054a4d92caa767278219af485abfffbd4b512"
+  },
+  "commits": {
+    "collected": 200,
+    "built": 200,
+    "not_built": [],
+    "ranked_from_empty_history": 1,
+    "evaluated": 199,
+    "evaluated_failing": 3
+  },
+  "shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 199,
+      "failing_runs": 3,
+      "caught_runs": 3,
+      "failures": 7,
+      "caught_failures": 7,
+      "confirmed_failing_runs": 3,
+      "caught_confirmed_runs": 3,
+      "confirmed_failures": 7,
+      "caught_confirmed_failures": 7,
+      "tests_run": 815952,
+      "tests_total": 1418536,
+      "time_run_ms": 25470,
+      "time_total_ms": 6734789,
+      "runs_without_expected_time": 0
+    },
+    {
+      "fraction": 0.25,
+      "runs": 199,
+      "failing_runs": 3,
+      "caught_runs": 3,
+      "failures": 7,
+      "caught_failures": 7,
+      "confirmed_failing_runs": 3,
+      "caught_confirmed_runs": 3,
+      "confirmed_failures": 7,
+      "caught_confirmed_failures": 7,
+      "tests_run": 1340944,
+      "tests_total": 1418536,
+      "time_run_ms": 728210,
+      "time_total_ms": 6734789,
+      "runs_without_expected_time": 0
+    },
+    {
+      "fraction": 0.5,
+      "runs": 199,
+      "failing_runs": 3,
+      "caught_runs": 3,
+      "failures": 7,
+      "caught_failures": 7,
+      "confirmed_failing_runs": 3,
+      "caught_confirmed_runs": 3,
+      "confirmed_failures": 7,
+      "caught_confirmed_failures": 7,
+      "tests_run": 1406465,
+      "tests_total": 1418536,
+      "time_run_ms": 2697930,
+      "time_total_ms": 6734789,
+      "runs_without_expected_time": 0
+    }
+  ],
+  "mutants": {
+    "tried": 371,
+    "ranked_from_empty_history": 0,
+    "not_compiled": 21,
+    "no_report": 0,
+    "survived": 192,
+    "detected": 158
+  },
+  "mutant_shadow": [
+    {
+      "fraction": 0.1,
+      "runs": 158,
+      "failing_runs": 158,
+      "caught_runs": 145,
+      "failures": 780,
+      "caught_failures": 562,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 656146,
+      "tests_total": 1134209,
+      "time_run_ms": 29220,
+      "time_total_ms": 5496830,
+      "runs_without_expected_time": 0
+    },
+    {
+      "fraction": 0.25,
+      "runs": 158,
+      "failing_runs": 158,
+      "caught_runs": 157,
+      "failures": 780,
+      "caught_failures": 735,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 1071925,
+      "tests_total": 1134209,
+      "time_run_ms": 624260,
+      "time_total_ms": 5496830,
+      "runs_without_expected_time": 0
+    },
+    {
+      "fraction": 0.5,
+      "runs": 158,
+      "failing_runs": 158,
+      "caught_runs": 158,
+      "failures": 780,
+      "caught_failures": 772,
+      "confirmed_failing_runs": 0,
+      "caught_confirmed_runs": 0,
+      "confirmed_failures": 0,
+      "caught_confirmed_failures": 0,
+      "tests_run": 1124308,
+      "tests_total": 1134209,
+      "time_run_ms": 2216080,
+      "time_total_ms": 5496830,
+      "runs_without_expected_time": 0
+    }
+  ]
+}
