@@ -7,6 +7,9 @@ name: Release
 # Nothing is published if the tag does not match the package version. The version is written in one
 # place, pyproject.toml, and a test holds the README's `@vX.Y.Z` examples to it: what the front page
 # tells a reader to install has to be the version this workflow would publish.
+#
+# This workflow is for readers of the project, not for deployments: ci.yml publishes an image for
+# every commit of main, so running a server never requires cutting a version (docs/adr/0025).
 on:
   push:
     tags: ["v*"]

@@ -124,9 +124,13 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 
 data "aws_iam_policy_document" "server" {
   statement {
-    sid       = "ReadItsOwnSecrets"
-    actions   = ["ssm:GetParameter", "ssm:GetParameters"]
-    resources = [aws_ssm_parameter.postgres.arn, aws_ssm_parameter.api_token.arn]
+    sid     = "ReadItsOwnSecrets"
+    actions = ["ssm:GetParameter", "ssm:GetParameters"]
+    resources = [
+      aws_ssm_parameter.postgres.arn,
+      aws_ssm_parameter.api_token.arn,
+      aws_ssm_parameter.image.arn, # not a secret, but read the same way at every boot
+    ]
   }
 
   statement {
@@ -191,7 +195,7 @@ resource "aws_instance" "server" {
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/server.sh.tftpl", {
     region              = var.region
-    image               = var.image
+    image_parameter     = aws_ssm_parameter.image.name
     postgres_image      = var.postgres_image
     caddy_image         = var.caddy_image
     api_domain          = var.api_domain

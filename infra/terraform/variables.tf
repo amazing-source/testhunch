@@ -12,9 +12,9 @@ variable "name" {
 
 variable "instance_type" {
   description = <<-EOT
-    The one server. x86, not Graviton: the published image is linux/amd64 only, because
-    .github/workflows/release.yml builds without a `platforms:` list. An arm64 instance would
-    pull an image it cannot run, and the failure would only show in the container logs.
+    The one server. x86, not Graviton: the published image is linux/amd64 only, because neither
+    .github/workflows/ci.yml nor release.yml builds with a `platforms:` list. An arm64 instance
+    would pull an image it cannot run, and the failure would only show in the container logs.
   EOT
   type        = string
   default     = "t3.small"
@@ -26,9 +26,35 @@ variable "instance_type" {
 }
 
 variable "image" {
-  description = "The published image to run. Pinned to an exact version, never :latest."
+  description = <<-EOT
+    The image the server starts on, and only that: after the stack exists, deployments name the
+    image in Parameter Store and Terraform stops looking at it (docs/adr/0026). Pinned to a tag
+    that cannot move: a released version, or the `sha-<commit>` that .github/workflows/ci.yml
+    publishes for every commit of main that passed.
+  EOT
   type        = string
   default     = "ghcr.io/amazing-source/testhunch:0.4.0"
+
+  validation {
+    # A moving tag would leave no way to say which commit the server is running.
+    condition     = !endswith(var.image, ":latest") && !endswith(var.image, ":main")
+    error_message = "Pin the image to a version or to a sha- tag, not to a tag that moves."
+  }
+}
+
+variable "github_repository" {
+  description = <<-EOT
+    The repository allowed to deploy, as `owner/name`. Empty means no deployment identity is
+    created at all: a role that lets someone else's workflow into this account should never be a
+    default. Only its `main` branch is trusted, and only to deploy.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.github_repository == "" || length(split("/", var.github_repository)) == 2
+    error_message = "Write it as owner/name, or leave it empty."
+  }
 }
 
 variable "postgres_image" {
