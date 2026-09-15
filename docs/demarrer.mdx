@@ -1,0 +1,96 @@
+---
+title: "Démarrer"
+description: "Ingérer un premier rapport et obtenir un premier classement, en local, en cinq minutes."
+---
+
+## Installer
+
+testhunch est un paquet Python. Avec [uv](https://docs.astral.sh/uv/), il n'y a rien à installer :
+
+```bash
+uvx testhunch --version
+```
+
+Sinon, `pip install testhunch` ou `uv tool install testhunch`.
+
+<Note>
+Lancez les commandes **dans votre dépôt git**. testhunch y lit le nom du dépôt, le commit testé et
+les fichiers modifiés. Si vous n'êtes pas dans un dépôt, passez `--repo` et `--commit` vous-même.
+</Note>
+
+## Enregistrer une première exécution
+
+Lancez vos tests en demandant une sortie JUnit XML. Presque tous les lanceurs savent le faire, par
+exemple `pytest --junitxml=junit.xml`. Ensuite :
+
+```bash
+testhunch ingest junit.xml
+```
+
+L'historique va dans `.testhunch/history.db`, un fichier SQLite. Pour le mettre ailleurs, ou sur
+Postgres, passez `--db` ou la variable d'environnement `TESTHUNCH_DATABASE_URL` :
+
+```bash
+testhunch ingest junit.xml --db postgresql://user@host/testhunch
+```
+
+Le schéma se crée et se met à jour tout seul. Il n'y a pas de commande de migration à lancer avant.
+
+<Warning>
+Un classement n'a de valeur que s'il a vu plusieurs builds. Sur une base neuve, testhunch ne connaît
+aucun test et les lance donc tous. C'est le comportement voulu, pas une panne.
+</Warning>
+
+## Regarder ce qu'il a appris
+
+```bash
+testhunch report
+```
+
+Vous y trouverez les tests **instables**, ceux qui ont réussi *et* échoué sur le même commit, y
+compris quand une relance finit par passer. Puis les plus **lents**, et ceux **en échec**.
+
+## Classer les tests d'un changement
+
+```bash
+testhunch prioritize --base origin/main
+```
+
+`--base` compare avec une référence git pour trouver les fichiers modifiés. Si vous préférez donner
+les chemins à la main, c'est `--changed` :
+
+```bash
+testhunch prioritize --changed src/panier.py tests/test_panier.py --limit 10
+```
+
+Chaque ligne porte son score et les raisons de sa place :
+
+```text
+   1.      1.46  tests.test_sample::test_parametrized[2]  (failed in the latest build; its file changed; takes about 0 ms)
+   2.      0.73  tests.test_sample::test_fails  (failed in the latest build; its file changed; takes about 1 ms)
+```
+
+<Tip>
+À score égal, l'ordre dépend du commit classé : les égalités sont départagées par un hachage, pour
+qu'elles ne suivent pas l'alphabet. Deux commits différents peuvent donc présenter les mêmes ex aequo
+dans un ordre différent. `--commit` choisit ce commit.
+</Tip>
+
+Pour brancher la sortie sur autre chose qu'un terminal, `--format` accepte `text`, `json`, `keys`
+(une clé de test par ligne) et `markdown`.
+
+## Mesurer avant de sauter
+
+testhunch ne saute rien tant que vous ne le lui demandez pas. Avant de lui faire confiance,
+faites-lui mesurer ce qu'il aurait manqué : enregistrez le classement avant les tests, lancez-les
+tous, comparez après coup.
+
+```bash
+testhunch prioritize --base origin/main --record   # avant les tests
+pytest --junitxml=junit.xml                        # tout tourne, rien n'est sauté
+testhunch ingest junit.xml
+testhunch shadow                                   # ce qu'un budget aurait manqué
+```
+
+C'est le **mode fantôme**. C'est la façon honnête de décider si testhunch vous sert, et un classement
+n'y est jamais comparé à une exécution qu'il avait déjà vue.

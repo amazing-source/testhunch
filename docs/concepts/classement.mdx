@@ -1,0 +1,81 @@
+---
+title: "Comment le classement est calculé"
+description: "Le score, ses raisons, les égalités, et ce que testhunch fait des tests qu'il ne connaît pas."
+---
+
+Le score d'un test tient en une ligne : **la récence de ses échecs, plus un bonus si le changement
+touche son propre fichier, le tout divisé par sa durée habituelle.**
+
+Cette formule vient d'une étude, pas d'une intuition. Les signaux disponibles ont été essayés un par
+un, et seuls ceux qui amélioraient la mesure ont été gardés. Les réglages se sont faits sur dix
+projets ; le résultat n'a été mesuré qu'une seule fois, sur dix autres, jamais regardés avant. Le
+détail est
+dans l'[ADR 0014](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0014-the-ranking-study-measures-time-to-red-against-latest-failure.md)
+et l'[ADR 0015](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0015-testhunch-ranks-by-latest-failure-per-unit-of-time.md),
+les chiffres dans [l'étude](https://github.com/amazing-source/testhunch/tree/main/benchmarks/results/study).
+
+## La récence, comptée en builds
+
+Un test qui vient d'échouer compte beaucoup plus qu'un test tombé il y a dix builds. testhunch
+reprend la formule du jeu de données RTPTorrent : à chaque build sans échec, la priorité est divisée
+par cinq. L'échec le plus récent pèse donc plus lourd que tous les précédents réunis.
+
+Le comptage se fait **en builds, pas en exécutions**. Un projet dont chaque build lance quarante jobs
+ne verrait sinon que ses quarante derniers jobs, c'est-à-dire un seul build d'historique. Tous les
+jobs d'un même commit ne pèsent qu'une fois.
+
+## Le fichier du test
+
+Si le changement touche le fichier où le test est écrit, son score gagne un bonus fixe. C'est le seul
+signal de proximité que l'étude a retenu, et de justesse. Les autres, la ressemblance des chemins ou
+des noms, ont été essayés et rejetés parce qu'ils dégradaient la mesure.
+
+## Divisé par la durée
+
+À risque égal, un test rapide passe devant un test lent. C'est ce qui fait que le gain se mesure en
+temps et pas seulement en nombre de tests, et c'est le signal qui a le plus apporté de toute
+l'étude. Les écarts, projet par projet, sont dans
+[l'étape 1](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/study/step-1.md).
+
+Un test dont la durée est inconnue reçoit la médiane des autres. Il n'est donc ni enterré ni poussé
+devant, faute d'information.
+
+## Les raisons
+
+Chaque test classé arrive avec les raisons de sa place, en clair :
+
+```text
+   1.      1.46  tests.test_sample::test_parametrized[2]  (failed in the latest build; its file changed; takes about 0 ms)
+```
+
+Trois raisons possibles se combinent : quand le test a échoué pour la dernière fois (`failed in the
+latest build`, ou `last failed 3 build(s) ago`), si son fichier a été modifié (`its file changed`), et
+ce qu'il coûte (`takes about 12 ms`, ou `duration unknown`).
+
+Un classement qu'on ne peut pas interroger est un classement qu'on ne peut pas contredire. Si une
+place vous paraît fausse, les raisons vous disent d'où elle vient.
+
+## Les tests que testhunch ne connaît pas
+
+Un test que testhunch n'a jamais vu **tourne toujours**, et il tourne en premier. Il n'a pas
+d'historique, donc aucun score ne le concerne, et le reléguer reviendrait à parier sur du code neuf.
+C'est aussi pour ça qu'un budget dépense souvent plus que sa part : il ne gouverne que les tests
+connus.
+
+## Les égalités
+
+Deux tests de même score sont départagés par le plus court, puis l'échec le plus récent, puis la
+priorité, et enfin un hachage du commit classé. Ce dernier point est délibéré : sans lui, les ex
+aequo suivraient l'alphabet, et le même test se retrouverait systématiquement devant.
+
+## Ce que ce classement fait mal
+
+Sur un test qui **n'a jamais échoué**, un classement fondé sur la récence des échecs cherche au
+mauvais endroit par construction. testhunch y fait moins bien que le hasard. C'est mesuré et publié,
+et traité comme un garde-fou à franchir plutôt que dilué dans une moyenne : voir
+l'[ADR 0018](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0018-first-failures-are-a-guardrail-not-an-average.md)
+et la [tranche des premiers échecs](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/study/first-failures.md).
+
+La conséquence pratique compte : ne sautez des tests que sur les pull requests, et relancez la suite
+complète sur la branche principale après chaque fusion. Ce filet n'est pas une précaution de
+principe, c'est ce qui rattrape le cas que le classement rate.

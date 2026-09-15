@@ -1,0 +1,40 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "testhunch",
+  "description": "Apprend de l'historique de votre CI quels tests un changement risque de casser.",
+  "colors": {
+    "primary": "#0E7C6B",
+    "light": "#3DBFA8",
+    "dark": "#0A5A4E"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Démarrer",
+        "pages": ["docs/index", "docs/demarrer"]
+      },
+      {
+        "group": "Concepts",
+        "pages": ["docs/concepts/classement"]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Mesures",
+        "href": "https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/amazing-source/testhunch"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/amazing-source/testhunch"
+    }
+  }
+}
