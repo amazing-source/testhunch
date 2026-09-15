@@ -1,0 +1,32 @@
+---
+title: "Vitest"
+description: "Un motif négatif pour `-t`, et pourquoi la liste des tests doit venir d'une vraie exécution."
+---
+
+```bash
+vitest list --json --no-static-parse > vitest-list.json
+vitest run -t "$(testhunch select --budget 25% --runner vitest --vitest-list vitest-list.json --base origin/main)"
+```
+
+Le motif produit ressemble à :
+
+```text
+^(?!(?:cart total > sums prices twice|...)$)
+```
+
+`-t` correspond au **nom complet** d'un test, ses blocs joints par `" > "`. Joint par de simples
+espaces, il ne correspondait à rien. Les tests filtrés sont rapportés comme sautés.
+
+<Warning>
+La liste doit venir de `--no-static-parse`, c'est-à-dire d'une vraie exécution des fichiers. L'analyse
+statique liste les `test.each` sous le nom de leur gabarit, pas sous leurs noms réels, et le filtre
+viserait alors à côté.
+</Warning>
+
+## Ce qui empêche d'écarter un test
+
+`-t` s'applique à **tous les fichiers** de l'exécution. Un test connu n'est donc écarté que si son nom
+complet apparaît **exactement une fois** dans la liste, dans son propre fichier. Un test homonyme
+ailleurs, ou un doublon ajouté dans le même fichier, serait filtré avec lui.
+
+Vérifié avec de vraies exécutions de Vitest 5.0.0 (`tests/fixtures/select/vitest`).

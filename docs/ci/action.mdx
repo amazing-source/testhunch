@@ -1,0 +1,87 @@
+---
+title: "L'Action GitHub"
+description: "Classer avant les tests, enregistrer après, et lire le résumé dans la page du job."
+---
+
+L'Action fait deux choses et rien d'autre : `prioritize` avant vos tests, `ingest` après. **Elle ne
+saute aucun test.** Sauter se décide ailleurs, et volontairement (voir
+[le filet de sécurité](/docs/ci/filet-de-securite)).
+
+## Un workflow complet
+
+```yaml
+- uses: actions/checkout@v7
+  with:
+    fetch-depth: 0 # testhunch compare avec la branche de base de la pull request
+
+- id: testhunch
+  uses: amazing-source/testhunch@v0.3.0
+  with:
+    command: prioritize
+    database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
+
+- run: pytest --junitxml=junit.xml
+
+- if: ${{ !cancelled() }}
+  uses: amazing-source/testhunch@v0.3.0
+  with:
+    command: ingest
+    reports: junit.xml
+    database-url: ${{ secrets.TESTHUNCH_DATABASE_URL }}
+```
+
+<Warning>
+Le `if: ${{ !cancelled() }}` compte. Sans lui, l'étape `ingest` est sautée quand les tests échouent,
+c'est-à-dire précisément quand il y a quelque chose à apprendre.
+</Warning>
+
+## Les entrées
+
+| Entrée | Rôle |
+|---|---|
+| `command` | `prioritize` ou `ingest`. Toute autre valeur arrête le job avec une erreur claire. |
+| `reports` | Pour `ingest` : fichiers JUnit XML ou motifs glob, un par ligne. |
+| `base` | Référence à comparer pour trouver les fichiers modifiés. Par défaut, la branche de base sur un événement `pull_request`, et rien sinon. |
+| `database-url` | Où garder l'historique. Par défaut un fichier SQLite dans l'espace de travail, qui disparaît avec le job. |
+| `last` | Pour `ingest` : sur combien d'exécutions récentes portent les résumés (50 par défaut). Le classement, lui, apprend de tous les builds enregistrés. |
+| `summary-limit` | Pour `prioritize` : combien de tests afficher dans le résumé du job (20 par défaut). |
+| `record` | Pour `prioritize` : enregistrer le classement pour le mode fantôme (`true` par défaut). |
+
+Les motifs glob sont transmis entre guillemets et développés par testhunch lui-même, pas par le
+shell du runner. Le même motif donne donc les mêmes fichiers sur Linux, macOS et Windows.
+
+## Les sorties
+
+`prioritize` produit deux fichiers :
+
+- **`ranking-json`** : le chemin d'un JSON avec chaque test, son score et ses raisons ;
+- **`ranking-keys`** : le chemin d'un fichier texte, une clé de test par ligne, du plus au moins
+  susceptible d'échouer.
+
+```yaml
+- run: head -20 "${{ steps.testhunch.outputs.ranking-keys }}"
+```
+
+## Ce que vous verrez dans le job
+
+`prioritize` écrit les tests les mieux classés dans le résumé du job. `ingest` y écrit deux choses :
+le rapport des tests instables, lents et en échec, puis le rapport du mode fantôme, c'est-à-dire ce
+que sauter les tests les moins bien classés aurait manqué. Sur les premiers builds, ce dernier n'a
+rien à dire, il lui faut de l'historique.
+
+## Garder l'historique
+
+Sans `database-url`, l'historique ne survit pas d'une exécution à l'autre, et testhunch repart de
+zéro à chaque job. C'est utile pour essayer, inutile pour s'en servir. Pour un vrai usage, passez
+l'URL d'une base Postgres depuis un secret.
+
+## Sur la version
+
+L'Action construit le paquet **depuis son propre checkout**, donc `@v0.3.0` fait tourner
+testhunch 0.3.0 : l'Action et la CLI ne peuvent pas diverger. Pour une garantie plus forte qu'un tag,
+épinglez le SHA du commit.
+
+<Note>
+Les entrées arrivent au script par des variables d'environnement, jamais interpolées dans un `run:`.
+Une valeur fabriquée ne peut donc pas exécuter de commandes sur votre runner.
+</Note>

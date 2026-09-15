@@ -1,0 +1,45 @@
+---
+title: "Go"
+description: "Un motif pour `go test -skip`, et les trois conditions qui protègent les sous-tests."
+---
+
+```bash
+go test -list '.*' ./... > golist.txt
+go test ./... -skip "$(testhunch select --budget 25% --runner go --go-test-list golist.txt --base origin/main)"
+```
+
+`--go-test-list` prend la sortie de `go test -list '.*' ./...` sur le code à tester. testhunch en a
+besoin pour savoir si un nom de test existe ailleurs que dans son propre paquet.
+
+<Warning>
+`go test` écrit la durée de chaque test au centième de seconde, et sur beaucoup de suites presque
+toutes valent zéro. Le budget de temps y perd son sens : passez `--budget-unit tests`.
+</Warning>
+
+## Comment `-skip` complique les choses
+
+Go applique le motif à **tous les paquets** de l'exécution, le découpe sur les `|` de premier niveau,
+et sur les `/` pour viser chaque niveau de sous-test. Un motif trop large emporte donc des tests
+qu'on ne visait pas, dans des paquets qu'on ne regardait pas.
+
+Un test connu n'est écarté que si les trois conditions tiennent :
+
+1. **son nom de premier niveau n'existe que dans son paquet**, d'après `go test -list`. Sinon `-skip`
+   sauterait aussi le test homonyme d'ailleurs ;
+2. **aucun de ses sous-tests connus n'est gardé**, parce qu'écarter un test écarte ses sous-tests ;
+3. **aucun fichier `_test.go` n'a changé** dans un répertoire portant le nom de son paquet, parce
+   qu'un sous-test ajouté là serait écarté avec son parent. Un fichier de test modifié à la racine du
+   module désactive complètement la sélection.
+
+Vérifié contre le vrai comportement de Go, pas sa documentation : `src/testing/match.go` en Go 1.27.1,
+et de vraies exécutions dans `tests/fixtures/select/go`.
+
+## Un détail qui a coûté cher
+
+Le motif est imprimé **sans fin de ligne**. `"$(...)"` retire le `\n` mais pas le `\r` d'une fin de
+ligne Windows, et ce `\r` resterait collé à la dernière alternative, qui ne correspondrait alors plus
+à rien.
+
+## Derrière gotestsum
+
+Le même motif fonctionne : `gotestsum --junitfile junit.xml -- ./... -skip "$(...)"`.

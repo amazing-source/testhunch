@@ -1,0 +1,38 @@
+---
+title: "Maven Surefire"
+description: "Une valeur `-Dtest` faite d'exclusions, et ce que les méthodes paramétrées imposent."
+---
+
+```bash
+mvn test "-Dtest=$(testhunch select --budget 25% --runner surefire --base origin/main)"
+```
+
+La valeur produite est une liste d'exclusions, par exemple :
+
+```text
+!com.example.shop.CartTest#sumsPrices,!com.example.shop.FlakyTest#failsOnFirstAttempt
+```
+
+Des exclusions seules suffisent : tout le reste tourne. Le nom de classe est **complètement
+qualifié**, parce qu'un nom simple correspondait aussi à une classe homonyme d'un autre paquet.
+
+<Warning>
+`-Dtest` **remplace les `includes` et `excludes` de votre build**, d'après la documentation de
+Surefire. Si votre `pom.xml` exclut certains tests, ils tourneront. Vérifiez ce point avant d'activer
+la sélection sur un projet qui s'appuie sur ces réglages.
+</Warning>
+
+## Ce qui empêche d'écarter un test
+
+Un test connu n'est écarté que si les trois conditions tiennent :
+
+1. **son nom rapporté est un nom de méthode Java.** Un `@DisplayName` rédigé en toutes lettres n'en
+   est pas un, et ne peut pas être visé ;
+2. **tous les tests connus de même classe et même méthode sont écartés**, ce qui couvre les
+   invocations d'une méthode paramétrée et les surcharges. `#method` écarte toutes les invocations,
+   et `#method[2]` n'écarte rien du tout ;
+3. **le fichier source de la classe n'a pas changé**, la classe externe pour `Outer$Inner`, parce
+   qu'une invocation ajoutée là serait écartée avec les autres.
+
+Vérifié avec de vraies exécutions de Surefire 3.6.0 et JUnit 6.1.3
+(`tests/fixtures/select/surefire`).

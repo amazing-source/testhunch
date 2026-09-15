@@ -1,0 +1,69 @@
+---
+title: "Le filet de sécurité"
+description: "Ne sauter que sur les pull requests, relancer tout sur la branche principale, et continuer à mesurer pendant qu'on saute."
+---
+
+Sauter des tests, c'est accepter de rater quelque chose. La question n'est pas de savoir si ça
+arrivera, mais ce qui le rattrape quand ça arrive.
+
+## La règle
+
+**Ne sautez des tests que sur les pull requests. Relancez la suite complète sur la branche
+principale après chaque fusion.**
+
+Un test raté sur une pull request coûte un aller-retour. Le même test raté sur la branche
+principale, découvert trois jours plus tard par quelqu'un d'autre, coûte beaucoup plus. C'est l'idée
+de l'étape de stabilisation décrite par Machalica et al. (*Predictive Test Selection*, ICSE-SEIP
+2019, section II-B) : la sélection accélère la boucle de développement, la branche principale reste
+la source de vérité.
+
+<Warning>
+Ce filet n'est pas une précaution de principe, c'est une pièce portante. Sur un test qui n'a jamais
+échoué, testhunch fait moins bien que le hasard, et c'est exactement le cas d'un bug écrit dans du
+code neuf. La branche principale est ce qui rattrape cette tranche
+([ADR 0018](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0018-first-failures-are-a-guardrail-not-an-average.md)).
+</Warning>
+
+## Ce qui n'est jamais sauté
+
+Deux choses, quoi que vous demandiez :
+
+- **les tests que testhunch ne connaît pas.** Sans historique, aucun score ne les concerne, alors ils
+  tournent, et ils tournent en premier ;
+- **tout, quand l'historique est vide.** Sur une base neuve, `select` ne laisse rien de côté.
+
+Un test n'est écarté que si le filtre de votre lanceur peut viser ce test **et lui seul**. Quand un
+lanceur ne sait pas l'exprimer, le test tourne. C'est pour ça que la page de chaque lanceur décrit
+des limites différentes.
+
+## Continuer à mesurer pendant qu'on saute
+
+Il y a un piège évident : dès que testhunch saute des tests, il ne voit plus ce qu'il a manqué. Les
+mesures s'arrêtent au moment précis où elles deviendraient intéressantes.
+
+D'où les **learning runs**. `testhunch select` tire au sort une part des builds, 25 % par défaut. Sur
+un build tiré, il ne saute rien et enregistre le classement pour le mode fantôme. Sur les autres, il
+saute et n'enregistre rien.
+
+```bash
+testhunch select --budget 25% --runner pytest --learning-runs 25%
+```
+
+Le tirage est un hachage du dépôt et du commit. Le même commit obtient donc toujours la même
+réponse : tous les jobs d'une matrice sont d'accord entre eux, et relancer un build ne change pas son
+sort. Il ne dépend ni du contenu du changement ni du classement, donc l'échantillon reste
+indépendant du risque apparent d'un changement.
+
+`--learning-runs 0%` les désactive. `--learning-runs 100%` fait de chaque build un learning run,
+c'est-à-dire du mode fantôme.
+
+## L'ordre dans lequel s'y prendre
+
+1. **Mesurez d'abord.** Mode fantôme seul, rien de sauté, pendant assez de builds pour que
+   l'historique dise quelque chose.
+2. **Lisez le taux de tests manqués** dans le résumé de `ingest`, et décidez si le budget vous va.
+3. **Sautez ensuite**, sur les pull requests uniquement, en gardant des learning runs.
+
+Le
+[mode fantôme](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0006-shadow-mode-measures-misses-without-skipping.md)
+existe pour que cette décision repose sur vos chiffres à vous et pas sur les nôtres.

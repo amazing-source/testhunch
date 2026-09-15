@@ -1,0 +1,66 @@
+---
+title: "Sauter des tests"
+description: "Ce qu'un budget achète, comment la sélection est produite, et la règle qui décide si un test peut être écarté."
+---
+
+`testhunch select` prend le classement et en sort **une liste de tests à laisser de côté**, au format
+que votre lanceur comprend. Tout le reste tourne.
+
+```bash
+testhunch select --budget 25% --runner pytest --base origin/main
+```
+
+Avant d'aller plus loin : lisez [le filet de sécurité](/docs/ci/filet-de-securite). Sauter sans lui
+n'est pas une optimisation, c'est un pari.
+
+## Un budget est une part de temps
+
+`--budget 25%` veut dire **un quart du temps de test attendu** sur les tests connus, pas un quart des
+tests. Le gain que testhunch cherche est du temps, alors c'est en temps qu'il se dépense.
+
+La coupe utilise les durées que le classement connaissait **avant** l'exécution, jamais celles de
+l'exécution en cours. Couper avec les durées d'après reviendrait à annoncer un budget que personne
+n'aurait pu dépenser.
+
+Si votre lanceur ne rapporte pas de durée exploitable, passez `--budget-unit tests` et le budget
+redevient un nombre de tests. `go test` est le cas typique : il écrit les durées au centième de
+seconde, et presque toutes valent zéro.
+
+<Note>
+Un budget ne gouverne que les tests **connus**. Ceux que testhunch n'a jamais vus tournent en plus,
+et en premier. Une exécution dépense donc souvent davantage que son budget nominal, parfois beaucoup
+plus si la suite contient beaucoup de tests neufs ou lents.
+</Note>
+
+## La règle qui décide
+
+**Un test n'est écarté que si le filtre du lanceur peut viser ce test et lui seul.** Quand le lanceur
+ne sait pas l'exprimer, le test tourne.
+
+Cette règle a l'air prudente sur le papier ; en pratique c'est elle qui produit toutes les
+différences entre les pages qui suivent. Deux tests portant le même nom dans deux fichiers, un test
+paramétré, un sous-test ajouté dans un fichier modifié : à chaque fois, si le filtre risque d'emporter
+autre chose que la cible, testhunch renonce à écarter.
+
+Chaque format est vérifié en lançant le vrai lanceur et en relisant son rapport JUnit, pas en lisant
+sa documentation.
+
+## Les lanceurs
+
+<CardGroup cols={3}>
+  <Card title="pytest" href="/docs/sauter/pytest" />
+  <Card title="Go" href="/docs/sauter/go" />
+  <Card title="Surefire" href="/docs/sauter/surefire" />
+  <Card title="cargo-nextest" href="/docs/sauter/nextest" />
+  <Card title="Vitest" href="/docs/sauter/vitest" />
+  <Card title="Jest" href="/docs/sauter/jest" />
+</CardGroup>
+
+## Ce qui tourne toujours
+
+Quel que soit le lanceur et quel que soit le budget :
+
+- les tests que testhunch ne connaît pas ;
+- les tests renommés, qui sont des tests inconnus ;
+- tout, quand l'historique est vide ;
+- tout, sur un [learning run](/docs/ci/filet-de-securite).

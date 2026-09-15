@@ -17,6 +17,22 @@
       {
         "group": "Concepts",
         "pages": ["docs/concepts/classement"]
+      },
+      {
+        "group": "En CI",
+        "pages": ["docs/ci/action", "docs/ci/filet-de-securite"]
+      },
+      {
+        "group": "Sauter des tests",
+        "pages": [
+          "docs/sauter/index",
+          "docs/sauter/pytest",
+          "docs/sauter/go",
+          "docs/sauter/surefire",
+          "docs/sauter/nextest",
+          "docs/sauter/vitest",
+          "docs/sauter/jest"
+        ]
       }
     ]
   },
