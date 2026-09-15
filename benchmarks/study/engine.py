@@ -51,6 +51,9 @@ def study(
     kinds: list[str] = []
     job_ids: list[int] = []
     best: list[float | None] = []
+    # Per trial: had any of its known failing tests ever failed before? The guardrail of ADR 0018
+    # only means something once the trials are split on this.
+    first_failures: list[bool] = []
     per_ranking: dict[str, list[dict[str, float | None]]] = {name: [] for name in names}
     for group in concurrent_groups(jobs):
         collapsed = [collapse(job.results) for job in group]
@@ -78,6 +81,11 @@ def study(
                 kinds.append(kind)
                 job_ids.append(trial.job_id)
                 best.append(best_red_at(trial, builds.records))
+                known_failing = [t for t in trial.failing if t in builds.records]
+                first_failures.append(
+                    bool(known_failing)
+                    and all(builds.records[t].failures == 0 for t in known_failing)
+                )
                 for ranking in rankings:
                     order, known = ranking.order(trial, context)
                     per_ranking[ranking.name].append(scores(trial, order, known))
@@ -88,13 +96,18 @@ def study(
         counts["builds"] += 1
     return {
         "counts": dict(sorted(counts.items())),
-        "trials": {"kinds": kinds, "job_ids": job_ids, "best_red_at": best},
+        "trials": {
+            "kinds": kinds,
+            "job_ids": job_ids,
+            "best_red_at": best,
+            "first_failure": first_failures,
+        },
         "rankings": {
             name: {
                 "means": {kind: means(values, kinds, kind) for kind in sorted(set(kinds))},
                 "per_trial": {
                     measure: [value[measure] for value in values]
-                    for measure in ("apfd", PRIMARY, "red_at")
+                    for measure in ("apfd", PRIMARY, "red_at", "position")
                 },
             }
             for name, values in per_ranking.items()

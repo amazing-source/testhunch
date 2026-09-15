@@ -182,6 +182,7 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
             for share in CATCH_SHARES
         ]
         lines.append("| *best order in hindsight* | " + " | ".join(cells) + " |")
+    lines += _first_failure_table(rtptorrent, names)
 
     authors = [r for r in rtptorrent if r.get("authors_schedule", {}).get("jobs")]
     if authors:
@@ -217,6 +218,62 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
             cells = [_cell(_mean(r, ranking, PRIMARY, kind)) for r, kind in columns]
             lines.append(f"| {ranking} | " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n"
+
+
+def _first_failure_table(rtptorrent: Sequence[dict[str, Any]], names: Sequence[str]) -> list[str]:
+    """The guardrail of ADR 0018: where the first failing test sits, on each slice.
+
+    A ranking must not be worse than random at finding a test that has never failed. Reported
+    beside the main measure and never merged into it: the jobs whose history speaks would
+    otherwise drown the ones whose history says nothing.
+    """
+    if not rtptorrent or not all("first_failure" in r["trials"] for r in rtptorrent):
+        return []
+    slices = {"had failed before": False, "had never failed before": True}
+    lines = [
+        "",
+        "## Position of the first failing test, by slice (docs/adr/0018)",
+        "",
+        "Guardrail, not a measure to maximise: **lower is better**, and a ranking must not be "
+        "worse than random where the history says nothing. Mean over the jobs of each slice.",
+        "",
+        "| Ranking | "
+        + " | ".join(f"{name} ({n})" for name, n in _slice_counts(rtptorrent))
+        + " |",
+        "|---|" + "---:|" * len(slices),
+    ]
+    for ranking in names:
+        cells = []
+        for fresh in slices.values():
+            values = [
+                value
+                for result in rtptorrent
+                for value, kind, first in zip(
+                    result["rankings"][ranking]["per_trial"].get("position", []),
+                    result["trials"]["kinds"],
+                    result["trials"]["first_failure"],
+                    strict=True,
+                )
+                if value is not None and kind == "job" and first == fresh
+            ]
+            cells.append(_cell(statistics.fmean(values) if values else None))
+        lines.append(f"| {ranking} | " + " | ".join(cells) + " |")
+    return lines
+
+
+def _slice_counts(rtptorrent: Sequence[dict[str, Any]]) -> list[tuple[str, int]]:
+    jobs = [
+        first
+        for result in rtptorrent
+        for first, kind in zip(
+            result["trials"]["first_failure"], result["trials"]["kinds"], strict=True
+        )
+        if kind == "job"
+    ]
+    return [
+        ("had failed before", sum(1 for first in jobs if not first)),
+        ("had never failed before", sum(1 for first in jobs if first)),
+    ]
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -68,6 +68,11 @@ before any candidate is run:
 - Nothing is kept on the guardrail alone if it costs the regime that works. The point is to stop
   being worse than chance on new failures while staying four times better than chance on the rest.
 
+The cold-start form does **not** fence off the regime that works, and it would be wrong to assume
+it does: a test whose failure has decayed keeps a small priority, so a large enough cold weight puts
+a never-failed test in front of it. That is exactly why both slices are measured rather than only
+the one the change is aimed at. A test holds this behaviour, so nobody rediscovers it by surprise.
+
 ## What this decision was made knowing
 
 The proximity signals had already been measured **alone, with no history**, on the development

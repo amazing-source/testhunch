@@ -113,6 +113,43 @@ STEPS["step-4"] = Step(
 )
 
 
+def cold_start(current: Candidate) -> tuple[Candidate, ...]:
+    """Each proximity signal at each weight, in the two forms of docs/adr/0018.
+
+    `always` is the form the study's steps already tried: the signal is added to every test's
+    score. `cold` adds it only to a test whose failure priority is 0, so it speaks exactly where
+    the history says nothing and leaves the rest of the ranking untouched.
+    """
+    candidates: list[Candidate] = []
+    for signal in PROXIMITY_SIGNALS:
+        for weight in WEIGHTS:
+            others = tuple((s, w) for s, w in current.weights if s != signal)
+            candidates.append(
+                replace(
+                    current,
+                    name=f"{current.name}/always+{signal}*{weight}",
+                    weights=(*others, (signal, weight)),
+                )
+            )
+            candidates.append(
+                replace(
+                    current,
+                    name=f"{current.name}/cold+{signal}*{weight}",
+                    cold_weights=((signal, weight),),
+                )
+            )
+    return tuple(candidates)
+
+
+# The step of ADR 0018: what the proximity signals are worth where the history says nothing. Its
+# rule was fixed before any candidate was run, and the guardrail is the first-failure slice.
+STEPS["cold-start"] = Step(
+    STEP_3_KEPT,
+    cold_start(STEP_3_KEPT),
+    references=(LatestFailure(), ProductRanking()),
+)
+
+
 def rankings(step: str) -> list[Ranking]:
     return STEPS[step].rankings()
 
