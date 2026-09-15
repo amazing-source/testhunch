@@ -34,6 +34,17 @@ TESTHUNCH_DATABASE_URL=postgresql://testhunch:$${postgres_password}@postgres:543
 TESTHUNCH_REPORTS_BUCKET=${reports_bucket}
 EOF
 
+%{ if api_domain != "" ~}
+# Caddy answers on ${api_domain} and asks Let's Encrypt for the certificate itself, then renews it
+# on its own. It reaches the API over the compose network, so the API still publishes nothing but
+# its loopback port (docs/adr/0021).
+cat > /opt/testhunch/Caddyfile <<'EOF'
+${api_domain} {
+	reverse_proxy api:8000
+}
+EOF
+%{ endif ~}
+
 # The API listens on the loopback only. Nothing routes to it from outside the instance, and the
 # security group has no inbound rule either: reaching it means an SSM port forward.
 cat > /opt/testhunch/compose.yaml <<'EOF'
@@ -70,9 +81,29 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+%{ if api_domain != "" ~}
+
+  caddy:
+    image: ${caddy_image}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/testhunch/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      api:
+        condition: service_healthy
+%{ endif ~}
 
 volumes:
   pgdata:
+%{ if api_domain != "" ~}
+  caddydata:
+  caddyconfig:
+%{ endif ~}
 EOF
 
 cat > /etc/systemd/system/testhunch.service <<'EOF'
