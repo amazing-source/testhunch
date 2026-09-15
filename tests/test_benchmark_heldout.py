@@ -6,8 +6,10 @@ tests stop a hidden one.
 
 from __future__ import annotations
 
+import os
 import subprocess
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,29 @@ from benchmarks.split import (
     RTPTORRENT_VALIDATION,
 )
 from benchmarks.study.__main__ import main as study_main
+
+Git = Callable[..., str]
+
+
+@contextmanager
+def chdir(path: Path) -> Iterator[None]:
+    """Run inside `path`, since `git status` reads the current directory."""
+    before = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(before)
+
+
+def porcelain(*entries: str) -> Callable[..., str]:
+    """A `_git` double whose status answer is shaped like the real `--porcelain -z` output."""
+    answers = {
+        ("status", "--porcelain", "-z"): "".join(f"{entry}\0" for entry in entries),
+        ("rev-parse", "HEAD"): "c" * 40,
+        ("branch", "--remotes", "--contains", "c" * 40): "  origin/main",
+    }
+    return lambda *args, **kwargs: answers.get(args, "")
 
 
 def rows(ledger: Path) -> list[str]:
@@ -44,8 +69,38 @@ def test_the_ledger_is_created_with_its_header_and_one_row_per_look(
     assert "`000000000000` | 9.9.9 | `benchmarks.study held-out` | candidate-y | a@b, c@d |" in text
 
 
+def test_a_real_checkout_is_read_column_by_column(tmp_path: Path, git: Git) -> None:
+    """Against real `git status` output, not a double: a double hid a column shift once already.
+
+    The first unstaged entry of `git status --porcelain` begins with a space. Stripping the output
+    ate it and shifted every column of that entry by one, so a changed result file looked like a
+    changed source file and blocked the second command of a campaign.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "--quiet", "--initial-branch=main")
+    (repo / "benchmarks" / "results").mkdir(parents=True)
+    ledger = repo / "benchmarks" / "results" / "held-out-log.md"
+    replay = repo / "benchmarks" / "replay.py"
+    ledger.write_text("x\n", encoding="utf-8")
+    replay.write_text("x\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "--quiet", "-m", "base")
+
+    with chdir(repo):
+        # Only output changed, and it is the very first entry: nothing must block.
+        ledger.write_text("x\ny\n", encoding="utf-8")
+        assert heldout._uncommitted() == ""
+
+        # Code changed too: that blocks, and the message names the code, not the output.
+        replay.write_text("y\n", encoding="utf-8")
+        blocked = heldout._uncommitted()
+        assert "benchmarks/replay.py" in blocked
+        assert "held-out-log" not in blocked
+
+
 def test_a_dirty_working_tree_refuses_to_replay(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(heldout, "_git", lambda *a: " M src/testhunch/prioritize.py")
+    monkeypatch.setattr(heldout, "_git", porcelain(" M src/testhunch/prioritize.py"))
 
     with pytest.raises(NotFrozen, match="uncommitted changes"):
         frozen_commit()
@@ -56,57 +111,50 @@ def test_what_a_run_writes_itself_does_not_block_the_next_look(
 ) -> None:
     # A campaign is often two commands: the first writes its results and its ledger row, and the
     # second must still run. Those are its output, not the code it replayed (docs/adr/0016).
-    answers = {
-        ("status", "--porcelain"): (
-            " M benchmarks/results/held-out-log.md\n"
-            " M benchmarks/results/rtptorrent/apache@sling.json\n"
-            "?? benchmarks/results/harness/ollama@ollama.md"
+    monkeypatch.setattr(
+        heldout,
+        "_git",
+        porcelain(
+            " M benchmarks/results/held-out-log.md",
+            " M benchmarks/results/rtptorrent/apache@sling.json",
+            "?? benchmarks/results/harness/ollama@ollama.md",
         ),
-        ("rev-parse", "HEAD"): "c" * 40,
-        ("branch", "--remotes", "--contains", "c" * 40): "  origin/main",
-    }
-    monkeypatch.setattr(heldout, "_git", lambda *a: answers.get(a, ""))
+    )
 
     assert frozen_commit() == "c" * 40
 
 
 def test_changed_code_beside_the_results_still_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
-    answers = {
-        ("status", "--porcelain"): (
-            " M benchmarks/results/held-out-log.md\n M src/testhunch/prioritize.py"
-        ),
-    }
-    monkeypatch.setattr(heldout, "_git", lambda *a: answers.get(a, ""))
+    monkeypatch.setattr(
+        heldout,
+        "_git",
+        porcelain(" M benchmarks/results/held-out-log.md", " M src/testhunch/prioritize.py"),
+    )
 
     with pytest.raises(NotFrozen, match=r"prioritize\.py"):
         frozen_commit()
 
 
 def test_a_changed_benchmark_script_is_code_not_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    # benchmarks/ holds the replay itself; only benchmarks/results/ is output.
-    monkeypatch.setattr(heldout, "_git", lambda *a: " M benchmarks/replay.py")
+    # benchmarks/ holds the replay itself; only benchmarks/results/ is its output.
+    monkeypatch.setattr(heldout, "_git", porcelain(" M benchmarks/replay.py"))
 
     with pytest.raises(NotFrozen, match=r"replay\.py"):
         frozen_commit()
 
 
 def test_a_commit_on_no_remote_branch_refuses_to_replay(monkeypatch: pytest.MonkeyPatch) -> None:
-    answers = {("status", "--porcelain"): "", ("rev-parse", "HEAD"): "a" * 40}
-    monkeypatch.setattr(heldout, "_git", lambda *a: answers.get(a, ""))
+    answers = {("rev-parse", "HEAD"): "a" * 40}
+    monkeypatch.setattr(heldout, "_git", lambda *a, **k: answers.get(a, ""))
 
     with pytest.raises(NotFrozen, match="on no remote branch"):
         frozen_commit()
 
 
 def test_a_frozen_pushed_commit_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
-    answers = {
-        ("status", "--porcelain"): "",
-        ("rev-parse", "HEAD"): "b" * 40,
-        ("branch", "--remotes", "--contains", "b" * 40): "  origin/main",
-    }
-    monkeypatch.setattr(heldout, "_git", lambda *a: answers.get(a, ""))
+    monkeypatch.setattr(heldout, "_git", porcelain())
 
-    assert frozen_commit() == "b" * 40
+    assert frozen_commit() == "c" * 40
 
 
 def test_missing_git_refuses_rather_than_replaying_untraceably(
