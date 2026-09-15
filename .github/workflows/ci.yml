@@ -28,6 +28,21 @@ jobs:
       - run: uv run ruff check .
       - run: uv run mypy
 
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.2
+      - run: terraform -chdir=infra/terraform fmt -check -recursive
+      # No backend and no credentials: this checks the configuration, it reaches no account.
+      - run: terraform -chdir=infra/terraform init -backend=false
+      - run: terraform -chdir=infra/terraform validate
+
   test:
     name: Tests (Python ${{ matrix.python }})
     runs-on: ubuntu-latest

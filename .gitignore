@@ -23,3 +23,14 @@ reports/
 
 # Downloaded benchmark data (benchmarks/)
 .benchmark-cache/
+
+# Terraform: the state holds the generated secrets in clear, and the providers are large.
+# .terraform.lock.hcl is committed on purpose: it pins the providers to exact hashes.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Terraform plan files, which hold the same secrets as the state
+tfplan
+*.tfplan

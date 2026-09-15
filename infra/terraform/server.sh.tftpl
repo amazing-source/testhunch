@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# First boot of the testhunch server: Docker, then Postgres, the migration and the API, as
+# containers held by one systemd unit so a reboot brings them back.
+#
+# Its log is /var/log/testhunch-setup.log on the instance, and cloud-init's own is
+# /var/log/cloud-init-output.log. Both are worth reading when the API does not answer.
+set -euo pipefail
+exec > >(tee -a /var/log/testhunch-setup.log) 2>&1
+
+dnf -y install docker
+systemctl enable --now docker
+
+# Compose is not packaged for Amazon Linux 2023: the pinned release, as its own CLI plugin.
+install -d /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
+docker compose version
+
+install -d -m 0750 /opt/testhunch
+
+# The secrets stay out of the instance's user data, which any process on the instance can read
+# from the metadata service. They are fetched once, into a file only root can read.
+postgres_password="$(aws ssm get-parameter --region '${region}' --name '${postgres_parameter}' \
+  --with-decryption --query Parameter.Value --output text)"
+api_token="$(aws ssm get-parameter --region '${region}' --name '${api_token_parameter}' \
+  --with-decryption --query Parameter.Value --output text)"
+
+umask 077
+cat > /opt/testhunch/.env <<EOF
+POSTGRES_PASSWORD=$${postgres_password}
+TESTHUNCH_API_TOKEN=$${api_token}
+TESTHUNCH_DATABASE_URL=postgresql://testhunch:$${postgres_password}@postgres:5432/testhunch
+TESTHUNCH_REPORTS_BUCKET=${reports_bucket}
+EOF
+
+# The API listens on the loopback only. Nothing routes to it from outside the instance, and the
+# security group has no inbound rule either: reaching it means an SSM port forward.
+cat > /opt/testhunch/compose.yaml <<'EOF'
+services:
+  postgres:
+    image: ${postgres_image}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: testhunch
+      POSTGRES_PASSWORD: $${POSTGRES_PASSWORD}
+      POSTGRES_DB: testhunch
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testhunch -d testhunch"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: ${image}
+    env_file: .env
+    command: ["testhunch", "migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: ${image}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+EOF
+
+cat > /etc/systemd/system/testhunch.service <<'EOF'
+[Unit]
+Description=testhunch: Postgres and the API
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/testhunch
+ExecStart=/usr/bin/docker compose up -d --wait
+ExecStop=/usr/bin/docker compose down
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now testhunch.service
+
+# A last word in the log, so `readyz` answering is what the setup ends on, not a guess.
+curl -fsS --retry 10 --retry-delay 3 --retry-connrefused http://127.0.0.1:8000/readyz
+echo "testhunch is up"
