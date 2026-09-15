@@ -30,3 +30,7 @@ reports/
 *.tfstate
 *.tfstate.*
 *.tfvars
+
+# Terraform plan files, which hold the same secrets as the state
+tfplan
+*.tfplan
