@@ -27,17 +27,33 @@ variable "instance_type" {
 
 variable "image" {
   description = <<-EOT
-    The published image to run, pinned to a tag that cannot move under the server: a released
-    version, or the `sha-<commit>` that .github/workflows/ci.yml publishes for every commit of main
-    that passed. Deploying main does not need a release.
+    The image the server starts on, and only that: after the stack exists, deployments name the
+    image in Parameter Store and Terraform stops looking at it (docs/adr/0026). Pinned to a tag
+    that cannot move: a released version, or the `sha-<commit>` that .github/workflows/ci.yml
+    publishes for every commit of main that passed.
   EOT
   type        = string
   default     = "ghcr.io/amazing-source/testhunch:0.4.0"
 
   validation {
-    # A moving tag would make `terraform plan` say nothing changed while the server changed.
+    # A moving tag would leave no way to say which commit the server is running.
     condition     = !endswith(var.image, ":latest") && !endswith(var.image, ":main")
     error_message = "Pin the image to a version or to a sha- tag, not to a tag that moves."
+  }
+}
+
+variable "github_repository" {
+  description = <<-EOT
+    The repository allowed to deploy, as `owner/name`. Empty means no deployment identity is
+    created at all: a role that lets someone else's workflow into this account should never be a
+    default. Only its `main` branch is trusted, and only to deploy.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.github_repository == "" || length(split("/", var.github_repository)) == 2
+    error_message = "Write it as owner/name, or leave it empty."
   }
 }
 

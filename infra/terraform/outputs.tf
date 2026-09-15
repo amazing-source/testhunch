@@ -17,6 +17,11 @@ output "port_forward" {
   ])
 }
 
+output "deploy_role" {
+  description = "The role GitHub Actions assumes to deploy. Set it as the AWS_DEPLOY_ROLE variable."
+  value       = one(aws_iam_role.deploy[*].arn)
+}
+
 output "api_token" {
   description = "The bearer token the API expects. `terraform output -raw api_token` to read it."
   value       = random_password.api_token.result

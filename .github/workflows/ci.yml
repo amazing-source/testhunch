@@ -382,3 +382,59 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy main to the server
+    # The server runs what main says, as soon as main says it (docs/adr/0026). There is no staging
+    # stack to promote from: a second server would halve the budget and tell us nothing, since the
+    # only thing between this commit and production is the suite that just passed.
+    #
+    # It does nothing anywhere the variable is unset, so a fork sees this job skipped, not failed.
+    needs: [image]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_ROLE != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # the OIDC token AWS checks instead of an access key
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+      # The names below come from the `name` variable of infra/terraform, whose default is this.
+      PARAMETER: /testhunch/image
+      DOCUMENT: testhunch-deploy
+      SERVER_TAG: Key=tag:Name,Values=testhunch-server
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE }}
+          aws-region: ${{ vars.AWS_REGION || 'eu-west-3' }}
+
+      - name: Name the image the server should run
+        run: aws ssm put-parameter --name "${PARAMETER}" --type String --overwrite --value "${IMAGE}"
+
+      - name: Tell the server to pull it, and wait for the answer
+        run: |
+          # One document, which takes no argument: this identity chooses an image, never a command.
+          command_id="$(aws ssm send-command \
+            --document-name "${DOCUMENT}" \
+            --targets "${SERVER_TAG}" \
+            --query Command.CommandId --output text)"
+          echo "Deploying ${IMAGE} (command ${command_id})"
+          for _ in $(seq 60); do
+            invocation="$(aws ssm list-command-invocations --command-id "${command_id}" \
+              --details --query 'CommandInvocations[0]' --output json)"
+            status="$(echo "${invocation}" | jq -r '.Status // "Pending"')"
+            case "${status}" in
+              Success)
+                echo "${invocation}" | jq -r '.CommandPlugins[].Output'
+                exit 0
+                ;;
+              Failed | Cancelled | TimedOut)
+                echo "${invocation}" | jq -r '.CommandPlugins[].Output'
+                echo "::error title=testhunch::the deployment ended as ${status}"
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          echo "::error title=testhunch::the deployment never finished"
+          exit 1

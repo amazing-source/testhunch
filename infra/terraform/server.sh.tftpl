@@ -51,12 +51,18 @@ postgres_password="$(aws ssm get-parameter --region '${region}' --name '${postgr
 api_token="$(aws ssm get-parameter --region '${region}' --name '${api_token_parameter}' \
   --with-decryption --query Parameter.Value --output text)"
 
+# The image is read here and not written into this script, so that a deployment and a rebuild of
+# this instance agree on what runs (docs/adr/0026). Compose reads it back from .env.
+image="$(aws ssm get-parameter --region '${region}' --name '${image_parameter}' \
+  --query Parameter.Value --output text)"
+
 umask 077
 cat > /opt/testhunch/.env <<EOF
 POSTGRES_PASSWORD=$${postgres_password}
 TESTHUNCH_API_TOKEN=$${api_token}
 TESTHUNCH_DATABASE_URL=postgresql://testhunch:$${postgres_password}@postgres:5432/testhunch
 TESTHUNCH_REPORTS_BUCKET=${reports_bucket}
+TESTHUNCH_IMAGE=$${image}
 EOF
 
 %{ if api_domain != "" ~}
@@ -90,7 +96,7 @@ services:
       retries: 20
 
   migrate:
-    image: ${image}
+    image: $${TESTHUNCH_IMAGE}
     env_file: .env
     command: ["testhunch", "migrate"]
     depends_on:
@@ -98,7 +104,7 @@ services:
         condition: service_healthy
 
   api:
-    image: ${image}
+    image: $${TESTHUNCH_IMAGE}
     restart: unless-stopped
     env_file: .env
     ports:
@@ -123,6 +129,31 @@ services:
         condition: service_healthy
 %{ endif ~}
 EOF
+
+# What a deployment runs, through the SSM document of the same name. It takes no argument: the
+# image to run is whatever Parameter Store now says, so the deploying identity chooses a name and
+# never a command (docs/adr/0026).
+cat > /usr/local/bin/testhunch-deploy <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+image="\$(aws ssm get-parameter --region '${region}' --name '${image_parameter}' \\
+  --query Parameter.Value --output text)"
+
+# Rewritten in place, in the directory only root can read: .env holds the database password.
+umask 077
+tmp="\$(mktemp /opt/testhunch/.env.XXXXXX)"
+trap 'rm -f "\$tmp"' EXIT
+grep -v '^TESTHUNCH_IMAGE=' /opt/testhunch/.env > "\$tmp"
+printf 'TESTHUNCH_IMAGE=%s\n' "\$image" >> "\$tmp"
+mv "\$tmp" /opt/testhunch/.env
+
+cd /opt/testhunch
+docker compose pull          # before the stop, so the API is down for a restart and not a download
+systemctl restart testhunch.service
+curl -fsS --retry 10 --retry-delay 3 --retry-connrefused http://127.0.0.1:8000/readyz
+echo "testhunch now runs \$image"
+EOF
+chmod 0755 /usr/local/bin/testhunch-deploy
 
 cat > /etc/systemd/system/testhunch.service <<'EOF'
 [Unit]
