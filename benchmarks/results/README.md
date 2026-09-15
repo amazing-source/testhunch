@@ -117,6 +117,44 @@ classement (0,124 → 0,335 sur le bon régime) sans jamais atteindre l'aléatoi
 marchait était **sélectif**, déclenché sur une correspondance de radical de fichier, et baisser le
 poids d'un signal continu ne le rend pas sélectif.
 
+### Le modèle appris ne passe pas, et la seule chose qu'il améliore
+
+Phase 6, [détail](study/learned.md), [ADR 0031](../../docs/adr/0031-the-learned-model-does-not-ship-and-where-it-wins.md).
+Des arbres à gradient boosting sur 29 396 lignes tirées des cinq projets d'entraînement, mesurés
+sur les cinq projets de validation que le modèle n'a jamais vus. Mesure principale, APFDc :
+
+| Classement | APFDc moyen | Écart | Intervalle à 95 % | Meilleur sur |
+|---|---:|---:|---|---:|
+| **classement actuel** | **0,883** | | | |
+| modèle appris, divisé par la durée | 0,883 | +0,001 | [−0,013, +0,015] | 3 sur 5 |
+| modèle appris, brut | 0,846 | −0,036 | [−0,062, −0,012] | 1 sur 5 |
+
+La règle demandait +0,005 et un intervalle au-dessus de zéro : **rien n'est livré**. Les deux
+variantes existent parce que l'heuristique divise son score par la durée attendue ; comparer sans
+elle poserait deux questions à la fois, « le modèle estime-t-il mieux le risque » et « diviser par
+le coût aide-t-il », à laquelle l'étude a déjà répondu.
+
+**Mais sur la tranche où ce projet est le plus mauvais, le modèle brut est le premier à faire
+mieux.** Position du premier test en échec, plus bas = mieux :
+
+| | A déjà échoué (2 717 jobs) | N'a jamais échoué (192 jobs) |
+|---|---:|---:|
+| classement actuel | **0,127** | 0,740 |
+| modèle appris, brut | 0,132 | **0,445** |
+| testhunch 0.2.0 | 0,158 | 0,461 |
+| aléatoire | 0,451 | 0,455 |
+
+La ligne « aléatoire » vient de la même tranche, mesurée à part sur les mêmes cinq projets
+([détail](study/first-failures-validation.md)).
+
+C'est **le premier classement mesuré ici qui ne soit pas plus mauvais que le hasard là où
+l'historique se tait**. La marge sur le hasard est d'un centième, ce qui ne revendique aucune
+compétence ; ce que c'est, c'est la fin d'une régression que l'étude elle-même avait introduite.
+
+Et c'est une piste, pas un résultat : 192 jobs, un seul modèle, un seul jeu d'hyperparamètres, et
+aucun regard sur les projets mis de côté. Un classement qui n'emploierait le modèle que là où
+l'historique se tait est le candidat évident, et il n'est pas écrit.
+
 ## RTPTorrent : 20 projets Java, 110 126 jobs Travis CI
 
 Méthode : [ADR 0010](../../docs/adr/0010-benchmark-replays-rtptorrent-in-build-order.md). Données :
