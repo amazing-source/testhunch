@@ -15,6 +15,13 @@ data "aws_subnets" "default" {
   }
 }
 
+# The subnet is chosen once, here, and both the server and its disk are pinned to it. Reading the
+# availability zone off the instance instead would make the disk depend on the instance, and then
+# replacing the instance would replace the disk: exactly what the disk exists to prevent.
+data "aws_subnet" "chosen" {
+  id = data.aws_subnets.default.ids[0]
+}
+
 resource "aws_security_group" "server" {
   name        = "${var.name}-server"
   description = "testhunch server: no inbound, egress only"
@@ -173,7 +180,7 @@ data "aws_ami" "al2023" {
 resource "aws_instance" "server" {
   ami                    = data.aws_ami.al2023.id
   instance_type          = var.instance_type
-  subnet_id              = data.aws_subnets.default.ids[0]
+  subnet_id              = data.aws_subnet.chosen.id
   vpc_security_group_ids = [aws_security_group.server.id]
   iam_instance_profile   = aws_iam_instance_profile.server.name
 
