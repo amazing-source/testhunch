@@ -233,6 +233,43 @@ jobs:
           assert (top["fraction"], top["caught_runs"], top["tests_run"]) == (0.1, 1, 1), top
           EOF
 
+      # The hosted path, against a real API rather than a description of one. Its own database,
+      # so what arrives is what this step sent and not what the steps above recorded locally.
+      - name: Start a testhunch API to send a run to
+        env:
+          TESTHUNCH_DATABASE_URL: sqlite:///hosted.db
+          TESTHUNCH_API_TOKEN: an-operator-token-for-this-job
+        run: |
+          uvx --from . testhunch migrate
+          uvx --from '.[api]' uvicorn testhunch.api.app:create_app --factory \
+            --host 127.0.0.1 --port 8000 &
+          for _ in $(seq 30); do
+            if curl -sf http://127.0.0.1:8000/readyz > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "::error title=testhunch::the API never became ready"
+          exit 1
+
+      - name: Send a run to it, through the action
+        uses: ./
+        env:
+          TESTHUNCH_API_TOKEN: an-operator-token-for-this-job
+        with:
+          command: ingest
+          reports: tests/fixtures/junit/nextest.xml
+          api-url: http://127.0.0.1:8000
+
+      - name: Check the API received it
+        run: |
+          curl -sf -H "Authorization: Bearer an-operator-token-for-this-job" \
+            "http://127.0.0.1:8000/v1/report?repo=${GITHUB_REPOSITORY}" | tee "$RUNNER_TEMP/hosted.json"
+          python3 - "$RUNNER_TEMP/hosted.json" <<'EOF'
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          assert report["runs"] == 1, report
+          assert any(t["key"] == "shop::tests::fails_on_purpose" for t in report["failing"]), report
+          EOF
+
   docker:
     name: Docker image and compose stack
     runs-on: ubuntu-latest

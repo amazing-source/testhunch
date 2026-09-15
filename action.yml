@@ -26,6 +26,14 @@ inputs:
       workspace, which is gone when the job ends; pass a Postgres URL from a secret to keep it.
     required: false
     default: ""
+  api-url:
+    description: >-
+      For `ingest`: send the run to a hosted testhunch at this address instead of a database, for
+      example https://api.example.com. The token comes from the TESTHUNCH_API_TOKEN environment
+      variable, which you set from a secret on the step that uses this action. An http:// address
+      that is not the loopback is refused, so the token never travels in the clear.
+    required: false
+    default: ""
   last:
     description: >-
       For `ingest`: how many recent runs the report and shadow summaries look back over. The
@@ -68,6 +76,7 @@ runs:
         TESTHUNCH_REPORTS: ${{ inputs.reports }}
         TESTHUNCH_BASE: ${{ inputs.base }}
         TESTHUNCH_INPUT_DATABASE_URL: ${{ inputs.database-url }}
+        TESTHUNCH_INPUT_API_URL: ${{ inputs.api-url }}
         TESTHUNCH_LAST: ${{ inputs.last }}
         TESTHUNCH_SUMMARY_LIMIT: ${{ inputs.summary-limit }}
         TESTHUNCH_RECORD: ${{ inputs.record }}
