@@ -7,9 +7,19 @@ from pathlib import Path
 import pytest
 
 from benchmarks import firstfailures, heldout
-from benchmarks.firstfailures import FIRST, REPEATED, main, markdown, measure, position, red_at
+from benchmarks.firstfailures import (
+    FIRST,
+    REPEATED,
+    OneSignal,
+    main,
+    markdown,
+    measure,
+    position,
+    red_at,
+    signals_markdown,
+)
 from benchmarks.study.metrics import Trial
-from benchmarks.study.rankings import LatestFailure
+from benchmarks.study.rankings import PROXIMITY_SIGNALS, LatestFailure
 
 EXTRACT = Path(__file__).parent / "fixtures" / "rtptorrent" / "adamfisk@LittleProxy"
 
@@ -108,3 +118,32 @@ def test_the_published_page_holds_the_measurement_of_the_development_projects() 
 
     assert page.startswith("# Testhunch on a test's first failure")
     assert REPEATED in page and FIRST in page
+
+
+def test_one_signal_orders_by_that_signal_alone_and_keeps_unknown_tests_first() -> None:
+    rankings = {name: OneSignal(name) for name in PROXIMITY_SIGNALS}
+
+    totals = measure("adamfisk@LittleProxy", rankings, changed_only=True)
+
+    for values in totals.values():
+        for name in PROXIMITY_SIGNALS:
+            # Every counted job is ordered by every signal: none is silently skipped.
+            assert len(values[f"{name}:position"]) == len(values["jobs"])
+
+
+def test_the_signals_page_says_what_it_asks_and_what_step_three_asked() -> None:
+    totals = {FIRST: {"jobs": [1.0], "path_similarity:position": [0.3]}}
+
+    page = signals_markdown(totals, ["path_similarity"])
+
+    assert page.startswith("# Do the proximity signals separate the test that breaks?")
+    assert "with no failure history at all" in page
+    assert "random is about 0.47" in page
+    assert "| path_similarity | 0.300 | - |" in page
+
+
+def test_the_published_signals_page_holds_its_measurement() -> None:
+    page = firstfailures.SIGNALS_OUT.read_text(encoding="utf-8")
+
+    assert page.startswith("# Do the proximity signals separate the test that breaks?")
+    assert "path_similarity alone" in page
