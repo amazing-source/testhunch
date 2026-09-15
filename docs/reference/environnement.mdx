@@ -9,7 +9,8 @@ icon: "settings"
 | Variable | Rôle |
 |---|---|
 | `TESTHUNCH_DATABASE_URL` | Où vit l'historique. Équivaut à `--db`. Par défaut `sqlite:///.testhunch/history.db` |
-| `TESTHUNCH_API_TOKEN` | Le jeton *bearer* que l'API exige. **Vide, l'API n'authentifie rien** |
+| `TESTHUNCH_API_TOKEN` | Le jeton *bearer* que l'API exige, côté serveur, et que `ingest --api` envoie, côté client. **Vide, l'API n'authentifie rien** |
+| `TESTHUNCH_API_URL` | L'adresse d'un testhunch hébergé, vers lequel `ingest` envoie le run. Équivaut à `--api` |
 
 Une URL Postgres s'écrit `postgresql://utilisateur:motdepasse@hote:5432/base`. Une URL SQLite est un
 chemin, `sqlite:///chemin/vers/history.db`.
