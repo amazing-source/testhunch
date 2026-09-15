@@ -24,6 +24,9 @@ Les pages générées, en anglais, donnent le détail par projet :
   côté), commit par commit et avec mutants.
 - [Étude des heuristiques](study/) : comment cette version a été choisie, et ce qu'elle vaut face à
   « les tests qui ont échoué le plus récemment d'abord ».
+- [testhunch sur testhunch](self.md) : notre propre CI, où **aucun test n'a jamais échoué**, donc où
+  testhunch ne peut rien démontrer. C'est notre plus mauvais résultat et il est publié quand même
+  ([ADR 0028](../../docs/adr/0028-testhunch-measures-itself-and-publishes-that-it-cannot.md)).
 
 ## Ce qu'il faut retenir, y compris ce qui est moins bon
 
