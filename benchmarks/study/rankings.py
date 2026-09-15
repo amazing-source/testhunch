@@ -116,9 +116,14 @@ class Candidate:
     weights: tuple[tuple[str, float], ...] = ()
     time_exponent: float | None = None
     window: int | None = None
+    # Signals added only to a test whose failure priority is 0, that is, one that has never failed:
+    # they speak where the history says nothing, and leave the rest of the ranking untouched
+    # (docs/adr/0018). `weights` above are added to every test, as the study's steps did.
+    cold_weights: tuple[tuple[str, float], ...] = ()
 
     def __post_init__(self) -> None:
-        unknown = {signal for signal, _ in self.weights} - set(SIGNALS)
+        both = (*self.weights, *self.cold_weights)
+        unknown = {signal for signal, _ in both} - set(SIGNALS)
         if unknown:
             raise ValueError(f"unknown signals: {sorted(unknown)}")
 
@@ -136,12 +141,18 @@ class Candidate:
                 and record.last_run < now - self.window
             )
             (unknown if record is None or stale else known).append(test)
-        signals = {name: _signal(name, trial, context) for name, _ in self.weights}
+        signals = {
+            name: _signal(name, trial, context) for name, _ in (*self.weights, *self.cold_weights)
+        }
         durations = _expected_durations(known, records) if self.time_exponent is not None else {}
 
         def key(test: str) -> tuple[float, float, int, float, bytes]:
             record = records[test]
             score = record.priority_at(now)
+            if not score:
+                # Nothing in the history: the cold-start signals are all this test has.
+                for name, weight in self.cold_weights:
+                    score += weight * signals[name](test)
             for name, weight in self.weights:
                 score += weight * signals[name](test)
             duration = durations.get(test, 1.0)

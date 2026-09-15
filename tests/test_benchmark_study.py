@@ -12,6 +12,7 @@ import pytest
 
 from benchmarks.replay import Job, concurrent_groups, replay
 from benchmarks.rtptorrent.data import load_jobs
+from benchmarks.study.__main__ import _first_failure_table
 from benchmarks.study.__main__ import main as study_main
 from benchmarks.study.engine import PRIMARY, compare, job_trial, study
 from benchmarks.study.history import ALPHA, BuildHistory, RunWindow
@@ -484,3 +485,67 @@ def test_the_frozen_copy_orders_the_extract_as_testhunch_0_2_0_did() -> None:
     orders = _engine_product_orders(jobs)
 
     assert {str(job.job_id): order for job, order in zip(jobs, orders, strict=True)} == recorded
+
+
+def test_the_cold_start_step_tries_each_proximity_signal_in_both_forms() -> None:
+    step = STEPS["cold-start"]
+    names = [ranking.name for ranking in step.candidates]
+
+    assert step.current.name == "latest-failure+time^1.0+test_file_changed*0.5"
+    # Five proximity signals, three weights, two forms (docs/adr/0018): no signal invented here.
+    assert len(names) == len(set(names)) == 2 * 3 * len(PROXIMITY_SIGNALS)
+    assert sum("/cold+" in name for name in names) == 3 * len(PROXIMITY_SIGNALS)
+    assert all(any(signal in name for signal in PROXIMITY_SIGNALS) for name in names)
+
+
+def test_a_cold_signal_orders_the_tests_that_never_failed_by_how_close_they_are() -> None:
+    builds = BuildHistory()
+    # "Fell" failed before, "Fresh" and "Other" never did.
+    builds.record([[result("Fell", Status.FAILED), result("Fresh"), result("Other")]])
+    builds.record([[result("Fell"), result("Fresh"), result("Other")]])
+    job = Trial(1, ("Other", "Fresh", "Fell"), frozenset({"Fresh"}), {}, ("src/fresh.py",))
+    context = Context(builds, list)
+
+    plain = Candidate("plain").order(job, context)[0]
+    cold = Candidate("cold", cold_weights=(("path_similarity", 0.1),)).order(job, context)[0]
+
+    # Without the signal, the two that never failed are separated only by the tie hash.
+    assert plain[0] == "Fell"
+    # With it, the one the change resembles comes first among them, and the one that failed
+    # before still leads: its decayed priority is above what this weight can give.
+    assert cold == ["Fell", "Fresh", "Other"]
+
+
+def test_a_cold_signal_heavy_enough_does_reach_past_a_test_that_failed_before() -> None:
+    """Why the guardrail measures both slices: "cold-start only" does not fence off regime 1.
+
+    A test whose failure has decayed keeps a small priority, so a large enough cold weight puts a
+    never-failed test in front of it. That is a real trade to measure, not an accident to hide.
+    """
+    builds = BuildHistory()
+    builds.record([[result("Fell", Status.FAILED), result("Fresh")]])
+    builds.record([[result("Fell"), result("Fresh")]])
+    job = Trial(1, ("Fresh", "Fell"), frozenset({"Fresh"}), {}, ("src/fresh.py",))
+    context = Context(builds, list)
+
+    heavy = Candidate("heavy", cold_weights=(("path_similarity", 2.0),)).order(job, context)[0]
+
+    assert heavy[0] == "Fresh"
+
+
+def test_the_guardrail_table_splits_the_jobs_and_says_it_is_a_bar_not_a_target() -> None:
+    results = [
+        {
+            "project": "a@b",
+            "source": "rtptorrent",
+            "trials": {"kinds": ["job", "job"], "first_failure": [False, True]},
+            "rankings": {"r": {"per_trial": {"position": [0.1, 0.9]}}},
+        }
+    ]
+
+    lines = _first_failure_table(results, ["r"])
+
+    page = "\n".join(lines)
+    assert "must not be worse than random" in page
+    assert "had failed before (1)" in page and "had never failed before (1)" in page
+    assert "| r | 0.100 | 0.900 |" in page

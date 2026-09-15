@@ -37,7 +37,12 @@ def scores(trial: Trial, order: Sequence[str], known: int) -> dict[str, float | 
     if not positions:
         raise ValueError(f"job {trial.job_id} has no failing test to score")
     unknown = len(order) - known
-    result: dict[str, float | None] = {"apfd": apfd(order, trial.failing)}
+    result: dict[str, float | None] = {
+        "apfd": apfd(order, trial.failing),
+        # Where the first failing test sits, normalized: the guardrail measure of ADR 0018, which
+        # only means something once the trials are split by whether that test had failed before.
+        "position": (positions[0] + 1) / len(order),
+    }
     for fraction in BUDGETS:
         cut = unknown + budget_size(fraction, known)
         result[f"tests_{fraction}"] = float(positions[0] < cut)
