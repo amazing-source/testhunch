@@ -30,7 +30,13 @@ from testhunch.runners import (
 )
 from testhunch.shadow import ShadowPoint, budget_cut, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
-from testhunch.upload import UploadError, fetch_ranking, metadata_json, upload_run
+from testhunch.upload import (
+    UploadError,
+    fetch_ranking,
+    fetch_shadow,
+    metadata_json,
+    upload_run,
+)
 
 
 def run() -> None:
@@ -189,6 +195,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     shadow.add_argument(
         "--last", type=_positive, default=50, help="recent runs with a recorded ranking to use"
+    )
+    shadow.add_argument(
+        "--api",
+        default=os.environ.get("TESTHUNCH_API_URL", ""),
+        help="read the report from a hosted testhunch instead of a database "
+        "(env TESTHUNCH_API_URL)",
     )
     shadow.add_argument("--format", choices=["text", "json", "markdown"], default="text")
     shadow.set_defaults(handler=_shadow)
@@ -509,15 +521,23 @@ def _record(args: argparse.Namespace, store: SqlStore, repo: str, ranked: list[R
 
 
 def _shadow(args: argparse.Namespace) -> int:
-    store, repo = _store(args), _repo(args)
-    runs = store.shadow_runs(repo, args.last)
-    points = evaluate(runs)
+    repo = _repo(args)
+    if args.api:
+        # Evaluated where both halves live: the rankings and the results are the server's.
+        payload = fetch_shadow(args.api, os.environ.get("TESTHUNCH_API_TOKEN", ""), repo, args.last)
+        points = [ShadowPoint(**budget) for budget in payload.get("budgets", [])]
+        recorded = int(payload.get("runs", 0))
+    else:
+        store = _store(args)
+        runs = store.shadow_runs(repo, args.last)
+        points = evaluate(runs)
+        recorded = len(runs)
     failing_runs = points[0].failing_runs if points else 0
 
     if args.format == "json":
         payload = {
             "repo": repo,
-            "runs": len(runs),
+            "runs": recorded,
             "failing_runs": failing_runs,
             "budgets": [asdict(p) for p in points],
         }
@@ -525,7 +545,7 @@ def _shadow(args: argparse.Namespace) -> int:
         return 0
 
     title = f"testhunch shadow report for {repo}"
-    if not runs:
+    if not recorded:
         advice = "run `testhunch prioritize --record` before the tests and `testhunch ingest` after"
         if args.format == "markdown":
             print(f"### {title}\n\nNo run with a recorded ranking yet: {advice}.")
@@ -533,8 +553,8 @@ def _shadow(args: argparse.Namespace) -> int:
             print(f"{title}: no run with a recorded ranking yet; {advice}")
         return 0
 
-    plural = "" if len(runs) == 1 else "s"
-    counts = f"{len(runs)} run{plural} with a recorded ranking, {failing_runs} with failures"
+    plural = "" if recorded == 1 else "s"
+    counts = f"{recorded} run{plural} with a recorded ranking, {failing_runs} with failures"
     notes = [note for note in (_left_out_note(points[0]), _unconfirmed_note(points[0])) if note]
     unconfirmed = "\n\n".join(notes)
     if args.format == "markdown":

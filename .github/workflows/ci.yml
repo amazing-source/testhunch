@@ -293,8 +293,9 @@ jobs:
           TESTHUNCH_API_TOKEN=an-operator-token-for-this-job \
             uvx --from . testhunch ingest "$RUNNER_TEMP/later.xml" \
               --api http://127.0.0.1:8000 --commit "$(git rev-parse HEAD)"
-          TESTHUNCH_DATABASE_URL=sqlite:///hosted.db uvx --from . testhunch shadow \
-            --repo "${GITHUB_REPOSITORY}" --format json | tee "$RUNNER_TEMP/hosted-shadow.json"
+          TESTHUNCH_API_TOKEN=an-operator-token-for-this-job \
+            uvx --from . testhunch shadow --api http://127.0.0.1:8000 \
+              --repo "${GITHUB_REPOSITORY}" --format json | tee "$RUNNER_TEMP/hosted-shadow.json"
           python3 - "$RUNNER_TEMP/hosted-shadow.json" <<'EOF'
           import json, sys
           report = json.load(open(sys.argv[1]))
