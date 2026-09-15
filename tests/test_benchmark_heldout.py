@@ -51,11 +51,17 @@ def test_a_dirty_working_tree_refuses_to_replay(monkeypatch: pytest.MonkeyPatch)
         frozen_commit()
 
 
-def test_the_ledgers_own_row_does_not_block_the_next_look(monkeypatch: pytest.MonkeyPatch) -> None:
-    # A campaign is often two commands: the first appends its row, and the second must still run.
+def test_what_a_run_writes_itself_does_not_block_the_next_look(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A campaign is often two commands: the first writes its results and its ledger row, and the
+    # second must still run. Those are its output, not the code it replayed (docs/adr/0016).
     answers = {
-        ("status", "--porcelain"): " M benchmarks/results/held-out-log.md",
-        ("rev-parse", "--show-toplevel"): str(Path(heldout.__file__).resolve().parents[1]),
+        ("status", "--porcelain"): (
+            " M benchmarks/results/held-out-log.md\n"
+            " M benchmarks/results/rtptorrent/apache@sling.json\n"
+            "?? benchmarks/results/harness/ollama@ollama.md"
+        ),
         ("rev-parse", "HEAD"): "c" * 40,
         ("branch", "--remotes", "--contains", "c" * 40): "  origin/main",
     }
@@ -64,16 +70,23 @@ def test_the_ledgers_own_row_does_not_block_the_next_look(monkeypatch: pytest.Mo
     assert frozen_commit() == "c" * 40
 
 
-def test_another_change_beside_the_ledger_still_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_changed_code_beside_the_results_still_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
     answers = {
         ("status", "--porcelain"): (
             " M benchmarks/results/held-out-log.md\n M src/testhunch/prioritize.py"
         ),
-        ("rev-parse", "--show-toplevel"): str(Path(heldout.__file__).resolve().parents[1]),
     }
     monkeypatch.setattr(heldout, "_git", lambda *a: answers.get(a, ""))
 
     with pytest.raises(NotFrozen, match=r"prioritize\.py"):
+        frozen_commit()
+
+
+def test_a_changed_benchmark_script_is_code_not_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    # benchmarks/ holds the replay itself; only benchmarks/results/ is output.
+    monkeypatch.setattr(heldout, "_git", lambda *a: " M benchmarks/replay.py")
+
+    with pytest.raises(NotFrozen, match=r"replay\.py"):
         frozen_commit()
 
 

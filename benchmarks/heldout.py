@@ -48,39 +48,37 @@ def _git(*args: str) -> str:
     return done.stdout.strip()
 
 
-def _uncommitted(ledger: Path) -> str:
-    """Uncommitted changes, except the ledger's own rows.
+# What a held-out run writes: its results, and the ledger row inside them. Changes here never
+# block a replay, because they are its output, not the code that produced it (docs/adr/0016).
+OUTPUT = "benchmarks/results/"
 
-    A campaign is often two commands: the second would refuse because the first appended its row.
-    The ledger is the one file a held-out run is meant to change, and what protects it is git
-    history, not this check, so a row of its own never blocks the next look.
+
+def _uncommitted() -> str:
+    """Uncommitted changes to the code, ignoring what a held-out run writes itself.
+
+    The check exists so that the code behind a held-out number cannot be edited after the number is
+    seen. Results are that code's output, not the code: a campaign is often two commands, and the
+    first one's results and ledger row must not stop the second.
     """
-    try:
-        allowed = (
-            ledger.resolve().relative_to(Path(_git("rev-parse", "--show-toplevel"))).as_posix()
-        )
-    except ValueError:  # a ledger outside the repository, as the tests use
-        allowed = None
-    lines = [
+    return "\n".join(
         line
         for line in _git("status", "--porcelain").splitlines()
-        if line[3:].strip().strip('"') != allowed
-    ]
-    return "\n".join(lines)
+        if not line[3:].strip().strip('"').startswith(OUTPUT)
+    )
 
 
 def frozen_commit(ledger: Path | None = None) -> str:
-    """The commit being replayed, once it is certain that it is public and unmodified.
+    """The commit being replayed, once it is certain that its code is public and unmodified.
 
     ADR 0013 asks for a version committed and listed before a held-out replay. Checking it here
-    turns that promise into a refusal: nothing uncommitted, and the commit already on a remote, so
+    turns that promise into a refusal: no uncommitted code, and the commit already on a remote, so
     the code that produced a held-out number cannot be edited afterwards.
     """
-    dirty = _uncommitted(LEDGER if ledger is None else ledger)
+    dirty = _uncommitted()
     if dirty:
         raise NotFrozen(
-            "the working tree has uncommitted changes, so the version replayed could not be "
-            "checked afterwards. Commit them first (docs/adr/0016):\n" + dirty
+            "the working tree has uncommitted changes outside the benchmark results, so the code "
+            "replayed could not be checked afterwards. Commit them first (docs/adr/0016):\n" + dirty
         )
     commit = _git("rev-parse", "HEAD")
     if not _git("branch", "--remotes", "--contains", commit):

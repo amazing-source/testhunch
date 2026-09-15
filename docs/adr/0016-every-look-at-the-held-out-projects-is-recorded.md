@@ -39,9 +39,14 @@ Several rows for the same version, with the ranking changed in between, mean the
 were used to tune, and the reader can say so without taking anyone's word for it.
 
 **A held-out replay refuses to start unless the commit is frozen and public**: no uncommitted
-change, and the commit already on a remote branch. ADR 0013's "committed and listed before the
+code, and the commit already on a remote branch. ADR 0013's "committed and listed before the
 replay" becomes a refusal instead of a promise, and the code behind a held-out number cannot be
 edited after the number is seen.
+
+The check covers the code, not what a run writes. Changes under `benchmarks/results/` — the results
+and the ledger row itself — never block a replay: they are the output of the code being checked, and
+a campaign is often two commands, whose first one would otherwise stop the second. Everything else
+blocks, `benchmarks/` included: `benchmarks/replay.py` is the replay, not its output.
 
 **The development projects are split again, for phase 6**, by the same seedless rule of ADR 0013
 applied once more: `benchmarks/split.py` derives five training projects (HikariCP,
