@@ -68,4 +68,6 @@ is also a reminder that the service is not yet measuring itself on anything.
 
 Nothing yet alerts on a deployment that named an image the server did not manage to run
 ([ADR 0026](0026-a-deployment-names-an-image-it-does-not-run-a-command.md) leaves that open).
-`testhunch_build_info` now makes it visible, which is the half of it that had to come first.
+`testhunch_build_info` carries the image alongside the version, so the answer to "what is actually
+running" is a query rather than a guess; the version alone could not tell two builds of the same
+development version apart, which is every deployment between two releases.

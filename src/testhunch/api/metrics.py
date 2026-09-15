@@ -11,6 +11,7 @@ at scrape time, briefly cached, because the database is the only thing that surv
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from threading import Lock
@@ -99,6 +100,9 @@ class Metrics:
 
     store: SqlStore
     version: str
+    # What the server was told to run (docs/adr/0026). The version alone cannot tell two builds of
+    # the same development version apart, which is every deployment between two releases.
+    image: str = field(default_factory=lambda: os.environ.get("TESTHUNCH_IMAGE", ""))
     requests: Requests = field(default_factory=Requests)
     cache_seconds: float = CACHE_SECONDS
     _lock: Lock = field(default_factory=Lock)
@@ -115,9 +119,10 @@ class Metrics:
                 self._cached = (moment, stored)
 
         lines = [
-            "# HELP testhunch_build_info The running version, as a label on a constant 1.",
+            "# HELP testhunch_build_info The running version and image, as labels on a constant 1.",
             "# TYPE testhunch_build_info gauge",
-            f'testhunch_build_info{{version="{escape(self.version)}"}} 1',
+            f'testhunch_build_info{{version="{escape(self.version)}"'
+            f',image="{escape(self.image)}"}} 1',
         ]
         return "\n".join(lines + self.requests.render() + stored) + "\n"
 
