@@ -26,7 +26,7 @@ because no test has ever failed, so nothing yet carries the signal the ranking r
 Over the 10 most recent builds, at a budget of 25% of the expected test
 time:
 
-| Build | Tests ranked | Tests kept | Time kept | Budget used |
+| Build | Tests ranked | Tests kept | Test time run | Budget used |
 |---|---:|---:|---:|---:|
 | `969282ae` | 394 | 393 | 22.8 s of 128.9 s | 71% |
 | `b764122d` | 397 | 396 | 22.8 s of 125.2 s | 73% |
@@ -44,23 +44,19 @@ this suite's time, so the budget's whole effect is to leave that one test out. T
 duration divisor does all the work, and anyone could have the same result by running that
 test separately.
 
-## The prefix rule truncates, and it is visible here
+## What the budget leaves unspent
 
-A time budget takes the longest prefix of the ranking that fits and stops at the first
-test too expensive to fit
-([ADR 0017](../../docs/adr/0017-a-budget-is-a-share-of-the-test-time.md)). When the slow
-test's own file changes, the ranking lifts it near the top, it does not fit, and
-**everything below it is cut with it**.
+Until [ADR 0029](../../docs/adr/0029-a-budget-passes-over-what-it-cannot-afford.md) a time
+budget took the longest prefix of the ranking that fits and stopped at the first test too
+expensive to fit. This page is why that changed. When the slow test's own file changes,
+the ranking lifts it near the top, it does not fit, and everything below it was cut with
+it: one build here spent **a hundredth** of the time its budget allowed.
 
-It happened in **1 of 74 builds**, counting every build whose cut spends
-less than half of what its budget allows:
+The budget now passes over a test that does not fit and keeps going, so the same build
+spends what it was given. Builds whose cut still spends less than half of the allowance:
 
-| Build | Tests kept | Time kept | Budget used |
+| Build | Tests kept | Test time run | Budget used |
 |---|---:|---:|---:|
-| `82bb02e7` | 9 of 383 | 0.2 s of 25.8 s allowed | 1% |
+| none | | | |
 
-The rule is deliberate: the order is what the ranking promises, and packing the budget
-better would run tests the ranking placed below ones it did not. But a build that spends
-1% of its budget is not honouring an order, it is losing the budget. Whether to
-keep filling after a test that does not fit changes the published budget tables, so it is
-a decision to measure and record, not a quiet fix.
+**0 of 74 builds**, and the emptiest cut spends 70% of its budget.

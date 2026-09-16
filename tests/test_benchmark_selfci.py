@@ -26,12 +26,17 @@ def test_a_cut_takes_the_prefix_that_fits_and_reports_what_it_left_unspent() -> 
     assert cut.used == 0.9
 
 
-def test_a_cut_blocked_by_an_expensive_test_loses_the_rest_of_its_budget() -> None:
-    """The prefix rule stops at the first test too expensive, whatever follows it."""
+def test_a_test_nobody_could_afford_no_longer_takes_the_budget_with_it() -> None:
+    """What ADR 0029 changed, measured on the shape this page found in the real history.
+
+    One test costs 900 of the 950 ms these ten are expected to take, so a 25% budget of 237 ms
+    can never hold it. The prefix rule stopped there and spent 10 ms; the shipped rule passes
+    over it and keeps filling.
+    """
     cut = _cut("abc1234", ranked(10, 900, 5, 5, 5, 5, 5, 5, 5, 5))
 
-    assert cut.kept == 1
-    assert cut.used < 0.06
+    assert cut.kept == 9
+    assert cut.used > 0.2
 
 
 def test_a_cut_runs_at_least_one_test_even_when_nothing_fits() -> None:

@@ -229,15 +229,15 @@ def test_select_leaves_out_the_known_tests_below_the_budget(
     assert main([*args, "--learning-runs", "0%", *common]) == 0
     out = capsys.readouterr()
     # The budget is half of the 9 ms the 8 known tests are expected to take (docs/adr/0017), so the
-    # three 0 ms failures run, and test_fails, twice as slow, no longer fits: it is left out too.
+    # three 0 ms failures run. test_fails, twice as slow, no longer fits and is left out; since
+    # ADR 0029 the selection does not stop there, and one more test that does fit runs.
     assert sorted(out.out.splitlines()) == [
-        "tests.test_sample.TestGrouped::test_in_class",
         "tests.test_sample::test_fails",
         "tests.test_sample::test_parametrized[1]",
         "tests.test_sample::test_parametrized[3]",
         "tests.test_sample::test_passes",
     ]
-    assert "leaving out 5 of 8 known tests: 50% of their expected 9 ms (3 ms, 3 tests)" in out.err
+    assert "leaving out 4 of 8 known tests: 50% of their expected 9 ms (4 ms, 4 tests)" in out.err
 
 
 def test_select_by_number_of_tests_keeps_the_old_meaning(
@@ -321,14 +321,17 @@ def test_select_for_surefire_prints_exclusions_without_a_line_ending(
     assert main(["ingest", "TEST-*.xml", *common]) == 0
     capsys.readouterr()
 
-    # 10% of the 190 ms these 8 tests are expected to take: one slow test eats most of the budget,
-    # so a larger share would leave out only tests Surefire cannot exclude on their own.
+    # 10% of the 190 ms these 8 tests are expected to take, so 19 ms. One test costs more than
+    # the whole budget: no order could have run it, so it is passed over and the cheaper tests
+    # below it still run, which is exactly what ADR 0029 changed. Under the prefix rule this
+    # selection stopped at that test and spent a fraction of the 19 ms it was allowed.
     select = ["select", "--budget", "10%", "--runner", "surefire", "--learning-runs", "0%"]
     assert main([*select, *common]) == 0
     out = capsys.readouterr()
     assert out.out.startswith("!com.example.shop.")
     assert not out.out.endswith(("\n", "\r"))
-    assert "leaving out 6 of 8 known tests" in out.err
+    assert "leaving out 4 of 8 known tests" in out.err
+    assert "(19 ms, 4 tests) run" in out.err
 
 
 def test_select_for_nextest_uses_the_recorded_binary_ids(

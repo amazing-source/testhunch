@@ -25,7 +25,7 @@ from testhunch.gitinfo import changed_files
 from testhunch.junit import parse_reports
 from testhunch.models import FileChange, RankedTest, RunInput
 from testhunch.prioritize import rank
-from testhunch.shadow import evaluate, time_budget_size
+from testhunch.shadow import budget_ranks, evaluate
 from testhunch.store import SqlStore, open_store
 
 DEFAULT_CACHE = Path(".benchmark-cache") / "selfci"
@@ -183,15 +183,16 @@ def replay(store: SqlStore, found: Sequence[Build], repo: str) -> list[Cut]:
 
 
 def _cut(commit: str, ranked: Sequence[RankedTest]) -> Cut:
+    """What the budget testhunch ships would run for this build (docs/adr/0029)."""
     expected = [test.expected_ms for test in ranked]
     total = sum(expected)
-    kept = time_budget_size(HEADLINE, expected)
+    ranks = budget_ranks(HEADLINE, expected)
     return Cut(
         commit=commit,
         ranked=len(ranked),
-        kept=kept,
+        kept=len(ranks),
         allowed_ms=HEADLINE * total,
-        spent_ms=sum(expected[:kept]),
+        spent_ms=sum(ms for rank, ms in enumerate(expected, 1) if rank in ranks),
         total_ms=total,
     )
 
@@ -233,26 +234,22 @@ this suite's time, so the budget's whole effect is to leave that one test out. T
 duration divisor does all the work, and anyone could have the same result by running that
 test separately.
 
-## The prefix rule truncates, and it is visible here
+## What the budget leaves unspent
 
-A time budget takes the longest prefix of the ranking that fits and stops at the first
-test too expensive to fit
-([ADR 0017](../../docs/adr/0017-a-budget-is-a-share-of-the-test-time.md)). When the slow
-test's own file changes, the ranking lifts it near the top, it does not fit, and
-**everything below it is cut with it**.
+Until [ADR 0029](../../docs/adr/0029-a-budget-passes-over-what-it-cannot-afford.md) a time
+budget took the longest prefix of the ranking that fits and stopped at the first test too
+expensive to fit. This page is why that changed. When the slow test's own file changes,
+the ranking lifts it near the top, it does not fit, and everything below it was cut with
+it: one build here spent **a hundredth** of the time its budget allowed.
 
-It happened in **{truncated} of {cuts} builds**, counting every build whose cut spends
-less than half of what its budget allows:
+The budget now passes over a test that does not fit and keeps going, so the same build
+spends what it was given. Builds whose cut still spends less than half of the allowance:
 
 | Build | Tests kept | Test time run | Budget used |
 |---|---:|---:|---:|
 {truncated_rows}
 
-The rule is deliberate: the order is what the ranking promises, and packing the budget
-better would run tests the ranking placed below ones it did not. But a build that spends
-{worst:.0%} of its budget is not honouring an order, it is losing the budget. Whether to
-keep filling after a test that does not fit changes the published budget tables, so it is
-a decision to measure and record, not a quiet fix.
+**{truncated} of {cuts} builds**, and the emptiest cut spends {worst:.0%} of its budget.
 """
 
 
