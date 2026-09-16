@@ -120,6 +120,20 @@ def replay(archive: Archive, project: str, rankings_: Sequence[Ranking]) -> dict
         # any other; nothing that came after them could read them.
         "never_recorded": len(metas) - recorded,
     }
+    # What each scored trial belongs to. The inference of ADR 0033 resamples PRs inside a project,
+    # because several builds of one pull request and several re-runs of one commit are not
+    # independent observations, and a job id alone cannot say which is which.
+    owners = {
+        ids[meta.key] + offset: meta for meta in metas for offset in range(len(meta.stage_ids))
+    }
+    result["trials"]["pull_requests"] = [
+        owners[job_id].pr_name if job_id in owners else None
+        for job_id in result["trials"]["job_ids"]
+    ]
+    result["trials"]["builds"] = [
+        f"{owners[job_id].pr_name}_build{owners[job_id].build_id}" if job_id in owners else None
+        for job_id in result["trials"]["job_ids"]
+    ]
     return result
 
 

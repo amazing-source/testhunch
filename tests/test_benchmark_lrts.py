@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from benchmarks.lrts.__main__ import main
 from benchmarks.lrts.data import ROOT, Archive, concurrent, iter_builds
 from benchmarks.lrts.engine import replay
 from benchmarks.study.rankings import LatestFailure
@@ -174,7 +175,12 @@ def test_a_comparison_at_the_cap_is_unknown_because_it_is_a_lower_bound(tmp_path
     assert build.changed_files is None
 
 
-def test_a_comparison_with_no_file_is_an_empty_change_not_an_unknown_one(tmp_path: Path) -> None:
+def test_a_comparison_that_reports_no_file_at_all_is_unknown(tmp_path: Path) -> None:
+    """Eight builds of the archive answer this, and every one compares two different commits.
+
+    Two distinct commits with no file between them is not a build that changed nothing, it is an
+    answer that cannot be used, so it is unknown like a truncated one (docs/adr/0033).
+    """
     with archive(
         tmp_path,
         [row("karaf", "PR-1", "1", started=1, duration=1)],
@@ -183,7 +189,7 @@ def test_a_comparison_with_no_file_is_an_empty_change_not_an_unknown_one(tmp_pat
     ) as opened:
         (build,) = list(iter_builds(opened, "karaf"))
 
-    assert build.changed_files == ()
+    assert build.changed_files is None
 
 
 def test_two_builds_on_one_commit_at_the_same_time_are_one_event(tmp_path: Path) -> None:
@@ -301,3 +307,20 @@ def test_every_stage_of_a_build_is_a_job_of_its_own(tmp_path: Path) -> None:
 
     assert result["counts"]["jobs"] == 3
     assert result["builds"] == {"total": 2, "suite_runs": 3, "never_recorded": 1}
+
+
+def test_the_command_refuses_to_replay_without_the_held_out_flag(tmp_path: Path) -> None:
+    """Every project of this dataset is held out, so no form of the command is unrecorded."""
+    with pytest.raises(SystemExit):
+        main(["--archive", str(tmp_path / "nothing.zip"), "--out", str(tmp_path / "out")])
+
+
+def test_the_command_refuses_without_an_archive(tmp_path: Path) -> None:
+    """The dataset carries no licence, so it is never in this repository and has to be named."""
+    with pytest.raises(SystemExit):
+        main(["--held-out", "--out", str(tmp_path / "out")])
+
+
+def test_rebuilding_a_page_from_nothing_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        main(["--from-cache", "--out", str(tmp_path / "empty")])

@@ -206,6 +206,12 @@ class Archive:
                 # A rename changes two paths, and the old one is what a test file used to be called.
                 if entry.get("previous_filename"):
                     paths.add(entry["previous_filename"])
+        if not paths:
+            # A comparison that names two different commits and reports no file at all is not a
+            # build that changed nothing, it is an answer we cannot use. There are 8 of them in the
+            # archive and every one compares distinct commits, checked before this rule was written
+            # into the reader (ADR 0033).
+            return None
         return tuple(sorted(paths))
 
     def build(self, meta: BuildMeta) -> Build:
