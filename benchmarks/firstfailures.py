@@ -112,14 +112,17 @@ class OneSignal:
 
 
 def measure(
-    project: str, rankings: Mapping[str, Ranking], changed_only: bool = False
+    directory: Path, rankings: Mapping[str, Ranking], changed_only: bool = False
 ) -> dict[str, dict[str, list[float]]]:
     """Every failing job of the project, measured per slice and per ranking.
+
+    `directory` is a fetched project, so that a caller with the rows already on disk does not go
+    and get them again: the tests pass the extract in `tests/fixtures/rtptorrent`, which is what
+    keeps them from downloading the dataset on every run.
 
     `changed_only` keeps the jobs whose changed files are known: a proximity signal has nothing to
     say about a job whose change is unknown, so counting those would only dilute it.
     """
-    directory = fetch_project(project, CACHE / "rtptorrent")
     builds = BuildHistory()
     rng = random.Random(0)  # seeded: the random baseline is the same for anyone who reruns this
     out: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
@@ -252,6 +255,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "signal separates the test that breaks from the tests that do not",
     )
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--cache", type=Path, default=CACHE / "rtptorrent")
     args = parser.parse_args(argv)
     out = args.out or (SIGNALS_OUT if args.signals else DEFAULT_OUT)
     projects = args.projects or (RTPTORRENT_HELD_OUT if args.held_out else RTPTORRENT_DEVELOPMENT)
@@ -273,7 +277,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     names = [*rankings, "random"]
     totals: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for project in projects:
-        for slice_name, values in measure(project, rankings, args.signals).items():
+        directory = fetch_project(project, args.cache)
+        for slice_name, values in measure(directory, rankings, args.signals).items():
             for key, numbers in values.items():
                 totals[slice_name][key].extend(numbers)
         counts = {name: len(values["jobs"]) for name, values in totals.items()}

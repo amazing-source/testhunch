@@ -10,3 +10,7 @@ Source: T. Mattis, P. Rein, F. Dürsch and R. Hirschfeld, "RTPTorrent: An Open-s
 Evaluating Regression Test Prioritization", MSR 2020, doi:10.1145/3379597.3387458. Dataset version
 1.1, doi:10.5281/zenodo.4046180, licensed under Creative Commons Attribution 4.0 International
 (https://creativecommons.org/licenses/by/4.0/). The extract selects rows; it does not modify them.
+
+**Every test that needs this project must read it from here**, never through `fetch_project`, which
+downloads the real dataset over the network. One test did, and it cost 69 of the suite's 89 seconds
+in CI, on every run, for rows that are already in this directory.
