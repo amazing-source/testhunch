@@ -1,21 +1,34 @@
 # Résultats du benchmark
 
-Mesurés le 15 septembre 2026 avec le classement de référence de testhunch tel que l'étude des
+Mesurés le 16 septembre 2026 avec le classement de référence de testhunch tel que l'étude des
 heuristiques l'a retenu ([ADR 0014](../../docs/adr/0014-the-ranking-study-measures-time-to-red-against-latest-failure.md),
 [ADR 0015](../../docs/adr/0015-testhunch-ranks-by-latest-failure-per-unit-of-time.md)) : la récence
 des échecs du test comptée en builds, plus un bonus quand le changement touche son propre fichier,
 le tout divisé par sa durée habituelle. Aucun modèle appris.
 
-Les budgets sont désormais des **parts du temps de test attendu**, et non des parts du nombre de
-tests ([ADR 0017](../../docs/adr/0017-a-budget-is-a-share-of-the-test-time.md)). C'est le changement
-qui explique l'essentiel des écarts avec la campagne précédente : la colonne « rattrapés » et la
-colonne « temps » ne se lisent plus séparément.
+Les budgets sont des **parts du temps de test attendu**, et non des parts du nombre de tests
+([ADR 0017](../../docs/adr/0017-a-budget-is-a-share-of-the-test-time.md)) : la colonne « rattrapés »
+et la colonne « temps » ne se lisent pas séparément.
+
+**Tous les tableaux de budgets ont été remesurés** parce que le produit a changé de règle entre-temps
+([ADR 0029](../../docs/adr/0029-a-budget-passes-over-what-it-cannot-afford.md)) : un test trop cher
+pour la place qui reste n'arrête plus la sélection, le budget passe outre et continue à se remplir.
+Les tableaux d'APFD, eux, sont identiques au caractère près, ce qui est attendu et vérifiable : ils
+ne dépendent que de l'ordre du classement, que ce changement ne touche pas. C'est aussi la preuve que
+tout ce qui a bougé ci-dessous vient de la règle de budget et de rien d'autre.
 
 Chaque chiffre vient d'un rejeu où chaque exécution est classée uniquement à partir des exécutions
-terminées avant elle, avec le vrai code d'ingestion et de classement de testhunch. Les projets mis
-de côté n'ont été rejoués qu'une fois, et ce regard est inscrit dans
-[le registre](held-out-log.md) ([ADR 0016](../../docs/adr/0016-every-look-at-the-held-out-projects-is-recorded.md)) :
-RTPTorrent au commit `159548f`, le banc d'essai à `06e054a`, dont le code de mesure est identique.
+terminées avant elle, avec le vrai code d'ingestion et de classement de testhunch. Tout regard aux
+projets mis de côté est inscrit dans
+[le registre](held-out-log.md) ([ADR 0016](../../docs/adr/0016-every-look-at-the-held-out-projects-is-recorded.md)),
+ici au commit `cf21122` pour RTPTorrent comme pour le banc d'essai.
+
+Le registre porte **six lignes du 16 septembre** pour une seule campagne, et c'est normal. Quatre
+d'entre elles sont des tentatives sur `SonarSource@sonarqube`, le plus gros projet du lot avec ses
+53 307 jobs : les trois premières ont été arrêtées par un manque de mémoire de la machine avant
+d'avoir produit le moindre chiffre, la quatrième est allée au bout. Une exécution tuée a quand même
+lu les données mises de côté, donc elle compte comme un regard et sa ligne reste. Aucune ligne n'est
+retirée du registre, jamais.
 
 Les pages générées, en anglais, donnent le détail par projet :
 
@@ -30,19 +43,25 @@ Les pages générées, en anglais, donnent le détail par projet :
 
 ## Ce qu'il faut retenir, y compris ce qui est moins bon
 
-**À budget nominal égal, testhunch dépense deux fois moins de temps de test qu'en 0.2.0 à 10 % et à
-25 %** (10,4 % contre 21,7 %, 23,6 % contre 43,6 %), **et 30 % de moins à 50 %** (48,5 % contre
-69,1 %). C'est le gain, et il est net. Mais il ne se paie pas de rien :
+**À budget nominal égal, testhunch dépense nettement moins de temps de test qu'en 0.2.0** : 12,8 %
+contre 21,7 % à un budget de 10 %, 27,4 % contre 43,6 % à 25 %, 50,0 % contre 69,1 % à 50 %, sur le
+projet médian. Et cette version-ci rattrape **plus** de builds cassés que la 0.2.0 aux trois budgets :
+82,1 % contre 78,3 %, 91,3 % contre 86,9 %, 94,5 % contre 94,1 %.
 
-- le **rappel par build** — le build reste-t-il rouge — s'améliore à 10 % et à 25 % du temps, et
-  **se dégrade à 50 %** : 91,8 % contre 94,1 % pour la 0.2.0 ;
-- le **rappel par test** baisse à tous les budgets. Beaucoup de tests en échec ne tournent plus, le
-  build devient rouge quand même.
+Les deux faiblesses que cette page annonçait jusqu'ici ont pour l'essentiel disparu avec la règle de
+budget de l'ADR 0029, et c'est la seule chose qui a changé :
+
+- le **rappel par build**, c'est-à-dire le build reste-t-il rouge, ne se dégrade plus à 50 %. Il
+  passe de 91,8 % à 94,5 %, au-dessus des 94,1 % de la 0.2.0 ;
+- le **rappel par test** ne baisse plus à tous les budgets, seulement au dernier : 63,7 % contre
+  59,5 % à 10 %, 78,1 % contre 75,2 % à 25 %, et 89,3 % contre 90,6 % à 50 %. C'est le seul endroit
+  où la 0.2.0 reste devant.
 
 Attention cependant : ce tableau compare une part du **temps** à une part du **nombre de tests**.
 La comparaison à part de temps égale existe déjà, mesurée une seule fois sur les projets mis de
-côté avec des versions figées d'avance ([study/held-out.md](study/held-out.md)) — part des jobs en
-échec devenus rouges :
+côté avec des versions figées d'avance ([study/held-out.md](study/held-out.md)). Elle suit l'ordre du
+classement sans rien sauter, donc la règle de budget ne la change pas et ces chiffres-là n'ont pas
+été remesurés. Part des jobs en échec devenus rouges :
 
 | À part de temps égale | 10 % | 25 % | 50 % |
 |---|---:|---:|---:|
@@ -51,13 +70,11 @@ côté avec des versions figées d'avance ([study/held-out.md](study/held-out.md
 | testhunch 0.2.0 | 0,511 | 0,637 | 0,749 |
 
 À temps égal, la version actuelle rattrape plus de builds cassés que la 0.2.0 à **tous** les
-budgets, d'environ 6 points, et à nombre de tests égal aussi. La ligne « 50 % » du tableau
-précédent ne dit donc pas que la 0.2.0 ordonnait mieux : elle dit que 50 % du temps achète moins de
-tests que 50 % des tests.
+budgets, d'environ 6 points, et à nombre de tests égal aussi.
 
-Ce qui reste franchement moins bon : le rappel par test. Pour savoir vite qu'un changement casse
-quelque chose, cette version est meilleure et bien moins chère ; pour savoir *tout* ce qu'il casse,
-elle est moins bonne.
+Ce qui reste moins bon, et seulement au budget le plus large : le rappel par test. Pour savoir vite
+qu'un changement casse quelque chose, cette version est meilleure et bien moins chère ; pour savoir
+*tout* ce qu'il casse à 50 % du temps, la 0.2.0 garde une petite avance.
 
 ### Et un angle mort, mesuré : les premiers échecs
 
@@ -198,9 +215,9 @@ Médianes des 20 projets, la 0.2.0 entre parenthèses :
 
 | Budget | Jobs en échec rattrapés | Classes en échec lancées | Temps de test lancé |
 |---:|---:|---:|---:|
-| 10 % | **80,8 %** (78,3 %) — pire : 47,7 % | 55,4 % (59,5 %) | **10,4 %** (21,7 %) — pire : 51,1 % |
-| 25 % | **90,4 %** (86,9 %) — pire : 61,7 % | 71,4 % (75,2 %) | **23,6 %** (43,6 %) — pire : 72,8 % |
-| 50 % | 91,8 % (**94,1 %**) — pire : 78,7 % | 86,9 % (90,6 %) | **48,5 %** (69,1 %) — pire : 80,9 % |
+| 10 % | **82,1 %** (78,3 %), pire : 49,4 % | **63,7 %** (59,5 %) | **12,8 %** (21,7 %), pire : 56,3 % |
+| 25 % | **91,3 %** (86,9 %), pire : 71,4 % | **78,1 %** (75,2 %) | **27,4 %** (43,6 %), pire : 76,2 % |
+| 50 % | **94,5 %** (94,1 %), pire : 83,6 % | 89,3 % (**90,6 %**) | **50,0 %** (69,1 %), pire : 85,2 % |
 
 Un job est rattrapé quand au moins une de ses classes en échec tourne : le build reste rouge
 (rappel par changement). Les classes en échec lancées sont le rappel par test. Le temps lancé est la
@@ -226,18 +243,26 @@ l'étude a pris l'APFDc comme mesure principale (ADR 0014).
 
 ### Là où testhunch s'en sort mal
 
-- **Deux projets dépensent beaucoup plus que leur budget.** jade4j lance 29,6 % de ses classes mais
-  **51,1 % de son temps** à un budget de 10 %, SonarQube 8,3 % des classes pour 40,7 % du temps. Le
+- **Deux projets dépensent beaucoup plus que leur budget.** jade4j lance 63,7 % de ses classes et
+  **56,3 % de son temps** à un budget de 10 %, SonarQube 15,2 % des classes pour 41,2 % du temps. Le
   budget ne gouverne que le temps des classes que testhunch connaît ; celles qu'il n'a jamais vues
   tournent toujours (ADR 0006, 0007), et sur ces deux projets elles sont nombreuses et lentes. Aucun
   classement n'y peut rien : l'étude mesure que même le meilleur ordre possible, connu après coup,
   a besoin de 49 % du temps pour rattraper 90 % des builds cassés.
-- **optiq et LittleProxy perdent du rappel par build** : 68,5 % contre 79,2 %, et 63,6 % contre
+- **Un budget plus large peut rattraper moins de builds.** Sur jade4j, un budget de 25 % rattrape
+  les 96 jobs en échec et un budget de 50 % n'en rattrape que 92, alors qu'il lance 2 208 classes de
+  plus et dépense 367 secondes de plus. Ce n'est pas un défaut de mesure, c'est une propriété de la
+  règle de remplissage : un test cher qui ne rentrait pas dans le petit budget rentre dans le grand,
+  y prend toute la place, et des tests moins chers qui tournaient ne tournent plus. Compté sur les
+  61 888 paires de budgets des 10 projets de développement
+  ([study/budget-packing](study/budget-packing/README.md)), la sélection perd au moins un test dans
+  **15,9 %** des cas, lance moins d'échecs dans 27, et fait repasser un build au vert dans 19. La
+  règle du préfixe qu'elle remplace marque zéro partout sur ces trois colonnes : sa monotonie est
+  mesurée et pas seulement raisonnée. L'ADR 0029 dit pourquoi la règle a quand même été retenue.
+- **optiq et LittleProxy perdent du rappel par build** : 73,1 % contre 79,2 %, et 71,4 % contre
   76,6 %, à 25 %. Ce sont deux des plus petits échantillons (130 et 77 jobs en échec), mais ce sont
   les pires cas et ils s'affichent.
-- **À 50 % du temps, la 0.2.0 rattrapait plus de builds.** Un budget de 50 % du temps lance moins de
-  tests qu'un budget de 50 % des tests : c'est le prix de contrôler le coût réel.
-- **Le rappel par test reste faible sur plusieurs projets** : à 10 %, 20,3 % des classes en échec
+- **Le rappel par test reste faible sur plusieurs projets** : à 10 %, 21,9 % des classes en échec
   tournent sur le pire projet. Le build reste souvent rouge quand même, parce qu'une seule classe en
   échec suffit.
 
@@ -247,9 +272,9 @@ l'étude a pris l'APFDc comme mesure principale (ADR 0014).
   échec instable ne se distingue pas d'un vrai échec.
 - SonarQube reste le projet le plus lourd du lot : 53 307 jobs, dont 32 321 sans aucun commit
   associé dans le jeu de données, donc sans fichier modifié connu.
-- Les 10 projets de développement ont été rejoués au commit `06e054a`, les 10 projets mis de côté à
-  `159548f`. Le code de mesure est identique entre les deux ; seul le garde-fou du registre a changé
-  entre-temps, et la différence est vérifiable dans l'historique git.
+- Les 20 projets ont cette fois été rejoués au même commit, `cf21122`, développement et mis de côté
+  confondus. C'est ce qui permet de comparer les colonnes entre projets sans réserve, ce que les
+  campagnes précédentes, faites à deux commits différents, ne permettaient pas tout à fait.
 
 ## Banc d'essai : quatre projets, commit par commit
 
@@ -260,6 +285,12 @@ Les résultats sont **par test**, relancés une fois en cas d'échec. click et c
 développement, fastapi et ollama sont mis de côté ([ADR 0013](../../docs/adr/0013-development-projects-tune-held-out-projects-measure.md)).
 
 ### Mutants dans les lignes changées par chaque commit
+
+**Le changement de règle de budget n'a rien déplacé ici.** Les quatre projets ont été remesurés avec
+les tableaux de RTPTorrent, et sur trois d'entre eux pas un chiffre ne bouge ; click bouge de 13
+tests sur 42 901. Sur des suites Python et Go où aucun test n'écrase les autres en durée, il n'y a
+pour ainsi dire jamais de test trop cher pour la place qui reste, donc la règle qui décide quoi en
+faire ne sert à rien. Le gain mesuré sur RTPTorrent vient des grosses suites Java, pas d'ailleurs.
 
 Mutants rattrapés, et part du temps de test dépensée ; la 0.2.0 entre parenthèses là où elle a été
 mesurée :

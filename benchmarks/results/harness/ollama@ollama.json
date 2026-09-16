@@ -11,8 +11,8 @@
     "sha256:ee187276654306d40750a8a97c38419414f43650ebf22376ed402eff584e4e68"
   ],
   "testhunch": {
-    "version": "0.2.0",
-    "commit": "06e054a4d92caa767278219af485abfffbd4b512"
+    "version": "0.4.0",
+    "commit": "cf211220f0cda898c1f1705d7ef0a2805e533ffc"
   },
   "commits": {
     "collected": 200,

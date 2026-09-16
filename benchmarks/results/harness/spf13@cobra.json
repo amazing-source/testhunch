@@ -8,8 +8,8 @@
     "sha256:dc683cde19d990fca56c70a50071311b8a597b78ac21206e624a0e10f653e9a8"
   ],
   "testhunch": {
-    "version": "0.2.0",
-    "commit": "06e054a4d92caa767278219af485abfffbd4b512"
+    "version": "0.4.0",
+    "commit": "cf211220f0cda898c1f1705d7ef0a2805e533ffc"
   },
   "commits": {
     "collected": 200,

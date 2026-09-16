@@ -4,9 +4,9 @@
 
 | Budget | Failing jobs caught | Failing classes caught | Classes run | Test time run |
 |---:|---:|---:|---:|---:|
-| 10% | 488 of 563 | 513 of 701 | 34722 of 269620 | 14% |
-| 25% | 521 of 563 | 584 of 701 | 73075 of 269620 | 20% |
-| 50% | 545 of 563 | 644 of 701 | 160911 of 269620 | 47% |
+| 10% | 494 of 563 | 526 of 701 | 89318 of 269620 | 17% |
+| 25% | 527 of 563 | 600 of 701 | 138182 of 269620 | 27% |
+| 50% | 546 of 563 | 649 of 701 | 198901 of 269620 | 49% |
 
 Mean APFD on the 496 jobs the authors' schedules cover. It counts every class with a failing row, as their schedules do, where the table above leaves out the flaky ones (docs/adr/0006): the two are not over the same jobs.
 

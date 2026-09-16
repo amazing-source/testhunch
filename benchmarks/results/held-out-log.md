@@ -23,3 +23,9 @@ numbers are public and cannot be unseen, not because it broke a rule that did no
 | 2026-09-14 | `3ed027a61a5c` | 0.2.0 | `benchmarks.study held-out` | latest-failure, latest-failure+time^1.0, latest-failure+time^1.0+test_file_changed*0.5, testhunch-0.2.0 | fastapi/fastapi, ollama/ollama |
 | 2026-09-14 | `159548f89499` | 0.2.0 | `benchmarks.rtptorrent` | the product's ranking | adamfisk@LittleProxy, apache@sling, CloudifySource@cloudify, DSpace@DSpace, jcabi@jcabi-github, jsprit@jsprit, julianhyde@optiq, l0rdn1kk0n@wicket-bootstrap, neuland@jade4j, SonarSource@sonarqube |
 | 2026-09-15 | `06e054a4d92c` | 0.2.0 | `benchmarks.harness evaluate` | the product's ranking | fastapi/fastapi, ollama/ollama |
+| 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.harness evaluate` | the product's ranking | fastapi/fastapi, ollama/ollama |
+| 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | adamfisk@LittleProxy, apache@sling, CloudifySource@cloudify, DSpace@DSpace, jcabi@jcabi-github, jsprit@jsprit, julianhyde@optiq, l0rdn1kk0n@wicket-bootstrap, neuland@jade4j, SonarSource@sonarqube |
+| 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | SonarSource@sonarqube |
+| 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | SonarSource@sonarqube |
+| 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | SonarSource@sonarqube |
+| 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | SonarSource@sonarqube |

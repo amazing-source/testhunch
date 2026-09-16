@@ -161,5 +161,25 @@
         "runs_without_expected_time": 0
       }
     ]
+  },
+  "monotonicity": {
+    "prefix": {
+      "pairs": 19542,
+      "dropped_a_test": 0,
+      "ran_fewer_failures": 0,
+      "lost_the_build": 0
+    },
+    "oversized": {
+      "pairs": 19542,
+      "dropped_a_test": 1400,
+      "ran_fewer_failures": 20,
+      "lost_the_build": 17
+    },
+    "fill": {
+      "pairs": 19542,
+      "dropped_a_test": 5536,
+      "ran_fewer_failures": 14,
+      "lost_the_build": 13
+    }
   }
 }

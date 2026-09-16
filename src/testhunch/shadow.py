@@ -137,8 +137,8 @@ def _evaluate(
     tests_run = tests_total = time_run = time_total = 0
     without_expected = 0
     for run in runs:
-        selected_ranks = _selected(run, fraction, packing)
-        if selected_ranks is None:
+        ranks = selected_ranks(run, fraction, packing)
+        if ranks is None:
             # Recorded before expected durations were stored: no time budget can be cut for it.
             without_expected += 1
             continue
@@ -147,7 +147,7 @@ def _evaluate(
             if result.status is Status.SKIPPED:
                 continue
             position = run.positions.get(result.key)
-            selected = position is None or position in selected_ranks  # unknown tests always run
+            selected = position is None or position in ranks  # unknown tests always run
             tests_total += 1
             tests_run += selected
             if result.duration_ms is not None:
@@ -186,7 +186,9 @@ def _evaluate(
     )
 
 
-def _selected(run: ShadowRun, fraction: float, packing: str = DEFAULT_PACKING) -> set[int] | None:
+def selected_ranks(
+    run: ShadowRun, fraction: float, packing: str = DEFAULT_PACKING
+) -> set[int] | None:
     """The ranks the budget runs for this run, or None if the run cannot be cut at all.
 
     The expected durations are the ones recorded with the ranking, before the run happened: cutting

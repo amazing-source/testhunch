@@ -264,6 +264,23 @@ def test_no_ranked_test_means_no_rank_to_run() -> None:
         assert budget_ranks(0.5, [], packing) == set(), packing
 
 
+def test_a_wider_budget_can_run_fewer_tests_than_a_narrower_one() -> None:
+    """Filling is first-fit, and first-fit is not monotone in the capacity (docs/adr/0029).
+
+    Measured on the development projects: the wider budget drops a test in about a quarter of jobs.
+    This pins the property so that a change to the rule shows up here rather than in a user's CI.
+    """
+    durations = [1.0, 4.0, 1.0, 1.0]  # 7 in all
+
+    # Half of 7 is 3.5: the second test needs 4 and never fits, so the last two run instead.
+    assert budget_ranks(0.5, durations, FILL) == {1, 3, 4}
+    # Three quarters is 5.25: the second test fits, takes the room, and pushes both of them out.
+    assert budget_ranks(0.75, durations, FILL) == {1, 2}
+
+    # A prefix cannot do this: a longer prefix contains the shorter one.
+    assert budget_ranks(0.5, durations, PREFIX) <= budget_ranks(0.75, durations, PREFIX)
+
+
 def test_the_shipped_budget_passes_over_what_it_could_never_have_afforded() -> None:
     """The rule of ADR 0029, and changing it changes every published budget table."""
     run = ranked(

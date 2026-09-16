@@ -18,8 +18,8 @@
     "missing": []
   },
   "testhunch": {
-    "version": "0.2.0",
-    "commit": "159548f894997f8e63b4cdead0c7857c18da5103"
+    "version": "0.4.0",
+    "commit": "cf211220f0cda898c1f1705d7ef0a2805e533ffc"
   },
   "jobs": {
     "total": 3241,
@@ -34,16 +34,16 @@
       "fraction": 0.1,
       "runs": 3240,
       "failing_runs": 429,
-      "caught_runs": 332,
+      "caught_runs": 342,
       "failures": 735,
-      "caught_failures": 465,
+      "caught_failures": 475,
       "confirmed_failing_runs": 149,
       "caught_confirmed_runs": 149,
       "confirmed_failures": 149,
       "caught_confirmed_failures": 149,
-      "tests_run": 39008,
+      "tests_run": 49644,
       "tests_total": 444632,
-      "time_run_ms": 253946105,
+      "time_run_ms": 269850602,
       "time_total_ms": 2284756763,
       "runs_without_expected_time": 0
     },
@@ -51,16 +51,16 @@
       "fraction": 0.25,
       "runs": 3240,
       "failing_runs": 429,
-      "caught_runs": 365,
+      "caught_runs": 374,
       "failures": 735,
-      "caught_failures": 551,
+      "caught_failures": 560,
       "confirmed_failing_runs": 149,
       "caught_confirmed_runs": 149,
       "confirmed_failures": 149,
       "caught_confirmed_failures": 149,
-      "tests_run": 98974,
+      "tests_run": 116596,
       "tests_total": 444632,
-      "time_run_ms": 652378460,
+      "time_run_ms": 662953605,
       "time_total_ms": 2284756763,
       "runs_without_expected_time": 0
     },
@@ -75,9 +75,9 @@
       "caught_confirmed_runs": 149,
       "confirmed_failures": 149,
       "caught_confirmed_failures": 149,
-      "tests_run": 267074,
+      "tests_run": 284706,
       "tests_total": 444632,
-      "time_run_ms": 1253141181,
+      "time_run_ms": 1259173737,
       "time_total_ms": 2284756763,
       "runs_without_expected_time": 0
     }

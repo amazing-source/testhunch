@@ -43,3 +43,19 @@ interpolation, and the column is what it catches beyond a prefix that spends the
 | 25% | fill | 30.8% | 84.3% | 81.4% | +3.0 pt |
 | 50% | oversized | 54.2% | 89.2% | 88.8% | +0.5 pt |
 | 50% | fill | 55.2% | 91.6% | 89.1% | +2.6 pt |
+
+## What a wider budget takes back
+
+Filling greedily in rank order is first-fit, and first-fit is not monotone in the
+capacity: a test that did not fit in the narrow budget can fit in the wide one, take the
+room, and push out cheaper tests below it. A prefix cannot do this, since a longer prefix
+contains the shorter one. Counted over adjacent budget pairs of each job, because a
+project's totals hide it.
+
+10 projects, 61888 budget pairs with a selection at both budgets.
+
+| Rule | The wider budget drops a test | It runs fewer failures | The build stops being red |
+|---|---:|---:|---:|
+| prefix | 0 (0.0%) | 0 | 0 |
+| oversized | 3974 (6.4%) | 42 | 27 |
+| fill | 9855 (15.9%) | 27 | 19 |
