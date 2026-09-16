@@ -8,13 +8,18 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from benchmarks.study.release_020 import CaseHistory
 from testhunch.models import CaseResult, Status
 
 # RTPTorrent's weight of the newest build in a test's failure priority (Mattis et al., section 4).
 ALPHA = 0.8
+
+
+# The longest window the learned model's features look back over, in builds (docs/adr/0030).
+# Machalica et al. count days; RTPTorrent's jobs carry no usable timestamp, so builds it is.
+LONGEST_WINDOW = 56
 
 
 @dataclass(slots=True)
@@ -31,6 +36,19 @@ class CaseRecord:
     duration_total_ms: int = 0
     duration_samples: int = 0
     file: str | None = None  # the latest file reported for the test
+    # The test's last few appearances, as (build, failed), for the windowed rates of ADR 0030.
+    # Bounded: a test that runs in every build keeps exactly the longest window, and one that runs
+    # rarely keeps further back, which is the right way round for a rate over recent builds.
+    recent: deque[tuple[int, bool]] = field(default_factory=lambda: deque(maxlen=LONGEST_WINDOW))
+
+    def window(self, build: int, size: int) -> tuple[int, int]:
+        """Runs and failures in the `size` builds before `build`. Only what `recent` still holds."""
+        runs = failures = 0
+        for at, failed in self.recent:
+            if at >= build - size:
+                runs += 1
+                failures += failed
+        return runs, failures
 
     def priority_at(self, build: int) -> float:
         """RTPTorrent's priority P(build - 1): decayed by 1 - alpha per build since a failure."""
@@ -100,6 +118,7 @@ class BuildHistory:
             record.runs += 1
             record.last_run = build
             record.last_failed = did_fail
+            record.recent.append((build, did_fail))
             known = durations.get(key)
             if known:
                 record.duration_total_ms += round(sum(known) / len(known))

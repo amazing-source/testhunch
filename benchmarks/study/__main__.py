@@ -65,7 +65,11 @@ def summary(results: Sequence[dict[str, Any]], name: str, step: Step) -> str:
     }
     # The page must name the projects it was run on: this one was published claiming "development
     # projects only" while listing the ten held out for it.
-    projects = "held-out projects" if name == HELD_OUT_STEP else "development projects only"
+    projects = (
+        "held-out projects"
+        if name == HELD_OUT_STEP
+        else "development projects only, here " + ", ".join(r["project"] for r in rtptorrent)
+    )
     wins = math.ceil(0.6 * len(rtptorrent))
     lines = [
         f"# Ranking study: {name}",

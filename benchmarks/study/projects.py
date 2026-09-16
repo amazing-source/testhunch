@@ -30,6 +30,8 @@ from testhunch.models import CaseResult, ShadowResult, ShadowRun, Status
 
 CACHE = Path(".benchmark-cache")
 AUTHORS_SCHEDULE = "recently-failed"
+# Where `python -m benchmarks.learn train` leaves the fitted model (docs/adr/0030).
+MODEL = CACHE / "learned" / "model.pkl"
 
 
 # The values each added signal is tried with, fixed before any step runs (ADR 0014).
@@ -181,6 +183,23 @@ STEPS["cold-free"] = Step(
     ),
     references=(LatestFailure(), ProductRanking()),
 )
+
+
+# Phase 6 (docs/adr/0030). The step exists only once a model has been fitted, which is deliberate:
+# the alternative is a step that silently scores nothing, and every worker process re-reads the
+# file, so what they all score is one model rather than one per process.
+if MODEL.exists():  # pragma: no cover - depends on whether the model was fitted
+    from benchmarks.study.learned import LearnedRanking, load_model
+
+    _MODEL = load_model(MODEL)
+    STEPS["learned"] = Step(
+        STEP_3_KEPT,
+        (
+            LearnedRanking(_MODEL),
+            LearnedRanking(_MODEL, name="learned+time^1.0", time_exponent=1.0),
+        ),
+        references=(LatestFailure(), ProductRanking()),
+    )
 
 
 def rankings(step: str) -> list[Ranking]:
