@@ -89,6 +89,14 @@ class BuildMeta:
     trunk_sha: str
     stage_ids: tuple[str, ...]
 
+    @property
+    def key(self) -> tuple[str, str, str]:
+        return (self.project, self.pr_name, self.build_id)
+
+    @property
+    def ended(self) -> int:
+        return self.started + self.duration
+
 
 class Archive:
     """The distributed zip, read in place."""
