@@ -68,9 +68,9 @@ habituelle**. Le détail est sur
 ## Ce qui a été mesuré
 
 Le classement a été rejoué sur de vrais historiques de CI : chaque exécution est classée uniquement
-à partir de celles terminées avant elle, avec le vrai code de testhunch. **Ces chiffres sont ceux du
-classement de la 0.4.0**, celle que `uvx testhunch` et `@v0.4.0` installent. Tous les résultats,
-projet par projet, y compris ceux où testhunch s'en sort mal, sont dans
+à partir de celles terminées avant elle, avec le vrai code de testhunch. **Ces chiffres sont ceux de
+la 0.5.0**, celle que `uvx testhunch` et `@v0.5.0` installent. Tous les résultats, projet par projet,
+y compris ceux où testhunch s'en sort mal, sont dans
 [benchmarks/results](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/README.md).
 
 Réglages sur 10 projets RTPTorrent, puis **une seule mesure** sur 10 autres projets, jamais regardés
