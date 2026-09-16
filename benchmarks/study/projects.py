@@ -200,6 +200,9 @@ if MODEL.exists():  # pragma: no cover - depends on whether the model was fitted
             # The narrowest use of the model: it only re-orders the tests the history says
             # nothing about, among themselves (ADR 0031).
             ColdLearned(_MODEL, STEP_3_KEPT),
+            # The same, but the model's estimate divided by the cost rather than replacing the
+            # cost ordering: what the first measurement said to try next.
+            ColdLearned(_MODEL, STEP_3_KEPT, name="cold-learned+time^1.0", time_exponent=1.0),
         ),
         references=(LatestFailure(), ProductRanking()),
     )

@@ -63,10 +63,22 @@ measure: running the cheap ones first turns the build red sooner even when the g
 test is worse. Replacing that order with a risk estimate buys a better position and pays for it in
 time, and APFDc counts the time.
 
-So the lead survives the measurement and narrows: the model knows something about first failures
-that the heuristic does not, and no arrangement tried so far turns that into a better ranking
-without losing more elsewhere. Combining the model's estimate **with** the cost, rather than
-instead of it, is the next thing to try, and it is not built either.
+## Combining the estimate with the cost, which is the same measurement from the other side
+
+`cold-learned+time^1.0` divides the model's probability by the expected duration among the cold
+tests, instead of letting it replace the cost ordering. It scores 0.879, four thousandths below the
+heuristic with an interval that spans zero, ahead on three projects of five: a tie. And the
+first-failure slice goes back to 0.734, against the heuristic's 0.740.
+
+**The gain and the loss are the same thing.** The model's advantage on first failures comes exactly
+from ignoring the cost, and the cost is what buys the primary measure. Divide by it and the order
+among cold tests converges back to the heuristic's; do not, and the build turns red later. There is
+no arrangement of these two that keeps both, and three were measured.
+
+So phase 6 ends on a question the roadmap already parks: what a candidate may give up on the primary
+measure to clear the guardrail of ADR 0018, which that roadmap says is to be decided after LRTS and
+not before. This ADR does not decide it. What it adds is that the trade is now **measured** rather
+than hypothetical: roughly 0.03 of APFDc buys 0.22 of first-failure position.
 
 ## Consequences
 

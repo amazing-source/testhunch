@@ -206,6 +206,10 @@ class ColdLearned:
     model: HistGradientBoostingClassifier
     heuristic: Candidate
     name: str = "cold-learned"
+    # Divide the model's probability by the expected duration, as the heuristic divides its own
+    # score. Without it the model's estimate *replaces* the cost ordering among the cold tests,
+    # which is what the first measurement showed costs more time than the better guess saves.
+    time_exponent: float | None = None
 
     def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
         order, count = self.heuristic.order(trial, context)
@@ -221,7 +225,13 @@ class ColdLearned:
             [features(known[i], records[known[i]], now, change, builds) for i in cold],
             dtype=np.float32,
         )
-        scores = dict(zip(cold, self.model.predict_proba(rows)[:, 1], strict=True))
+        predicted = self.model.predict_proba(rows)[:, 1]
+        if self.time_exponent is not None:
+            predicted = [
+                score / _expected_ms(known[i], builds, known) ** self.time_exponent
+                for i, score in zip(cold, predicted, strict=True)
+            ]
+        scores = dict(zip(cold, predicted, strict=True))
         by_score = sorted(cold, key=lambda i: (-scores[i], tie(trial.job_id, known[i])))
         rearranged = list(known)
         for position, source in zip(cold, by_score, strict=True):
