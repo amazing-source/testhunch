@@ -127,6 +127,8 @@ sur les cinq projets de validation que le modèle n'a jamais vus. Mesure princip
 |---|---:|---:|---|---:|
 | **classement actuel** | **0,883** | | | |
 | modèle appris, divisé par la durée | 0,883 | +0,001 | [−0,013, +0,015] | 3 sur 5 |
+| modèle appris, à froid et divisé par la durée | 0,879 | −0,004 | [−0,013, +0,002] | 3 sur 5 |
+| modèle appris, seulement à froid | 0,854 | −0,029 | [−0,044, −0,017] | 0 sur 5 |
 | modèle appris, brut | 0,846 | −0,036 | [−0,062, −0,012] | 1 sur 5 |
 
 La règle demandait +0,005 et un intervalle au-dessus de zéro : **rien n'est livré**. Les deux
@@ -139,21 +141,40 @@ mieux.** Position du premier test en échec, plus bas = mieux :
 
 | | A déjà échoué (2 717 jobs) | N'a jamais échoué (192 jobs) |
 |---|---:|---:|
-| classement actuel | **0,127** | 0,740 |
+| classement actuel | 0,127 | 0,740 |
 | modèle appris, brut | 0,132 | **0,445** |
+| modèle appris, seulement à froid | **0,123** | 0,521 |
+| modèle appris, à froid et divisé par la durée | 0,126 | 0,734 |
 | testhunch 0.2.0 | 0,158 | 0,461 |
 | aléatoire | 0,451 | 0,455 |
 
 La ligne « aléatoire » vient de la même tranche, mesurée à part sur les mêmes cinq projets
 ([détail](study/first-failures-validation.md)).
 
-C'est **le premier classement mesuré ici qui ne soit pas plus mauvais que le hasard là où
-l'historique se tait**. La marge sur le hasard est d'un centième, ce qui ne revendique aucune
+Le modèle brut est **le premier classement mesuré ici qui ne soit pas plus mauvais que le hasard là
+où l'historique se tait**. La marge sur le hasard est d'un centième, ce qui ne revendique aucune
 compétence ; ce que c'est, c'est la fin d'une régression que l'étude elle-même avait introduite.
 
-Et c'est une piste, pas un résultat : 192 jobs, un seul modèle, un seul jeu d'hyperparamètres, et
-aucun regard sur les projets mis de côté. Un classement qui n'emploierait le modèle que là où
-l'historique se tait est le candidat évident, et il n'est pas écrit.
+**Le candidat évident a été construit et mesuré, et il perd aussi.** « Seulement à froid » garde
+l'ordre de l'heuristique pour tout test dont l'historique parle et ne réordonne que les autres
+entre eux : il améliore les deux tranches de position et perd quand même 0,029 sur la mesure
+principale. L'explication est celle que l'ADR 0018 avait déjà trouvée par l'autre bout : parmi les
+tests que l'historique ignore, l'heuristique ordonne par le coût, et lancer les moins chers d'abord
+fait virer le build au rouge plus tôt même quand la devinette sur *lequel* est moins bonne. L'APFDc
+compte ce temps.
+
+**Et combiner l'estimation du modèle avec le coût ne récupère rien.** Divisée par la durée, la
+probabilité du modèle redonne 0,879 sur la mesure principale, à quatre millièmes de l'heuristique,
+mais la tranche des premiers échecs repart à 0,734. **Le gain et la perte sont la même chose** :
+l'avantage du modèle sur les premiers échecs vient précisément de ce qu'il ignore le coût, et le
+coût est ce qui achète la mesure principale. Trois agencements ont été mesurés, aucun ne garde les
+deux.
+
+La phase 6 se termine donc sur une question que la feuille de route met déjà de côté : ce qu'un
+candidat a le droit de céder sur la mesure principale pour franchir le garde-fou, à trancher après
+LRTS et pas avant. Ce qui change, c'est que **l'échange est maintenant mesuré** et non supposé :
+environ 0,03 d'APFDc achète 0,22 de position sur les premiers échecs. 192 jobs, un seul modèle, un
+seul jeu d'hyperparamètres, et aucun regard sur les projets mis de côté.
 
 ## RTPTorrent : 20 projets Java, 110 126 jobs Travis CI
 

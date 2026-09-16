@@ -12,6 +12,7 @@ from benchmarks.study.features import NAMES, NEVER, WINDOWS, Change, _path_overl
 from benchmarks.study.history import LONGEST_WINDOW, BuildHistory
 from benchmarks.study.learned import (
     NEGATIVES_PER_POSITIVE,
+    ColdLearned,
     Dataset,
     LearnedRanking,
     collect_project,
@@ -19,7 +20,7 @@ from benchmarks.study.learned import (
     merge,
 )
 from benchmarks.study.metrics import Trial
-from benchmarks.study.rankings import Context
+from benchmarks.study.rankings import Candidate, Context
 from testhunch.models import CaseResult, Status
 
 
@@ -259,3 +260,48 @@ def test_a_trial_whose_tests_are_all_unknown_is_left_in_the_jobs_order() -> None
     order, known = ranking.order(trial("x", "y"), Context(BuildHistory(), lambda: []))
 
     assert (order, known) == (["x", "y"], 0)
+
+
+# -- the model only where the history says nothing (docs/adr/0031) -----------------------------
+
+
+def cold_learned() -> ColdLearned:
+    return ColdLearned(learned().model, Candidate("latest-failure+time^1.0", time_exponent=1.0))
+
+
+def test_a_test_the_history_speaks_about_keeps_its_place() -> None:
+    """The narrow claim of this candidate: it cannot move what the heuristic has a reason for."""
+    builds = history()
+    heuristic = Candidate("latest-failure+time^1.0", time_exponent=1.0)
+    one = trial("a", "b", "c")
+    builds.records["c"] = builds.records["b"]  # a second test the history says nothing about
+
+    expected, _ = heuristic.order(one, Context(builds, lambda: []))
+    got, _ = cold_learned().order(one, Context(builds, lambda: []))
+
+    # `a` failed in every build, so it is warm and its position is untouched.
+    assert got.index("a") == expected.index("a")
+    assert sorted(got) == sorted(expected)
+
+
+def test_the_cold_tests_keep_the_positions_the_heuristic_gave_them() -> None:
+    builds = history()
+    builds.records["c"] = builds.records["b"]
+    one = trial("a", "b", "c")
+    heuristic = Candidate("latest-failure+time^1.0", time_exponent=1.0)
+
+    expected, _ = heuristic.order(one, Context(builds, lambda: []))
+    got, _ = cold_learned().order(one, Context(builds, lambda: []))
+
+    cold = {"b", "c"}
+    assert [test in cold for test in got] == [test in cold for test in expected]
+
+
+def test_one_cold_test_alone_is_nothing_to_reorder() -> None:
+    builds = history()
+    one = trial("a", "b")
+
+    got, count = cold_learned().order(one, Context(builds, lambda: []))
+
+    heuristic = Candidate("latest-failure+time^1.0", time_exponent=1.0)
+    assert (got, count) == heuristic.order(one, Context(builds, lambda: []))

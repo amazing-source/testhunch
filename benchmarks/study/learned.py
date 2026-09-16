@@ -28,7 +28,7 @@ from benchmarks.replay import Job, concurrent_groups
 from benchmarks.study.features import NAMES, Change, features
 from benchmarks.study.history import BuildHistory
 from benchmarks.study.metrics import Trial
-from benchmarks.study.rankings import Context, split_known, tie
+from benchmarks.study.rankings import Candidate, Context, split_known, tie
 from testhunch.junit import collapse
 
 # How many passing tests are kept per failing test of the same build. Every failure is kept; the
@@ -187,6 +187,56 @@ def _expected_ms(test: str, builds: BuildHistory, known: Sequence[str]) -> float
         ]
         own = statistics.median(others) if others else 0.0
     return max(own, 1.0)
+
+
+@dataclass(frozen=True, slots=True)
+class ColdLearned:
+    """The heuristic, with the model deciding only where the history says nothing (ADR 0031).
+
+    A test whose failure priority is 0 has nothing in the history to be ranked by, and the
+    heuristic falls back to cost and a tie hash ([ADR 0018](docs/adr/0018)). This keeps the
+    heuristic's order for every other test and re-orders those among themselves by the model's
+    predicted probability, in the positions they already occupied.
+
+    It is the narrowest use of the model that the phase 6 result suggests: it cannot move a test
+    the history does speak about, so whatever it does to the first-failure slice, it does almost
+    nothing to the other one.
+    """
+
+    model: HistGradientBoostingClassifier
+    heuristic: Candidate
+    name: str = "cold-learned"
+    # Divide the model's probability by the expected duration, as the heuristic divides its own
+    # score. Without it the model's estimate *replaces* the cost ordering among the cold tests,
+    # which is what the first measurement showed costs more time than the better guess saves.
+    time_exponent: float | None = None
+
+    def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
+        order, count = self.heuristic.order(trial, context)
+        builds = context.builds
+        records, now = builds.records, builds.builds
+        known = order[len(order) - count :] if count else []
+        cold = [index for index, test in enumerate(known) if not records[test].priority_at(now)]
+        if len(cold) < 2:
+            return order, count
+
+        change = Change.of(trial, builds)
+        rows = np.array(
+            [features(known[i], records[known[i]], now, change, builds) for i in cold],
+            dtype=np.float32,
+        )
+        predicted = self.model.predict_proba(rows)[:, 1]
+        if self.time_exponent is not None:
+            predicted = [
+                score / _expected_ms(known[i], builds, known) ** self.time_exponent
+                for i, score in zip(cold, predicted, strict=True)
+            ]
+        scores = dict(zip(cold, predicted, strict=True))
+        by_score = sorted(cold, key=lambda i: (-scores[i], tie(trial.job_id, known[i])))
+        rearranged = list(known)
+        for position, source in zip(cold, by_score, strict=True):
+            rearranged[position] = known[source]
+        return order[: len(order) - count] + rearranged, count
 
 
 def save_model(model: HistGradientBoostingClassifier, path: Path) -> None:

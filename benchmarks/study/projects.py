@@ -189,7 +189,7 @@ STEPS["cold-free"] = Step(
 # the alternative is a step that silently scores nothing, and every worker process re-reads the
 # file, so what they all score is one model rather than one per process.
 if MODEL.exists():  # pragma: no cover - depends on whether the model was fitted
-    from benchmarks.study.learned import LearnedRanking, load_model
+    from benchmarks.study.learned import ColdLearned, LearnedRanking, load_model
 
     _MODEL = load_model(MODEL)
     STEPS["learned"] = Step(
@@ -197,6 +197,12 @@ if MODEL.exists():  # pragma: no cover - depends on whether the model was fitted
         (
             LearnedRanking(_MODEL),
             LearnedRanking(_MODEL, name="learned+time^1.0", time_exponent=1.0),
+            # The narrowest use of the model: it only re-orders the tests the history says
+            # nothing about, among themselves (ADR 0031).
+            ColdLearned(_MODEL, STEP_3_KEPT),
+            # The same, but the model's estimate divided by the cost rather than replacing the
+            # cost ordering: what the first measurement said to try next.
+            ColdLearned(_MODEL, STEP_3_KEPT, name="cold-learned+time^1.0", time_exponent=1.0),
         ),
         references=(LatestFailure(), ProductRanking()),
     )
