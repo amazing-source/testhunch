@@ -15,6 +15,7 @@ import itertools
 import json
 import sys
 import tempfile
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
@@ -25,11 +26,46 @@ from benchmarks.replay import add_points, replay
 from benchmarks.rtptorrent.data import fetch_project, iter_jobs
 from benchmarks.split import RTPTORRENT_DEVELOPMENT, RTPTORRENT_HELD_OUT
 from testhunch import __version__
-from testhunch.shadow import BUDGETS, PACKINGS, PREFIX, ShadowPoint, evaluate
+from testhunch.models import ShadowRun, Status
+from testhunch.shadow import BUDGETS, PACKINGS, PREFIX, ShadowPoint, evaluate, selected_ranks
 from testhunch.store import open_store
 
 DEFAULT_CACHE = Path(".benchmark-cache") / "rtptorrent"
 DEFAULT_OUT = Path("benchmarks") / "results" / "study" / "budget-packing"
+
+
+MONOTONICITY_KEYS = ("pairs", "dropped_a_test", "ran_fewer_failures", "lost_the_build")
+
+
+def _failures_run(run: ShadowRun, ranks: set[int]) -> int:
+    """How many of this run's real failures a budget runs. An unknown test always runs."""
+    return sum(
+        1
+        for result in run.results
+        if result.status is not Status.SKIPPED
+        and result.status.is_failure
+        and not result.flaky
+        and (run.positions.get(result.key) is None or run.positions[result.key] in ranks)
+    )
+
+
+def _count_monotonicity(run: ShadowRun, packing: str, counts: Counter[str]) -> None:
+    """Whether a wider budget takes back what a narrower one ran, over adjacent budget pairs.
+
+    Filling greedily in rank order is first-fit, which is not monotone in the capacity: a test that
+    did not fit in the narrow budget can fit in the wide one, take the room, and push out cheaper
+    tests below it. Counted per job because the totals of a project hide it (docs/adr/0029).
+    """
+    selections = [selected_ranks(run, fraction, packing) for fraction in BUDGETS]
+    if any(ranks is None for ranks in selections):
+        return  # no budget can be cut for this run at all
+    caught = [_failures_run(run, ranks) for ranks in selections if ranks is not None]
+    for index, (small, large) in enumerate(itertools.pairwise(selections)):
+        assert small is not None and large is not None
+        counts["pairs"] += 1
+        counts["dropped_a_test"] += not small <= large
+        counts["ran_fewer_failures"] += caught[index + 1] < caught[index]
+        counts["lost_the_build"] += caught[index] > 0 and caught[index + 1] == 0
 
 
 def run_project(directory: Path) -> dict[str, Any]:
@@ -38,6 +74,7 @@ def run_project(directory: Path) -> dict[str, Any]:
     points: dict[str, list[ShadowPoint]] = {
         packing: evaluate([], BUDGETS, packing) for packing in PACKINGS
     }
+    monotonicity: dict[str, Counter[str]] = {packing: Counter() for packing in PACKINGS}
     evaluated = 0
     with tempfile.TemporaryDirectory() as scratch:
         store = open_store(f"sqlite:///{Path(scratch).as_posix()}/history.db")
@@ -52,11 +89,16 @@ def run_project(directory: Path) -> dict[str, Any]:
                     add_points(total, one)
                     for total, one in zip(points[packing], scored, strict=True)
                 ]
+                _count_monotonicity(ranked.run, packing, monotonicity[packing])
     return {
         "project": project,
         "evaluated": evaluated,
         "packing": {
             packing: [asdict(point) for point in totals] for packing, totals in points.items()
+        },
+        "monotonicity": {
+            packing: {key: counts[key] for key in MONOTONICITY_KEYS}
+            for packing, counts in monotonicity.items()
         },
     }
 
@@ -146,8 +188,49 @@ def markdown(results: Sequence[dict[str, Any]]) -> str:
                 f"| {fraction:.0%} | {packing} | {_pct(time)} | {_pct(caught)} "
                 f"| {_pct(same)} | {difference} |"
             )
+    lines += _monotonicity_section(results)
     lines.append("")
     return "\n".join(lines)
+
+
+def _monotonicity_section(results: Sequence[dict[str, Any]]) -> list[str]:
+    """What a wider budget takes back, counted per job rather than per project."""
+    measured = [result for result in results if "monotonicity" in result]
+    if not measured:
+        return []  # rebuilt from runs older than this measurement
+    totals = {
+        packing: {
+            key: sum(result["monotonicity"][packing][key] for result in measured)
+            for key in MONOTONICITY_KEYS
+        }
+        for packing in PACKINGS
+    }
+    lines = [
+        "",
+        "## What a wider budget takes back",
+        "",
+        "Filling greedily in rank order is first-fit, and first-fit is not monotone in the",
+        "capacity: a test that did not fit in the narrow budget can fit in the wide one, take the",
+        "room, and push out cheaper tests below it. A prefix cannot do this, since a longer prefix",
+        "contains the shorter one. Counted over adjacent budget pairs of each job, because a",
+        "project's totals hide it.",
+        "",
+        f"{len(measured)} projects, "
+        f"{totals[PREFIX]['pairs']} budget pairs with a selection at both budgets.",
+        "",
+        "| Rule | The wider budget drops a test | It runs fewer failures "
+        "| The build stops being red |",
+        "|---|---:|---:|---:|",
+    ]
+    for packing in PACKINGS:
+        row = totals[packing]
+        pairs = row["pairs"]
+        share = f"{row['dropped_a_test'] / pairs:.1%}" if pairs else "n/a"
+        lines.append(
+            f"| {packing} | {row['dropped_a_test']} ({share}) | {row['ran_fewer_failures']} | "
+            f"{row['lost_the_build']} |"
+        )
+    return lines
 
 
 def _on_curve(

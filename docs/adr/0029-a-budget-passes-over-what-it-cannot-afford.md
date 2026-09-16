@@ -72,6 +72,31 @@ callers that only want a prefix length. `budget_cut` is gone, replaced by `budge
 this decision. The answer is that the expensive one did not fit in what was left, and testhunch
 prints the reason beside every ranked test.
 
+**A larger budget can run fewer tests and catch fewer failures than a smaller one.** This was found
+after the fact, on 2026-09-16, while regenerating the published tables, and it is a property of the
+rule rather than a defect in its implementation: filling greedily in rank order is first-fit, and
+first-fit is not monotone in the capacity. With expected durations `[1, 4, 1, 1]`, a budget of 50%
+runs ranks 1, 3 and 4, and a budget of 75% runs ranks 1 and 2, because the second test finally fits
+and takes the whole budget with it. The `prefix` rule this ADR replaces could not do that, since a
+longer prefix contains the shorter one. `oversized` is not monotone either: on the same durations it
+gives ranks 1, 3, 4 at 50% and rank 1 alone at 75%.
+
+Counted per job, over the 61 888 adjacent budget pairs of the ten development projects, the cost is
+common and rarely harmful. The page has the table; the shape of it is that `fill` drops a test in
+**15.9%** of pairs, runs strictly fewer failures in 27 of them, and turns a failing build back to
+green in 19. `prefix` scores zero on all three, so its monotonicity is now measured rather than
+argued. `oversized` sits between the two on the first column and is **worse than `fill` on the one
+that matters**: it loses 27 builds against 19, while dropping fewer tests.
+
+Per project the losses are usually buried by the gains, which is why the development projects show
+no inversion in their published totals. On a small project they surface: `neuland@jade4j` catches 96
+of its 96 failing jobs at a 25% budget and 92 at 50%, while running 2 208 more classes.
+
+**The rule stays.** Monotonicity would mean going back to `prefix`, which costs 2.0 to 3.0 points of
+failing builds caught at equal time, measured above, against an inversion that costs a red build in
+19 pairs out of 61 888. What changes is that the property is written down, rather than discovered by
+a user who raised a budget and caught less.
+
 `oversized` stays in the code and in the page. It is the rule to reach for if the explanation above
 ever proves too surprising in practice, and keeping it measured costs nothing.
 
