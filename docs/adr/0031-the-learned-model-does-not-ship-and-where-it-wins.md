@@ -45,8 +45,28 @@ it is, is the end of a regression the study itself introduced (ADR 0018).
 
 That is the first thing this project has measured that improves the regime it is worst at. It is
 recorded here as a lead, not as a result: 192 jobs of the validation half, one fitted model, one
-set of hyperparameters, and no look at the held-out projects. A ranking that used the model only
-where the history is silent is the obvious next candidate, and it is not built.
+set of hyperparameters, and no look at the held-out projects.
+
+## The candidate this ADR named, built and measured
+
+`cold-learned` keeps the heuristic's order for every test whose failure priority is not zero, and
+re-orders the others among themselves by the model's probability, in the positions they already
+had. It is the narrowest use of the model there is: it cannot move a test the history speaks about.
+
+It **loses**: 0.854 on the primary measure, 0.029 below the heuristic, ahead on none of the five
+projects. And it does so while improving both position slices, 0.740 to 0.521 where the history is
+silent, and 0.127 to 0.123 where it is not.
+
+The explanation is the one ADR 0018 already found from the other side. Among tests the history says
+nothing about, the heuristic orders by cost, and that ordering is doing real work for a time-weighted
+measure: running the cheap ones first turns the build red sooner even when the guess about *which*
+test is worse. Replacing that order with a risk estimate buys a better position and pays for it in
+time, and APFDc counts the time.
+
+So the lead survives the measurement and narrows: the model knows something about first failures
+that the heuristic does not, and no arrangement tried so far turns that into a better ranking
+without losing more elsewhere. Combining the model's estimate **with** the cost, rather than
+instead of it, is the next thing to try, and it is not built either.
 
 ## Consequences
 
