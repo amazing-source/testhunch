@@ -228,15 +228,15 @@ def test_select_leaves_out_the_known_tests_below_the_budget(
     args = ["select", "--budget", "50%", "--runner", "pytest", "--changed", "src/other.py"]
     assert main([*args, "--learning-runs", "0%", *common]) == 0
     out = capsys.readouterr()
-    # The budget is half of the 9 ms the 8 known tests are expected to take (docs/adr/0017), so the
-    # three 0 ms failures run. test_fails, twice as slow, no longer fits and is left out; since
-    # ADR 0029 the selection does not stop there, and one more test that does fit runs.
-    assert sorted(out.out.splitlines()) == [
-        "tests.test_sample::test_fails",
-        "tests.test_sample::test_parametrized[1]",
-        "tests.test_sample::test_parametrized[3]",
-        "tests.test_sample::test_passes",
-    ]
+    # The budget is half of the 9 ms the 8 known tests are expected to take (docs/adr/0017), so
+    # 4.5 ms. The three 0 ms failures run first and spend 3 ms. test_fails costs 2 ms and does not
+    # fit in the 1.5 ms left, so it is left out; since ADR 0029 the selection does not stop there,
+    # and one more 1 ms test fits. **Which** one is the tie hash's answer, and that follows the
+    # commit, whose bytes differ between platforms: this names what the rule decides, not what
+    # the hash does.
+    left_out = sorted(out.out.splitlines())
+    assert len(left_out) == 4
+    assert "tests.test_sample::test_fails" in left_out
     assert "leaving out 4 of 8 known tests: 50% of their expected 9 ms (4 ms, 4 tests)" in out.err
 
 
