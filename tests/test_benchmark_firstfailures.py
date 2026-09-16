@@ -54,7 +54,7 @@ def test_red_at_is_unknown_when_a_duration_is() -> None:
 def test_a_job_is_a_first_failure_only_while_no_known_failing_test_has_failed_before() -> None:
     rankings = {"latest-failure": LatestFailure()}
 
-    totals = measure("adamfisk@LittleProxy", rankings)
+    totals = measure(EXTRACT, rankings)
 
     # The extract holds both kinds, and every job counted lands in exactly one slice.
     assert totals[FIRST]["jobs"] and totals[REPEATED]["jobs"]
@@ -65,8 +65,8 @@ def test_a_job_is_a_first_failure_only_while_no_known_failing_test_has_failed_be
 def test_the_random_baseline_is_seeded_so_the_page_can_be_reproduced() -> None:
     rankings = {"latest-failure": LatestFailure()}
 
-    first = measure("adamfisk@LittleProxy", rankings)
-    again = measure("adamfisk@LittleProxy", rankings)
+    first = measure(EXTRACT, rankings)
+    again = measure(EXTRACT, rankings)
 
     assert first[FIRST]["random:position"] == again[FIRST]["random:position"]
 
@@ -123,7 +123,7 @@ def test_the_published_page_holds_the_measurement_of_the_development_projects() 
 def test_one_signal_orders_by_that_signal_alone_and_keeps_unknown_tests_first() -> None:
     rankings = {name: OneSignal(name) for name in PROXIMITY_SIGNALS}
 
-    totals = measure("adamfisk@LittleProxy", rankings, changed_only=True)
+    totals = measure(EXTRACT, rankings, changed_only=True)
 
     for values in totals.values():
         for name in PROXIMITY_SIGNALS:
