@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from testhunch.models import ShadowResult, ShadowRun, Status
-from testhunch.shadow import evaluate, is_learning_run
+from testhunch.shadow import (
+    FILL,
+    OVERSIZED,
+    PACKINGS,
+    PREFIX,
+    budget_ranks,
+    evaluate,
+    is_learning_run,
+)
 
 
 def result(
@@ -214,3 +222,64 @@ def test_the_draw_depends_on_the_repository_too() -> None:
 def test_no_runs_means_nothing_measured() -> None:
     (point,) = evaluate([], fractions=(0.1,))
     assert (point.runs, point.failing_runs, point.tests_total, point.time_total_ms) == (0, 0, 0, 0)
+
+
+# -- the three packing rules (docs/adr/0029) --------------------------------------------------
+
+
+# Five tests, 100 ms in all, so a budget of 40% allows 40 ms. The third is the one that does not
+# fit: 50 ms in OVERSIZED below, which no order could have run, and 30 ms in TOO_LATE, which an
+# order that put it first would have run.
+OVERSIZE = [10.0, 20.0, 50.0, 10.0, 10.0]
+TOO_LATE = [10.0, 20.0, 30.0, 10.0, 30.0]
+
+
+def test_the_prefix_rule_stops_at_the_first_test_that_does_not_fit() -> None:
+    """The fourth would fit in what is left. It is ranked below the third, so it does not run."""
+    assert budget_ranks(0.4, OVERSIZE, PREFIX) == {1, 2}
+
+
+def test_the_oversized_rule_passes_over_what_no_order_could_have_run() -> None:
+    """50 ms cannot fit in a 40 ms budget however early it comes, so it ends nothing."""
+    assert budget_ranks(0.4, OVERSIZE, OVERSIZED) == {1, 2, 4}
+
+
+def test_the_oversized_rule_still_stops_at_a_test_that_would_have_fitted() -> None:
+    """30 ms would have fitted at the top, so passing over it is a choice the order forbids."""
+    assert budget_ranks(0.4, TOO_LATE, OVERSIZED) == {1, 2}
+
+
+def test_the_fill_rule_keeps_going_past_everything_that_does_not_fit() -> None:
+    assert budget_ranks(0.4, TOO_LATE, FILL) == {1, 2, 4}
+
+
+def test_every_rule_runs_the_first_choice_of_the_ranking_whatever_it_costs() -> None:
+    """A budget that runs nothing measures nothing, and the rules must differ only after that."""
+    for packing in PACKINGS:
+        assert budget_ranks(0.1, [90.0, 5.0, 5.0], packing) == {1}, packing
+
+
+def test_no_ranked_test_means_no_rank_to_run() -> None:
+    for packing in PACKINGS:
+        assert budget_ranks(0.5, [], packing) == set(), packing
+
+
+def test_the_shipped_budget_passes_over_what_it_could_never_have_afforded() -> None:
+    """The rule of ADR 0029, and changing it changes every published budget table."""
+    run = ranked(
+        "abdc",  # the failing c is ranked last, behind the expensive d
+        result("c", Status.FAILED),
+        *passing("abd"),
+        expected={"a": 10.0, "b": 20.0, "d": 50.0, "c": 10.0},
+    )
+
+    # 90 ms in all, so half allows 45 ms: a and b spend 30, d needs 50 and does not fit, and the
+    # failing c needs only 10. Whether it runs is the whole question.
+    (default,) = evaluate([run], fractions=(0.5,))
+    (prefix,) = evaluate([run], fractions=(0.5,), packing=PREFIX)
+    (oversized,) = evaluate([run], fractions=(0.5,), packing=OVERSIZED)
+    (fill,) = evaluate([run], fractions=(0.5,), packing=FILL)
+
+    assert default == oversized
+    # d needs 50 ms of a 45 ms budget: no order could have run it, so c runs and the build is red.
+    assert (prefix.caught_runs, oversized.caught_runs, fill.caught_runs) == (0, 1, 1)

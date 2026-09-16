@@ -17,6 +17,9 @@ pytest_plugins = ["pytester"]
 
 Git = Callable[..., str]
 
+# Any fixed instant: what matters is that it does not move between runs.
+FIXED_DATE = "2026-01-01T00:00:00+00:00"
+
 
 def _postgres_url() -> str:
     url = os.environ.get("TESTHUNCH_TEST_POSTGRES_URL")
@@ -73,6 +76,10 @@ def git() -> Git:
             check=True,
             capture_output=True,
             text=True,
+            # Fixed dates, so a commit made twice has the same hash. The ranking seeds its
+            # tie-break with the commit (ADR 0009), so without this a test that names which of
+            # two equal tests wins passes or fails by the second it ran in.
+            env={**os.environ, "GIT_AUTHOR_DATE": FIXED_DATE, "GIT_COMMITTER_DATE": FIXED_DATE},
         ).stdout.strip()
 
     return run

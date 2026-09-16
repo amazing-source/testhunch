@@ -28,7 +28,7 @@ from testhunch.runners import (
     surefire_exclusions,
     vitest_skip,
 )
-from testhunch.shadow import ShadowPoint, budget_cut, evaluate, is_learning_run
+from testhunch.shadow import ShadowPoint, budget_selection, evaluate, is_learning_run
 from testhunch.store import DEFAULT_DATABASE_URL, SqlStore, StoreError, open_store
 from testhunch.upload import (
     UploadError,
@@ -427,13 +427,16 @@ def _select(args: argparse.Namespace) -> int:
         return 0
 
     # Tests are left out, so the ranking is not recorded: shadow mode needs full runs (ADR 0007).
-    cutoff = budget_cut(args.budget, ranked, by_time=args.budget_unit == "time")
-    below = [r.key for r in ranked[cutoff:]]
+    selected = budget_selection(args.budget, ranked, by_time=args.budget_unit == "time")
+    # Not a prefix since ADR 0029: a test nothing could have afforded is passed over, and the
+    # cheaper ones below it still run.
+    kept = [r.key for rank, r in enumerate(ranked, 1) if rank in selected]
+    below = [r.key for rank, r in enumerate(ranked, 1) if rank not in selected]
     unreachable = 0
     if args.runner == "go":
         skip = go_skip(
             below,
-            [r.key for r in ranked[:cutoff]],
+            kept,
             parse_go_test_list(Path(args.go_test_list).read_text(encoding="utf-8")),
             changed,
         )
@@ -441,7 +444,7 @@ def _select(args: argparse.Namespace) -> int:
         sys.stdout.write(skip.pattern)
         left_out, unreachable = len(skip.left_out), len(below) - len(skip.left_out)
     elif args.runner == "surefire":
-        exclusions = surefire_exclusions(below, [r.key for r in ranked[:cutoff]], changed)
+        exclusions = surefire_exclusions(below, kept, changed)
         sys.stdout.write(exclusions.value)  # no line ending either, for the same reason
         left_out = len(exclusions.left_out)
         unreachable = len(below) - left_out
@@ -463,7 +466,7 @@ def _select(args: argparse.Namespace) -> int:
         unreachable = len(below) - left_out
     elif args.runner == "jest":
         files = {case.key: case.file for case in history.cases}
-        jest = jest_ignore_pattern(below, [r.key for r in ranked[:cutoff]], files, changed)
+        jest = jest_ignore_pattern(below, kept, files, changed)
         sys.stdout.write(jest.pattern)  # no line ending either, for the same reason
         left_out = len(jest.left_out)
         unreachable = len(below) - left_out
@@ -477,12 +480,13 @@ def _select(args: argparse.Namespace) -> int:
         if below:
             print("\n".join(below))
         left_out = len(below)
-    spent = sum(r.expected_ms for r in ranked[:cutoff])
+    spent = sum(r.expected_ms for rank, r in enumerate(ranked, 1) if rank in selected)
     total = sum(r.expected_ms for r in ranked)
     of = (
-        f"{args.budget:.0%} of their expected {total:.0f} ms ({spent:.0f} ms, {cutoff} tests)"
+        f"{args.budget:.0%} of their expected {total:.0f} ms "
+        f"({spent:.0f} ms, {len(selected)} tests)"
         if args.budget_unit == "time"
-        else f"the top {args.budget:.0%} of them ({cutoff} tests)"
+        else f"the top {args.budget:.0%} of them ({len(selected)} tests)"
     )
     print(
         f"leaving out {left_out} of {len(ranked)} known tests: {of} run, and so does every test "
