@@ -175,7 +175,12 @@ def test_a_comparison_at_the_cap_is_unknown_because_it_is_a_lower_bound(tmp_path
     assert build.changed_files is None
 
 
-def test_a_comparison_with_no_file_is_an_empty_change_not_an_unknown_one(tmp_path: Path) -> None:
+def test_a_comparison_that_reports_no_file_at_all_is_unknown(tmp_path: Path) -> None:
+    """Eight builds of the archive answer this, and every one compares two different commits.
+
+    Two distinct commits with no file between them is not a build that changed nothing, it is an
+    answer that cannot be used, so it is unknown like a truncated one (docs/adr/0033).
+    """
     with archive(
         tmp_path,
         [row("karaf", "PR-1", "1", started=1, duration=1)],
@@ -184,7 +189,7 @@ def test_a_comparison_with_no_file_is_an_empty_change_not_an_unknown_one(tmp_pat
     ) as opened:
         (build,) = list(iter_builds(opened, "karaf"))
 
-    assert build.changed_files == ()
+    assert build.changed_files is None
 
 
 def test_two_builds_on_one_commit_at_the_same_time_are_one_event(tmp_path: Path) -> None:
