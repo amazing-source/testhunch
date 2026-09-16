@@ -23,6 +23,11 @@ projets mis de côté est inscrit dans
 [le registre](held-out-log.md) ([ADR 0016](../../docs/adr/0016-every-look-at-the-held-out-projects-is-recorded.md)),
 ici au commit `cf21122` pour RTPTorrent comme pour le banc d'essai.
 
+Les JSON enregistrent `"version": "0.4.0"`, qui est ce que `main` annonçait ce jour-là. **Le paquet
+0.4.0 publié sur PyPI est antérieur au changement de règle** : il porte encore le préfixe. C'est le
+commit qui identifie le code mesuré, pas ce numéro, et c'est la raison d'être de la 0.5.0, qui rend
+installable le produit que ces tableaux décrivent.
+
 Le registre porte **six lignes du 16 septembre** pour une seule campagne, et c'est normal. Quatre
 d'entre elles sont des tentatives sur `SonarSource@sonarqube`, le plus gros projet du lot avec ses
 53 307 jobs : les trois premières ont été arrêtées par un manque de mémoire de la machine avant
