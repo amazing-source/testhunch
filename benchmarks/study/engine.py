@@ -33,6 +33,106 @@ def job_trial(job: Job, results: Sequence[CaseResult]) -> Trial:
     )
 
 
+class Study:
+    """The scoring half of a replay: rank trials from what is recorded, then record.
+
+    Two drivers use it, and they differ only in **when** a job's results become history.
+    `study` below walks concurrent groups, which is what RTPTorrent allows: its jobs carry no
+    timestamp, so a group is the finest unit that cannot see itself. `benchmarks.lrts.engine`
+    sweeps by time instead, because LRTS carries timestamps and its suites run for hours, so a
+    build that started long ago may still be running (docs/adr/0033).
+
+    Keeping one scorer is the point: the measures, the guardrail slice and the counts are defined
+    once, and a second dataset cannot quietly acquire a second definition of them.
+    """
+
+    def __init__(self, rankings: Sequence[Ranking], mutants: MutantTrials | None = None) -> None:
+        names = [ranking.name for ranking in rankings]
+        if len(set(names)) != len(names):
+            raise ValueError(f"rankings share a name: {names}")
+        self.rankings = rankings
+        self.mutants = mutants
+        self.builds = BuildHistory()
+        self.window = RunWindow(HISTORY_RUNS)
+        self.counts: Counter[str] = Counter()
+        self.kinds: list[str] = []
+        self.job_ids: list[int] = []
+        self.best: list[float | None] = []
+        # Per trial: had any of its known failing tests ever failed before? The guardrail of
+        # ADR 0018 only means something once the trials are split on this. None when the ranking
+        # had seen none of them: that trial belongs to neither slice, since there was nothing to
+        # rank them with.
+        self.first_failures: list[bool | None] = []
+        self.per_ranking: dict[str, list[dict[str, float | None]]] = {name: [] for name in names}
+
+    def rank(self, jobs: Sequence[Job], collapsed: Sequence[tuple[CaseResult, ...]]) -> None:
+        """Score every ranking on the failing trials of these jobs, from the history so far."""
+        history: list[CaseHistory] | None = None
+
+        def window_history() -> list[CaseHistory]:
+            nonlocal history
+            if history is None:
+                history = self.window.history()
+            return history
+
+        context = Context(self.builds, window_history)
+        for job, results in zip(jobs, collapsed, strict=True):
+            self.counts["jobs"] += 1
+            trials = [("job", job_trial(job, results))]
+            if self.mutants is not None:
+                trials += [("mutant", trial) for trial in self.mutants(job, results)]
+            for kind, trial in trials:
+                if not trial.failing:
+                    continue
+                if self.builds.builds == 0:
+                    self.counts[f"{kind}s_ranked_from_empty_history"] += 1
+                    continue
+                self.counts[f"{kind}s_evaluated"] += 1
+                self.kinds.append(kind)
+                self.job_ids.append(trial.job_id)
+                self.best.append(best_red_at(trial, self.builds.records))
+                known_failing = [t for t in trial.failing if t in self.builds.records]
+                self.first_failures.append(
+                    all(self.builds.records[t].failures == 0 for t in known_failing)
+                    if known_failing
+                    else None
+                )
+                for ranking in self.rankings:
+                    order, known = ranking.order(trial, context)
+                    self.per_ranking[ranking.name].append(scores(trial, order, known))
+
+    def record(self, jobs: Sequence[Job], collapsed: Sequence[tuple[CaseResult, ...]]) -> None:
+        """Make these jobs history. Everything ranked after this call can see them."""
+        changed = [path for job in jobs for path in job.changed_files or ()]
+        self.builds.record(collapsed, changed)
+        for results in collapsed:
+            self.window.record(results)
+        self.counts["builds"] += 1
+
+    def result(self) -> dict[str, Any]:
+        return {
+            "counts": dict(sorted(self.counts.items())),
+            "trials": {
+                "kinds": self.kinds,
+                "job_ids": self.job_ids,
+                "best_red_at": self.best,
+                "first_failure": self.first_failures,
+            },
+            "rankings": {
+                name: {
+                    "means": {
+                        kind: means(values, self.kinds, kind) for kind in sorted(set(self.kinds))
+                    },
+                    "per_trial": {
+                        measure: [value[measure] for value in values]
+                        for measure in ("apfd", PRIMARY, "red_at", "position")
+                    },
+                }
+                for name, values in self.per_ranking.items()
+            },
+        }
+
+
 def study(
     jobs: Iterable[Job], rankings: Sequence[Ranking], mutants: MutantTrials | None = None
 ) -> dict[str, Any]:
@@ -42,79 +142,12 @@ def study(
     `benchmarks.replay`. Trials of the first group, ranked from an empty history, are counted and
     left out for every ranking.
     """
-    names = [ranking.name for ranking in rankings]
-    if len(set(names)) != len(names):
-        raise ValueError(f"rankings share a name: {names}")
-    builds = BuildHistory()
-    window = RunWindow(HISTORY_RUNS)
-    counts: Counter[str] = Counter()
-    kinds: list[str] = []
-    job_ids: list[int] = []
-    best: list[float | None] = []
-    # Per trial: had any of its known failing tests ever failed before? The guardrail of ADR 0018
-    # only means something once the trials are split on this. None when the ranking had seen none
-    # of them: that trial belongs to neither slice, since there was nothing to rank them with.
-    first_failures: list[bool | None] = []
-    per_ranking: dict[str, list[dict[str, float | None]]] = {name: [] for name in names}
+    engine = Study(rankings, mutants)
     for group in concurrent_groups(jobs):
         collapsed = [collapse(job.results) for job in group]
-        history: list[CaseHistory] | None = None
-
-        def window_history() -> list[CaseHistory]:
-            nonlocal history
-            if history is None:
-                history = window.history()
-            return history
-
-        context = Context(builds, window_history)
-        for job, results in zip(group, collapsed, strict=True):
-            counts["jobs"] += 1
-            trials = [("job", job_trial(job, results))]
-            if mutants is not None:
-                trials += [("mutant", trial) for trial in mutants(job, results)]
-            for kind, trial in trials:
-                if not trial.failing:
-                    continue
-                if builds.builds == 0:
-                    counts[f"{kind}s_ranked_from_empty_history"] += 1
-                    continue
-                counts[f"{kind}s_evaluated"] += 1
-                kinds.append(kind)
-                job_ids.append(trial.job_id)
-                best.append(best_red_at(trial, builds.records))
-                known_failing = [t for t in trial.failing if t in builds.records]
-                first_failures.append(
-                    all(builds.records[t].failures == 0 for t in known_failing)
-                    if known_failing
-                    else None
-                )
-                for ranking in rankings:
-                    order, known = ranking.order(trial, context)
-                    per_ranking[ranking.name].append(scores(trial, order, known))
-        changed = [path for job in group for path in job.changed_files or ()]
-        builds.record(collapsed, changed)
-        for results in collapsed:
-            window.record(results)
-        counts["builds"] += 1
-    return {
-        "counts": dict(sorted(counts.items())),
-        "trials": {
-            "kinds": kinds,
-            "job_ids": job_ids,
-            "best_red_at": best,
-            "first_failure": first_failures,
-        },
-        "rankings": {
-            name: {
-                "means": {kind: means(values, kinds, kind) for kind in sorted(set(kinds))},
-                "per_trial": {
-                    measure: [value[measure] for value in values]
-                    for measure in ("apfd", PRIMARY, "red_at", "position")
-                },
-            }
-            for name, values in per_ranking.items()
-        },
-    }
+        engine.rank(group, collapsed)
+        engine.record(group, collapsed)
+    return engine.result()
 
 
 def means(values: Sequence[Mapping[str, float | None]], kinds: Sequence[str], kind: str) -> Any:

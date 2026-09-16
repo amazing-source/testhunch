@@ -16,6 +16,8 @@ from pathlib import Path
 import pytest
 
 from benchmarks.lrts.data import ROOT, Archive, concurrent, iter_builds
+from benchmarks.lrts.engine import replay
+from benchmarks.study.rankings import LatestFailure
 from testhunch.models import Status
 
 COLUMNS = (
@@ -240,3 +242,62 @@ def test_an_outcome_this_reader_does_not_know_is_refused(tmp_path: Path) -> None
         pytest.raises(ValueError, match="unexpected outcome"),
     ):
         list(iter_builds(opened, "karaf"))
+
+
+FAILS = "testclass,duration,outcome,last_outcome\nalpha,1.0,1,0\nbeta,1.0,0,0\n"
+
+
+def test_a_build_still_running_is_not_yet_history(tmp_path: Path) -> None:
+    """The rule of ADR 0033, and the reason this dataset cannot be replayed by groups.
+
+    `a` runs from 0 to 100 and `b` starts at 50, so when `b` is ranked nothing has finished: both
+    are ranked from an empty history and counted apart. `c` starts at 200 and sees them both.
+    """
+    rows = [
+        row("karaf", "PR-1", "a", started=0, duration=100),
+        row("karaf", "PR-1", "b", started=50, duration=10),
+        row("karaf", "PR-1", "c", started=200, duration=10),
+    ]
+    tables = {("karaf", "PR-1", build, "single"): FAILS for build in ("a", "b", "c")}
+    with archive(tmp_path, rows, tables) as opened:
+        result = replay(opened, "karaf", [LatestFailure()])
+
+    counts = result["counts"]
+    assert counts["jobs_ranked_from_empty_history"] == 2  # a and b
+    assert counts["jobs_evaluated"] == 1  # only c had a history
+    assert counts["builds"] == 2  # a and b became history before c was ranked
+
+
+def test_a_build_that_finished_first_is_history_even_if_it_started_later(tmp_path: Path) -> None:
+    """The sweep is over ends, not starts: a short build that started later can finish sooner."""
+    rows = [
+        row("karaf", "PR-1", "long", started=0, duration=1000),
+        row("karaf", "PR-1", "short", started=10, duration=5),  # ends at 15
+        row("karaf", "PR-1", "later", started=20, duration=5),
+    ]
+    tables = {("karaf", "PR-1", build, "single"): FAILS for build in ("long", "short", "later")}
+    with archive(tmp_path, rows, tables) as opened:
+        result = replay(opened, "karaf", [LatestFailure()])
+
+    # `later` sees `short`, which ended at 15, and not `long`, which is still running.
+    assert result["counts"]["builds"] == 1
+    assert result["counts"]["jobs_evaluated"] == 1
+    assert result["builds"]["never_recorded"] == 2
+
+
+def test_every_stage_of_a_build_is_a_job_of_its_own(tmp_path: Path) -> None:
+    rows = [
+        row("karaf", "PR-1", "1", started=0, duration=10, stage="jdk11"),
+        row("karaf", "PR-1", "1", started=0, duration=10, stage="jdk17"),
+        row("karaf", "PR-1", "2", started=100, duration=10),
+    ]
+    tables = {
+        ("karaf", "PR-1", "1", "jdk11"): FAILS,
+        ("karaf", "PR-1", "1", "jdk17"): FAILS,
+        ("karaf", "PR-1", "2", "single"): FAILS,
+    }
+    with archive(tmp_path, rows, tables) as opened:
+        result = replay(opened, "karaf", [LatestFailure()])
+
+    assert result["counts"]["jobs"] == 3
+    assert result["builds"] == {"total": 2, "suite_runs": 3, "never_recorded": 1}
