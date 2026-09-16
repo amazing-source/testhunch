@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from benchmarks.lrts.__main__ import main
 from benchmarks.lrts.data import ROOT, Archive, concurrent, iter_builds
 from benchmarks.lrts.engine import replay
 from benchmarks.study.rankings import LatestFailure
@@ -301,3 +302,20 @@ def test_every_stage_of_a_build_is_a_job_of_its_own(tmp_path: Path) -> None:
 
     assert result["counts"]["jobs"] == 3
     assert result["builds"] == {"total": 2, "suite_runs": 3, "never_recorded": 1}
+
+
+def test_the_command_refuses_to_replay_without_the_held_out_flag(tmp_path: Path) -> None:
+    """Every project of this dataset is held out, so no form of the command is unrecorded."""
+    with pytest.raises(SystemExit):
+        main(["--archive", str(tmp_path / "nothing.zip"), "--out", str(tmp_path / "out")])
+
+
+def test_the_command_refuses_without_an_archive(tmp_path: Path) -> None:
+    """The dataset carries no licence, so it is never in this repository and has to be named."""
+    with pytest.raises(SystemExit):
+        main(["--held-out", "--out", str(tmp_path / "out")])
+
+
+def test_rebuilding_a_page_from_nothing_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        main(["--from-cache", "--out", str(tmp_path / "empty")])
