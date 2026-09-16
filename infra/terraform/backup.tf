@@ -31,7 +31,9 @@ resource "aws_iam_role_policy_attachment" "dlm" {
 }
 
 resource "aws_dlm_lifecycle_policy" "data" {
-  description        = "${var.name}: daily snapshots of the data volume"
+  # Letters, digits, spaces, hyphens and underscores only: DLM refuses anything else, and it refuses
+  # it at apply time. `terraform validate` cannot see this, since the rule belongs to the service.
+  description        = "Daily snapshots of the ${var.name} data volume"
   execution_role_arn = aws_iam_role.dlm.arn
   state              = "ENABLED"
 
