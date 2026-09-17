@@ -92,6 +92,39 @@ those runs: it came from reading the sort key, and from LRTS confirming on data 
 that the property is real. A rule stated after three looks is still weaker than a rule stated after
 none, and this is the last set this line of search gets.
 
+## What it found
+
+Run on the ten development projects, training half first, validation half second, 283 trials in the
+slice. First-failure position, lower better; the gap to explain is the shipped ranking minus 0.2.0.
+
+| Ranking | primary | first failure | share of the gap closed |
+|---|---:|---:|---:|
+| what testhunch ships | 0.861 | 0.632 | |
+| it with `tie=hash` | 0.855 | 0.530 | 44% |
+| it with `tie=name` | 0.853 | 0.523 | 47% |
+| `latest-failure+name*2.0+failure_rate*1.0` | 0.840 | 0.472 | 69% |
+| the same with `tie=name` | 0.840 | 0.468 | 70% |
+| it with `window=50` | 0.861 | 0.628 | 2% |
+| `latest-failure` | 0.825 | 0.618 | |
+| testhunch 0.2.0 | 0.843 | 0.399 | |
+| random | 0.603 | 0.447 | |
+
+**No variant meets the bar this ADR fixed.** Closing half the gap costs more than 0.005 of the
+primary measure in every case that manages it: `tie=name` closes 47% for 0.008, and 0.2.0's two
+signals close 69% for 0.021. On the validation half alone the shares are higher, 51% and 81%, and
+the costs are 0.012 and 0.014. The rule asked for one difference that explains the property nearly
+for free, and there is none.
+
+**The cause is nonetheless located, and it is two things rather than one.** The cost ordering in the
+sort key is real and cheap: removing it buys 0.102 of position for 0.006 of the primary, which is
+the best exchange rate this project has measured anywhere. 0.2.0's two signals buy more and cost
+more. Together they account for most of the distance, and what remains between 0.468 and 0.399 is
+still unexplained.
+
+**The window explains nothing, now in the record rather than in a note.** 0.628 against 0.632, on
+ten projects. It does not fire because these suites re-run every test in every build: the median age
+of a test since its last run is one build.
+
 ## Consequences
 
 If the tie-break is the cause, the repair is the cheapest this project has ever had in front of it:

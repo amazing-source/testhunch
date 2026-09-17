@@ -5,6 +5,7 @@ In a module of its own so that worker processes can import it: Windows starts th
 
 from __future__ import annotations
 
+import random
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
@@ -25,6 +26,7 @@ from benchmarks.study.rankings import (
     LatestFailure,
     ProductRanking,
     Ranking,
+    Shuffled,
 )
 from testhunch.models import CaseResult, ShadowResult, ShadowRun, Status
 
@@ -112,6 +114,34 @@ STEPS["step-4"] = Step(
     STEP_3_KEPT,
     additions(STEP_3_KEPT, (*HISTORY_SIGNALS, *PROXIMITY_SIGNALS)),
     references=(STEP_1_KEPT, LatestFailure(), ProductRanking()),
+)
+
+
+# Why 0.2.0 is better than this ranking where the history says nothing (docs/adr/0035). The set is
+# closed, each candidate isolates one difference, and the step explains rather than selects: what
+# ships is decided later, on held-out data, under ADR 0033's two conditions.
+STEPS["tiebreak"] = Step(
+    STEP_3_KEPT,
+    (
+        # On the first-failure slice every candidate scores zero, so the sort key decides the whole
+        # order there, and today it decides by cost.
+        replace(STEP_3_KEPT, name=f"{STEP_3_KEPT.name}/tie=hash", tie_break="hash"),
+        replace(STEP_3_KEPT, name=f"{STEP_3_KEPT.name}/tie=name", tie_break="name"),
+        # 0.2.0's two signals, in the vocabulary the study already has.
+        Candidate(
+            "latest-failure+name*2.0+failure_rate*1.0",
+            weights=(("name", 2.0), ("failure_rate", 1.0)),
+        ),
+        Candidate(
+            "latest-failure+name*2.0+failure_rate*1.0/tie=name",
+            weights=(("name", 2.0), ("failure_rate", 1.0)),
+            tie_break="name",
+        ),
+        # ADR 0018's fourth hypothesis, measured here rather than left in a note: it does not fire,
+        # because these suites re-run every test in every build.
+        replace(STEP_3_KEPT, name=f"{STEP_3_KEPT.name}/window50", window=50),
+    ),
+    references=(LatestFailure(), ProductRanking(), Shuffled(random.Random(0))),
 )
 
 

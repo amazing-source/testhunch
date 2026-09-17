@@ -7,6 +7,7 @@ then the known ones. Ties are broken by a hash of the job and the test, shared b
 from __future__ import annotations
 
 import hashlib
+import random
 import re
 import statistics
 from collections.abc import Callable, Sequence
@@ -69,6 +70,25 @@ def _latest_failure_key(record: CaseRecord, job_id: int, test: str) -> tuple[int
 
 
 @dataclass(frozen=True, slots=True)
+class Shuffled:
+    """The guardrail's bar: the trial's tests in a random order (docs/adr/0018).
+
+    Not a candidate. A ranking must not be worse than shuffling at finding a test that has never
+    failed, and that bar needs no data to justify, so it cannot be bent to fit a candidate. Seeded
+    once per replay, so rerunning this scores the same orders for anyone.
+    """
+
+    seed: random.Random
+    name: str = "random"
+
+    def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
+        order = list(trial.tests)
+        self.seed.shuffle(order)
+        # Everything counts as unknown: a shuffle knows nothing, which is the whole point of it.
+        return order, 0
+
+
+@dataclass(frozen=True, slots=True)
 class ProductRanking:
     """testhunch 0.2.0's own ranking, from the store's window of runs (ADR 0010)."""
 
@@ -98,6 +118,8 @@ PROXIMITY_SIGNALS = (
     "name_similarity",
 )
 SIGNALS = (*HISTORY_SIGNALS, *PROXIMITY_SIGNALS)
+# What decides between two tests of equal score (docs/adr/0035).
+TIE_BREAKS = ("cost", "hash", "name")
 _TEST_AFFIXES = re.compile(r"^(?:test_|Test(?=[A-Z]))|(?:_test|Tests?|IT|TestCase)$")
 _TOKENS = re.compile(r"[/\._$\-]+|(?<=[a-z0-9])(?=[A-Z])")
 
@@ -128,12 +150,23 @@ class Candidate:
     # 0.0 means the score is not divided by the duration at all there: dividing by a cost only
     # arbitrates between tests whose risk is estimated, and there is none to estimate (ADR 0018).
     cold_time_exponent: float | None = None
+    # What decides between two tests of equal score (docs/adr/0035). On the first-failure slice
+    # every candidate scores zero, so this is not a detail there, it is the whole order.
+    #   cost: the duration, cheapest first, then a hash. What testhunch ships.
+    #   hash: the hash alone, so a slow test is not placed last for being slow.
+    #   name: the test's own name, which is what 0.2.0 does.
+    # `cold_time_exponent=0` does **not** remove the cost ordering: it only takes the divisor out of
+    # the score, and the duration stays in this key. That is why ADR 0018's `cold-free` step could
+    # not measure what it was aimed at.
+    tie_break: str = "cost"
 
     def __post_init__(self) -> None:
         both = (*self.weights, *self.cold_weights)
         unknown = {signal for signal, _ in both} - set(SIGNALS)
         if unknown:
             raise ValueError(f"unknown signals: {sorted(unknown)}")
+        if self.tie_break not in TIE_BREAKS:
+            raise ValueError(f"unknown tie break {self.tie_break!r}, expected one of {TIE_BREAKS}")
 
     def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
         builds = context.builds
@@ -172,10 +205,10 @@ class Candidate:
                 score /= duration**exponent
             return (
                 -score,
-                duration,
+                duration if self.tie_break == "cost" else 0.0,
                 -record.last_failure,
                 -record.priority,
-                tie(trial.job_id, test),
+                test.encode() if self.tie_break == "name" else tie(trial.job_id, test),
             )
 
         known.sort(key=key)
