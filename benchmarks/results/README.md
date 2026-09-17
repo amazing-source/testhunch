@@ -42,6 +42,8 @@ Les pages générées, en anglais, donnent le détail par projet :
   côté), commit par commit et avec mutants.
 - [Étude des heuristiques](study/) : comment cette version a été choisie, et ce qu'elle vaut face à
   « les tests qui ont échoué le plus récemment d'abord ».
+- [LRTS](lrts/README.md) : dix projets extérieurs, jamais touchés pour régler quoi que ce soit,
+  mesurés une seule fois sous une règle écrite d'avance.
 - [testhunch sur testhunch](self.md) : notre propre CI, où **aucun test n'a jamais échoué**, donc où
   testhunch ne peut rien démontrer. C'est notre plus mauvais résultat et il est publié quand même
   ([ADR 0028](../../docs/adr/0028-testhunch-measures-itself-and-publishes-that-it-cannot.md)).
@@ -197,6 +199,53 @@ candidat a le droit de céder sur la mesure principale pour franchir le garde-fo
 LRTS et pas avant. Ce qui change, c'est que **l'échange est maintenant mesuré** et non supposé :
 environ 0,03 d'APFDc achète 0,22 de position sur les premiers échecs. 192 jobs, un seul modèle, un
 seul jeu d'hyperparamètres, et aucun regard sur les projets mis de côté.
+
+## LRTS : la validation extérieure, et ce qu'elle refuse
+
+Dix projets qui ne sont pas les nôtres, 2020 à 2024, des suites de 6,5 heures en moyenne, 34 645
+builds et 108 366 exécutions de suite. Jamais touchés pour régler quoi que ce soit, mesurés **une
+seule fois**, sous une règle écrite avant d'avoir calculé le moindre score
+([ADR 0033](../../docs/adr/0033-lrts-is-measured-once-under-a-rule-written-first.md)), et le résultat
+est [ADR 0034](../../docs/adr/0034-what-lrts-said-and-what-it-refused.md). Détail complet dans
+[lrts/README.md](lrts/README.md).
+
+**Le classement tient ailleurs que chez nous.** Sur la mesure principale, moyenne par projet puis
+moyenne des projets : **0,893** contre 0,864 pour « le plus récemment échoué » et 0,656 pour
+l'aléatoire. L'écart avec la ligne de base est de +0,030, intervalle [+0,021, +0,040], et il est
+meilleur **sur dix projets sur dix**.
+
+**Et le point faible y est pire qu'ici.** Sur un test qui échoue pour la première fois, position du
+test cassé, plus bas est mieux :
+
+| Classement | premiers échecs | a déjà échoué |
+|---|---:|---:|
+| classement livré | 0,620 | 0,038 |
+| le plus récemment échoué | 0,544 | 0,028 |
+| aléatoire | 0,449 | 0,342 |
+| **testhunch 0.2.0** | **0,291** | 0,081 |
+| modèle appris | 0,325 | 0,049 |
+
+Sur des données qu'il n'avait jamais vues, testhunch est **mesurément moins bon que le hasard** pour
+trouver un test qui casse pour la première fois, de +0,171 avec un intervalle entièrement du mauvais
+côté.
+
+**Aucun candidat ne passe.** La règle demandait deux choses : ne pas être pire que l'aléatoire sur
+cette tranche, et rester au-dessus de la ligne de base sur la mesure principale. Le classement livré
+échoue sur la première, la 0.2.0 échoue sur la seconde à égalité près (+0,002, intervalle qui
+contient zéro), le modèle appris perd 0,089. Les refus tiennent : une borne qui bouge après lecture
+du tableau n'est pas une borne.
+
+**Ce qu'il faut retenir n'est pas ce que la phase 6 attendait.** Ce n'est pas le modèle appris qui
+répare le mieux cette tranche, c'est **notre propre 0.2.0**, meilleure que le classement livré sur
+dix projets sur dix. L'échange que la feuille de route gardait en suspens a donc enfin un chiffre,
+mesuré sur des données qui n'ont pas posé la question : **0,028 de mesure principale achète 0,329 de
+position sur les premiers échecs**, et ça ne demande aucun modèle appris.
+
+Deux précisions d'honnêteté. La tranche compte **993 essais** et non les 2 140 builds que l'ADR 0033
+annonçait d'après l'audit du jeu de données : celui-ci retient un build dès qu'une classe échoue pour
+la première fois, là où ce projet exige depuis l'ADR 0018 que **toutes** les classes en échec connues
+en soient. Et aucune affirmation par projet n'est faite sur cette tranche, trois projets n'y
+apportant que quelques dizaines d'essais chacun.
 
 ## RTPTorrent : 20 projets Java, 110 126 jobs Travis CI
 

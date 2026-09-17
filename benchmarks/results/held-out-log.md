@@ -29,3 +29,4 @@ numbers are public and cannot be unseen, not because it broke a rule that did no
 | 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | SonarSource@sonarqube |
 | 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | SonarSource@sonarqube |
 | 2026-09-16 | `cf211220f0cd` | 0.4.0 | `benchmarks.rtptorrent` | the product's ranking | SonarSource@sonarqube |
+| 2026-09-16 | `002aba9f6b2d` | 0.5.0 | `benchmarks.lrts` | latest-failure+time^1.0+test_file_changed*0.5, latest-failure, random, testhunch-0.2.0, learned, cold-learned | activemq, hadoop, hbase, hive, jackrabbit-oak, james, kafka, karaf, log4j, tvm |

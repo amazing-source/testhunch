@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -115,6 +115,27 @@ def markdown(results: Sequence[dict[str, Any]], names: Sequence[str]) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def dump(result: Mapping[str, Any]) -> str:
+    """The stored form of a project's result: six decimals, no indentation.
+
+    A replay of Kafka alone writes 37 840 trials times six rankings times four measures. Full float
+    repr costs 32 MB for that one project, against 10 MB this way, in a repository whose whole
+    history is 8 MB. Six decimals is a thousand times finer than anything published from it, and
+    the page rebuilt from these files is identical to the one the replay printed.
+    """
+    return json.dumps(_round(result), separators=(",", ":")) + "\n"
+
+
+def _round(value: Any) -> Any:
+    if isinstance(value, float):
+        return round(value, 6)
+    if isinstance(value, dict):
+        return {key: _round(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_round(item) for item in value]
+    return value
 
 
 def _interval(outcome: dict[str, Any]) -> str:
