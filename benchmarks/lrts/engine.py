@@ -14,33 +14,14 @@ from __future__ import annotations
 
 import random
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import Any
 
-from benchmarks.firstfailures import shuffled
 from benchmarks.lrts.data import Archive, Build, BuildMeta
 from benchmarks.replay import Job
 from benchmarks.study.engine import Study
-from benchmarks.study.metrics import Trial
 from benchmarks.study.projects import MODEL, STEP_3_KEPT
-from benchmarks.study.rankings import Context, LatestFailure, ProductRanking, Ranking
+from benchmarks.study.rankings import LatestFailure, ProductRanking, Ranking, Shuffled
 from testhunch.models import CaseResult
-
-
-@dataclass(frozen=True, slots=True)
-class Shuffled:
-    """The guardrail's bar: the trial's tests in a random order.
-
-    Not a candidate, and not a new ranking either. The shuffle is `benchmarks.firstfailures`'s own,
-    seeded once per replay so that rerunning this scores the same order for anyone.
-    """
-
-    seed: random.Random
-    name: str = "random"
-
-    def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
-        # Everything counts as unknown: a shuffle knows nothing, which is the whole point of it.
-        return shuffled(trial, self.seed), 0
 
 
 def rankings() -> list[Ranking]:
