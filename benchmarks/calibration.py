@@ -181,13 +181,69 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
             f"{_f(found['position'], True)} {_yes(found['not_later'])} | "
             f"{_f(found['repeat'], True)} {_yes(found['harmless'])} | {_yes(found['passes'])} |"
         )
+    lines += [
+        "",
+        "Project by project, each candidate minus the shipped ranking: a mean over a half can be "
+        "carried by one project.",
+        "",
+        "| Project | first-failure jobs | "
+        + " | ".join(
+            f"{n}: primary | {n}: had failed, APFDc | {n}: red at, first failures"
+            for n in CANDIDATES
+        )
+        + " |",
+        "|---|---:|" + "---:|" * (3 * len(CANDIDATES)),
+    ]
+    for result in results:
+        cells = []
+        for name in CANDIDATES:
+            for measure, chosen in ((PRIMARY, EVERY), (PRIMARY, BEFORE), ("red_at", FIRST)):
+                cells.append(
+                    _f(
+                        mean([result], name, measure, chosen)
+                        - mean([result], SHIPPED, measure, chosen),
+                        True,
+                    )
+                )
+        jobs = sum(1 for flag in result["trials"]["first_failure"] if flag is True)
+        lines.append(f"| {result['project']} | {jobs} | " + " | ".join(cells) + " |")
+    better = {
+        name: [
+            sum(
+                1
+                for r in results
+                if mean([r], name, measure, chosen) > mean([r], SHIPPED, measure, chosen)
+            )
+            for measure, chosen in ((PRIMARY, EVERY), (PRIMARY, BEFORE))
+        ]
+        for name in CANDIDATES
+    }
+    sooner = {
+        name: sum(
+            1
+            for r in results
+            if mean([r], name, "red_at", FIRST) < mean([r], SHIPPED, "red_at", FIRST)
+        )
+        for name in CANDIDATES
+    }
+    lines += [
+        "",
+        "Projects where the candidate does better than the shipped ranking, of "
+        f"{len(results)}: "
+        + "; ".join(
+            f"{name}, primary {better[name][0]}, had failed {better[name][1]}, first failures "
+            f"sooner {sooner[name]}"
+            for name in CANDIDATES
+        )
+        + ".",
+    ]
     if half == "validation":
-        chosen = verdict(results)
+        winner = verdict(results)
         lines += [
             "",
-            f"**Recommendation: NEEDS_HELD_OUT_CONFIRMATION, for {chosen}.** Development data "
+            f"**Recommendation: NEEDS_HELD_OUT_CONFIRMATION, for {winner}.** Development data "
             "cannot ship a ranking in this project (docs/adr/0013, docs/adr/0033)."
-            if chosen
+            if winner
             else "**Recommendation: DO_NOT_SHIP.** No candidate meets the four conditions on the "
             "validation half.",
         ]

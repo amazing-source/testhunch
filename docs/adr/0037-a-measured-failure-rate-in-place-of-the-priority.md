@@ -122,3 +122,65 @@ If a candidate passes, the next step is a frozen replay on held-out data under
 changed-file signal would have to be folded in first, under a rule of its own. If none passes, the
 measured rates still stand as a description of these projects, and the page says which condition
 failed.
+
+## What it found
+
+Replayed on both halves with the code committed with this record, `python -m benchmarks.calibration
+training` then `validation`; every figure below is on the page it writes,
+`benchmarks/results/study/calibration/README.md`.
+
+**Recommendation: `DO_NOT_SHIP`.** Both candidates meet three conditions of four on the validation
+half and fail the fourth: the jobs whose failing test had failed before lose 0.020 of APFDc under
+`calibrated` and 0.009 under `calibrated+runs`, where 0.005 was the most allowed. The same happens
+on the training half, 0.011 and 0.007.
+
+| Validation half, against the shipped ranking | primary | red at, first failures | position, first failures | had failed: APFDc |
+|---|---:|---:|---:|---:|
+| `calibrated` | +0.003 | -0.240 | -0.033 | -0.020 |
+| `calibrated+runs` | +0.013 | -0.242 | -0.115 | -0.009 |
+
+**What is robust: first failures are reached far sooner in time, on every project.** Red at falls
+from 0.496 to 0.253 on the validation half, against 0.425 for random, and `calibrated+runs` is
+sooner than the shipped ranking on all ten development projects, from 0.002 on jetty to 0.42 on
+okhttp and dynjs. Within a quarter of the test time it catches 65.0% of the validation half's first
+failures, against 27.0% for the shipped ranking and 39.0% for random; 57.9% against 34.9% and 39.5%
+on the training half. This is the first ranking in the project that beats random on this slice in
+time.
+
+**What is not: the primary measure.** Its mean rises, +0.013 and +0.014 on the two halves, but the
+intervals contain zero and the rise is carried by two projects: `calibrated+runs` is better than
+the shipped ranking on the primary measure on 5 of the 10 projects, and on HikariCP by +0.112 and
+okhttp by +0.057. No gain on the primary measure is claimed.
+
+**What it costs: the jobs that had failed before.** Their APFDc drops on 7 of the 10 projects,
+by up to 0.072 on dynjs, and their position rises from 0.078 to 0.265 on the validation half. A
+state's rate is an average over the tests in it: a test that fails in every build and a flaky one
+that failed once, last build, share the state "failed 0" and its rate, so a dear test that is
+simply broken can wait behind cheap tests that rarely fail. That is the mechanism the second
+prediction described, and it is a hypothesis for the next step, not a measurement of this one.
+
+**The predictions.** The first held: on the training half, red at on first failures is 0.288 and
+0.322 against 0.667 for the same ranking without the file signal. The second held on both halves:
+the jobs that had failed before move far more in position than in APFDc. **The third failed on the
+training half**: test age made first failures worse there, 0.322 against 0.288 in red at and 0.530
+against 0.512 in position, and it helped on the validation half, 0.575 against 0.657 in position.
+Test age is not established as a signal.
+
+**The guardrail of ADR 0018 is still not cleared in position.** On first failures,
+`calibrated+runs` places the failing test at 0.575 against 0.438 for random on the validation half,
+an interval entirely above zero. It gets there sooner than random in time by running many cheap
+tests first, which is Smith's rule working as intended and the position-time conflict of ADR 0036
+seen from the other side.
+
+**Limitations.** Development projects only, 91 and 192 first-failure jobs. The validation half had
+been read before for the references, not for these candidates. The candidates lack the changed-file
+signal, which the shipped ranking has; against the same ranking without it, `calibrated+runs` adds
++0.038 and +0.011 of primary, intervals containing zero. RTPTorrent's grouping of overlapping
+builds favours every ranking alike.
+
+**What would come next, under a protocol of its own.** Keep the measured rate, which is what moves
+first failures, and give back to repeat failures what the pooled state takes from them: tell a test
+that keeps failing from one that failed once, within the recent states. The validation half has now
+been read for this family of rankings, so a candidate built from what it showed should be explored
+on the training half and confirmed on data not yet read for first failures: the held-out RTPTorrent
+projects, whose first-failure slice has never been computed, with a row in the ledger.
