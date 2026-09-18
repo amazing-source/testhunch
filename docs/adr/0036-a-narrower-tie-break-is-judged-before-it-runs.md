@@ -236,3 +236,13 @@ not depend on it, since both variants fail the cost condition on both halves. Th
 halves of measured numbers, fixed before the replay, not principled bars. The unit is RTPTorrent's
 test class and its mean duration. Nothing here speaks for LRTS or the held-out projects, and no look
 at them was spent.
+
+## Note, 2026-09-18
+
+Added after a read-only review, and checked against the committed per-trial results; nothing above
+is changed. "Random beats the shipped order on first failures in time as well as in tests" is right
+in position and too strong in time: over the ten development projects the red-at difference is
++0.072 with an interval of [−0.043, +0.185], which contains zero, and the shipped ranking is later
+than random on 6 projects of 10. Cheng et al. point the same way from outside: on their first-failure variant of LRTS
+the cheapest-first order has the best mean APFDc, 0.796 to 0.798 against 0.504 for random and 0.467
+for the latest failure (table 10, finding F14).

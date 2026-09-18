@@ -30,6 +30,7 @@ def job_trial(job: Job, results: Sequence[CaseResult]) -> Trial:
         failing=frozenset(r.key for r in results if r.status.is_failure and not r.flaky),
         durations={result.key: result.duration_ms for result in results},
         changed_files=job.changed_files or (),
+        changed_known=job.changed_files is not None,
     )
 
 
@@ -57,6 +58,9 @@ class Study:
         self.counts: Counter[str] = Counter()
         self.kinds: list[str] = []
         self.job_ids: list[int] = []
+        # The build each trial belongs to, numbered in replay order: several jobs of one build
+        # are not independent, and a bootstrap resamples them together (docs/adr/0038).
+        self.build_ids: list[int] = []
         self.best: list[float | None] = []
         # Per trial: had any of its known failing tests ever failed before? The guardrail of
         # ADR 0018 only means something once the trials are split on this. None when the ranking
@@ -90,6 +94,7 @@ class Study:
                 self.counts[f"{kind}s_evaluated"] += 1
                 self.kinds.append(kind)
                 self.job_ids.append(trial.job_id)
+                self.build_ids.append(self.counts["builds"])
                 self.best.append(best_red_at(trial, self.builds.records))
                 known_failing = [t for t in trial.failing if t in self.builds.records]
                 self.first_failures.append(
@@ -104,7 +109,8 @@ class Study:
     def record(self, jobs: Sequence[Job], collapsed: Sequence[tuple[CaseResult, ...]]) -> None:
         """Make these jobs history. Everything ranked after this call can see them."""
         changed = [path for job in jobs for path in job.changed_files or ()]
-        self.builds.record(collapsed, changed)
+        known = all(job.changed_files is not None for job in jobs)
+        self.builds.record(collapsed, changed, known)
         for results in collapsed:
             self.window.record(results)
         self.counts["builds"] += 1
@@ -115,6 +121,7 @@ class Study:
             "trials": {
                 "kinds": self.kinds,
                 "job_ids": self.job_ids,
+                "builds": self.build_ids,
                 "best_red_at": self.best,
                 "first_failure": self.first_failures,
             },
