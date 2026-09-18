@@ -137,3 +137,41 @@ the first time sooner than chance, in time, on projects it was never tuned on, a
 primary measure; shipping it is then a product change with its own review. If neither passes, the
 ADR 0037 family stops here, and what remains is the measured trade and the rates that describe it.
 Either way the look is spent, and it is recorded.
+
+## What it found
+
+### The training half, before the look
+
+`python -m benchmarks.confirmation training`, with the code committed with this record; every figure
+below is on the page it writes, `benchmarks/results/study/confirmation/training.md`. The held-out
+projects have not been replayed.
+
+**All five predictions failed.**
+
+1. The file cut does not give repeat failures anything back: −0.0012 of APFDc against
+   `calibrated+runs`, and it delays first failures by 0.025 of red at, beyond the 0.02 allowed.
+2. `two-stage` gains +0.0013 on repeat failures against `calibrated+runs+file`, but still loses
+   0.0069 against the shipped ranking, where at most 0.002 was predicted.
+3. It keeps 0.0375 of first-failure red at over the shipped ranking, against 0.1629 for
+   `calibrated+runs+file`: less than a quarter, where at least half was predicted.
+4. It places repeat failures 0.043 later in position than the shipped ranking, where 0.02 was the
+   bound.
+5. `calibrated+runs+file` is not calibrated. In the lowest decade of predicted chance, 0.0004 on
+   average over 56,569 runs, the observed rate is 0.0047, twelve times higher; in the decade from
+   0.01 to 0.1 it is half the predicted one.
+
+**No defect was found in the code.** Summed over every run, the chances predict about 2,190
+failures and 2,099 happen, within 4%: the counting is right, and the rates are too spread out. A
+state's rate over the whole past separates the states more sharply than the next builds do: the
+states that look safe fail more than said, the risky ones less. `two-stage` does what this record
+specifies, and what fails is the specification: its line, the never-failed rate over every test
+that never failed, is raised by young tests, 37 per thousand runs on dynjs, so old failures that are
+riskier than established tests fall under it and are overtaken. The file cut behaves as the
+limitation above said a cell with few runs would.
+
+Under the rule, applied to the training half for reference only, neither candidate passes: on five
+projects no interval of conditions 1 and 2 excludes zero, and each is higher than the shipped
+ranking on 2 projects of 5.
+
+**The look is not spent yet.** This record lets the maintainer cancel it after reading the training
+half; the decision, whatever it is, is written here before anything else is run.
