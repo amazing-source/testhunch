@@ -101,3 +101,33 @@ def test_the_readme_quotes_the_measured_gap_over_the_baseline() -> None:
     gap = f"{apfdc[CURRENT] - apfdc[BASELINE]:+.3f}".replace(".", ",")
 
     assert gap in readme, f"README does not quote the measured gap, {gap}"
+
+
+def _lrts_section(text: str, heading: str) -> str:
+    """One section of the LRTS page, cut at the next heading."""
+    start = text.index(heading)
+    after = text.find("\n## ", start + len(heading))
+    return text[start : after if after != -1 else len(text)]
+
+
+def test_the_readme_quotes_lrts_as_its_page_reports_it() -> None:
+    """The external validation's figures, from the page `python -m benchmarks.lrts` wrote."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    page = (ROOT / "benchmarks" / "results" / "lrts" / "README.md").read_text(encoding="utf-8")
+    primary_rows = _lrts_section(page, "## Primary measure")
+    primary = dict(re.findall(r"^\| (\S+) \|.*\| \*\*(\d\.\d{3})\*\* \|$", primary_rows, re.M))
+    guardrail_rows = _lrts_section(page, "## The guardrail")
+    first = dict(re.findall(r"^\| (\S+) \| (\d\.\d{3}) \|", guardrail_rows, re.M))
+    quoted = [primary[CURRENT], primary[BASELINE], first[CURRENT], first["random"]]
+
+    for value in quoted:
+        assert value.replace(".", ",") in readme, f"README does not quote LRTS's {value}"
+    # "Better on the 10 projects": every per-project cell of the shipped row above the baseline's.
+    cells = {
+        name: re.findall(r"\| (\d\.\d{3})", row)
+        for name, row in re.findall(r"^\| (\S+) (\|.*)$", primary_rows, re.M)
+    }
+    # The bold mean is not matched by the pattern, so these are the ten projects.
+    ours, theirs = cells[CURRENT], cells[BASELINE]
+    assert len(ours) == 10 and all(a > b for a, b in zip(ours, theirs, strict=True))
+    assert "meilleur sur les 10 projets" in readme

@@ -16,8 +16,9 @@ lanceurs, déploiement et référence.
 
 > **Statut : pré-alpha.** Le pipeline de données (ingestion, stockage, rapports sur les tests
 > instables et en échec) et un classement simple et explicable fonctionnent dès aujourd'hui, et le
-> benchmark public le mesure ([résultats](#ce-qui-a-été-mesuré)). Le modèle appris est prévu dans la
-> [feuille de route](https://github.com/amazing-source/testhunch/blob/main/ROADMAP.md).
+> benchmark public le mesure ([résultats](#ce-qui-a-été-mesuré)). Un modèle appris a été mesuré et
+> n'est pas livré : il ne fait pas mieux que ce classement
+> ([ADR 0031](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0031-the-learned-model-does-not-ship-and-where-it-wins.md)).
 
 ## Pourquoi
 
@@ -88,11 +89,18 @@ vitesse à laquelle le build devient rouge. Détail : [held-out.md](https://gith
 Face à « échoué récemment », l'écart est de **+0,028**, intervalle de confiance à 95 %
 [+0,012, +0,051], meilleur sur 9 projets sur 10. La durée des tests apporte l'essentiel de ce gain.
 
+**Le résultat tient hors de ce projet.** Sur LRTS (Cheng et al., ISSTA 2024), dix projets Java
+extérieurs qui n'ont servi à régler aucun choix, mesurés une seule fois sous une règle écrite avant
+([ADR 0034](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0034-what-lrts-said-and-what-it-refused.md),
+[résultats](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/lrts/README.md)), le classement obtient un APFDc de **0,893**
+contre 0,864 pour « échoué récemment », meilleur sur les 10 projets.
+
 ### L'angle mort : un test qui n'a jamais échoué
 
 Ces moyennes mélangent deux régimes, et un seul est bon. Découpées selon que le test en échec avait
 déjà échoué ou non ([détail](https://github.com/amazing-source/testhunch/blob/main/benchmarks/results/study/first-failures.md)),
-position du premier test en échec dans l'ordre, plus bas étant meilleur :
+position du premier test en échec dans l'ordre, plus bas étant meilleur, moyenne sur les jobs de
+chaque tranche, tous projets de développement confondus :
 
 | | A déjà échoué (94 % des jobs) | N'a jamais échoué (6 %) |
 |---|---:|---:|
@@ -102,6 +110,12 @@ position du premier test en échec dans l'ordre, plus bas étant meilleur :
 **Sur un test qui n'a jamais échoué, testhunch fait pire que le hasard.** Ce n'est pas de la
 malchance : un classement fondé sur la récence des échecs relègue par construction ce qui n'a jamais
 cassé, donc il cherche au mauvais endroit. C'est exactement le cas d'un bug écrit dans du code neuf.
+LRTS le confirme sur des données neuves : 0,620 contre 0,449 pour l'aléatoire.
+
+Mesuré en temps plutôt qu'en position, l'écart avec le hasard n'est pas établi sur les projets de
+développement ([note de l'ADR 0036](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0036-a-narrower-tie-break-is-judged-before-it-runs.md)).
+Trois façons de le corriger ont été mesurées, chacune sous une règle écrite avant de la rejouer, et
+aucune n'est livrée ([ADR 0036 à 0038](https://github.com/amazing-source/testhunch/blob/main/docs/adr/0038-first-failures-are-weighed-in-time-and-judged-once.md)).
 
 C'est pourquoi le filet de sécurité, ne sauter des tests que sur les pull requests et relancer toute
 la suite sur la branche principale, n'est pas une précaution de principe
