@@ -138,13 +138,15 @@ terraform state rm aws_ebs_volume.data   # le disque quitte l'état, et reste da
 terraform destroy                        # puis supprimez le disque à la main si vous le voulez
 ```
 
-Le disque n'est sauvegardé nulle part : le perdre, c'est perdre l'historique.
+Le disque est copié par un instantané quotidien (voir plus bas), mais restaurer depuis l'un d'eux
+n'a jamais été essayé.
 
 ## Ce qui n'y est pas encore
 
 - **Aucune limitation de débit.** Une inondation non authentifiée coûte quand même du CPU.
-- **Aucune sauvegarde.** Le disque de données survit au remplacement de l'instance, mais rien ne le
-  copie : un instantané programmé est l'étape suivante évidente, et elle n'est pas faite.
+- **Une sauvegarde jamais restaurée.** Un instantané du disque de données est pris chaque jour et
+  les 7 derniers sont gardés, dans la même région (`backup.tf`, ADR 0032). Aucune restauration
+  n'a été jouée : tant qu'elle ne l'est pas, on ne sait pas si elle marche.
 - **Le bucket ne sert à rien pour l'instant.** L'API range ses résultats dans Postgres et ne garde
   aucune copie du XML qu'on lui envoie. Le bucket attend le code qui écrira dedans.
 - **L'état Terraform reste sur votre machine**, et il contient les secrets engendrés en clair. Il
