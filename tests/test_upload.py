@@ -18,7 +18,7 @@ from typing import Any, ClassVar
 import pytest
 
 from testhunch.models import FileChange
-from testhunch.upload import UploadError, endpoint, metadata_json, upload_run
+from testhunch.upload import UploadError, endpoint, fetch_shadow, metadata_json, upload_run
 
 
 class Recorder(BaseHTTPRequestHandler):
@@ -165,3 +165,54 @@ def test_https_anywhere_is_allowed() -> None:
 def test_a_scheme_that_is_not_http_is_refused() -> None:
     with pytest.raises(UploadError, match="must be http or https"):
         endpoint("ftp://api.example.com", "/v1/runs")
+
+
+class Elsewhere(BaseHTTPRequestHandler):
+    """The host a redirect points to: it records what it was sent and answers."""
+
+    authorization: ClassVar[str | None] = "not called"
+
+    def do_GET(self) -> None:  # BaseHTTPRequestHandler's spelling, not ours
+        Elsewhere.authorization = self.headers.get("Authorization")
+        payload = b"{}"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, *args: Any) -> None:
+        """Quiet."""
+
+
+def _serve(handler: type[BaseHTTPRequestHandler]) -> tuple[HTTPServer, threading.Thread]:
+    httpd = HTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    return httpd, thread
+
+
+def test_the_token_does_not_follow_a_redirect_to_another_host() -> None:
+    """urllib copies ordinary headers onto the redirected request, wherever it points."""
+    elsewhere, other = _serve(Elsewhere)
+
+    class Redirect(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # BaseHTTPRequestHandler's spelling, not ours
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{elsewhere.server_address[1]}/x")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *args: Any) -> None:
+            """Quiet."""
+
+    first, thread = _serve(Redirect)
+    try:
+        fetch_shadow(f"http://127.0.0.1:{first.server_address[1]}", "secret", "acme/shop", 5)
+    finally:
+        for httpd, running in ((first, thread), (elsewhere, other)):
+            httpd.shutdown()
+            httpd.server_close()
+            running.join(timeout=5)
+
+    assert Elsewhere.authorization is None

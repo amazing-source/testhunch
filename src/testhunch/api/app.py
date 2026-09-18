@@ -80,7 +80,9 @@ def authenticate(request: Request, authorization: Annotated[str | None, Header()
         presented = authorization[len(_BEARER) :]
     if presented is None:
         raise _unauthorized()
-    if secrets.compare_digest(presented, token):
+    # Bytes, not text: `compare_digest` refuses a str that is not ASCII, and a header can carry
+    # any Latin-1 character, so a stray accent would otherwise be a 500 rather than a 401.
+    if secrets.compare_digest(presented.encode(), token.encode()):
         return Caller(repo=None)
 
     digest = hashlib.sha256(presented.encode()).hexdigest()

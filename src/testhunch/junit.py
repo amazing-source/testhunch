@@ -66,6 +66,11 @@ _SOURCE_EXTENSIONS = (
 )  # fmt: skip
 
 
+# The longest duration kept, in milliseconds: Postgres' INTEGER, the narrower of the two
+# stores' columns, about 24.8 days.
+LONGEST_DURATION_MS = 2**31 - 1
+
+
 class ReportError(ValueError):
     """The input is not usable JUnit XML."""
 
@@ -141,19 +146,30 @@ def digest_reports(blobs: Iterable[bytes]) -> str:
     return outer.hexdigest()
 
 
-def _walk(element: Element, suite: str | None) -> Iterator[CaseResult]:
-    cases: list[CaseResult] = []
-    for child in element:
-        if child.tag == "testsuite":
-            yield from _walk(child, child.get("name") or suite)
+def _walk(root: Element, suite: str | None) -> Iterator[CaseResult]:
+    """Every case under `root`: a nested suite's cases where it appears, a suite's own at its end.
+
+    A loop over a stack rather than a recursion, so that a report nested a few thousand suites deep
+    is read like any other instead of exhausting Python's recursion limit.
+    """
+    stack: list[tuple[Element, str | None, Iterator[Element], list[CaseResult]]] = [
+        (root, suite, iter(root), [])
+    ]
+    while stack:
+        element, name, children, cases = stack[-1]
+        child = next(children, None)
+        if child is None:
+            stack.pop()
+            declared = element.get("tests") if element.tag == "testsuite" else None
+            if declared is not None and declared.isdigit() and int(declared) < len(cases):
+                cases = _merge_reruns(cases)
+            yield from cases
+        elif child.tag == "testsuite":
+            stack.append((child, child.get("name") or name, iter(child), []))
         elif child.tag == "testsuites":
-            yield from _walk(child, suite)
+            stack.append((child, name, iter(child), []))
         elif child.tag == "testcase":
-            cases.append(_case(child, suite))
-    declared = element.get("tests") if element.tag == "testsuite" else None
-    if declared is not None and declared.isdigit() and int(declared) < len(cases):
-        cases = _merge_reruns(cases)
-    yield from cases
+            cases.append(_case(child, name))
 
 
 def _merge_reruns(cases: list[CaseResult]) -> list[CaseResult]:
@@ -258,4 +274,6 @@ def _duration_ms(raw: str | None) -> int | None:
         return None
     if not math.isfinite(seconds) or seconds < 0:
         return None
-    return round(seconds * 1000)
+    milliseconds = round(seconds * 1000)
+    # Beyond what both stores can hold, a duration is no longer a duration anyone measured.
+    return milliseconds if milliseconds <= LONGEST_DURATION_MS else None
