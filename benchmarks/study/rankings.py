@@ -119,7 +119,9 @@ PROXIMITY_SIGNALS = (
 )
 SIGNALS = (*HISTORY_SIGNALS, *PROXIMITY_SIGNALS)
 # What decides between two tests of equal score (docs/adr/0035).
-TIE_BREAKS = ("cost", "hash", "name")
+TIE_BREAKS = ("cost", "hash", "name", "cost-if-scored", "cost-if-risk")
+# A candidate's sort key: minus its score, then what decides between equal scores.
+SortKey = tuple[float, float, int, float, bytes]
 _TEST_AFFIXES = re.compile(r"^(?:test_|Test(?=[A-Z]))|(?:_test|Tests?|IT|TestCase)$")
 _TOKENS = re.compile(r"[/\._$\-]+|(?<=[a-z0-9])(?=[A-Z])")
 
@@ -155,6 +157,10 @@ class Candidate:
     #   cost: the duration, cheapest first, then a hash. What testhunch ships.
     #   hash: the hash alone, so a slow test is not placed last for being slow.
     #   name: the test's own name, which is what 0.2.0 does.
+    #   cost-if-scored: the duration between equal scores above zero, the hash between zeros; the
+    #     cost is kept where the score says something and dropped where it says nothing.
+    #   cost-if-risk: the duration only for tests whose failure priority is above zero, the hash
+    #     for the others, including a test whose score is only a signal (docs/adr/0036).
     # `cold_time_exponent=0` does **not** remove the cost ordering: it only takes the divisor out of
     # the score, and the duration stays in this key. That is why ADR 0018's `cold-free` step could
     # not measure what it was aimed at.
@@ -169,6 +175,16 @@ class Candidate:
             raise ValueError(f"unknown tie break {self.tie_break!r}, expected one of {TIE_BREAKS}")
 
     def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
+        unknown, keys = self.keys(trial, context)
+        known = sorted(keys, key=keys.__getitem__)
+        return unknown + known, len(known)
+
+    def keys(self, trial: Trial, context: Context) -> tuple[list[str], dict[str, SortKey]]:
+        """The tests that run first, in the job's order, and the sort key of every other one.
+
+        Split from `order` so that a benchmark can read what decided an order, and not only the
+        order (benchmarks/costorder.py).
+        """
         builds = context.builds
         records = builds.records
         now = builds.builds
@@ -187,7 +203,7 @@ class Candidate:
         }
         durations = _expected_durations(known, records) if self.time_exponent is not None else {}
 
-        def key(test: str) -> tuple[float, float, int, float, bytes]:
+        def key(test: str) -> SortKey:
             record = records[test]
             score = priority = record.priority_at(now)
             exponent = self.time_exponent
@@ -203,16 +219,20 @@ class Candidate:
             duration = durations.get(test, 1.0)
             if exponent:
                 score /= duration**exponent
+            by_cost = (
+                self.tie_break == "cost"
+                or (self.tie_break == "cost-if-scored" and score > 0)
+                or (self.tie_break == "cost-if-risk" and priority > 0)
+            )
             return (
                 -score,
-                duration if self.tie_break == "cost" else 0.0,
+                duration if by_cost else 0.0,
                 -record.last_failure,
                 -record.priority,
                 test.encode() if self.tie_break == "name" else tie(trial.job_id, test),
             )
 
-        known.sort(key=key)
-        return unknown + known, len(known)
+        return unknown, {test: key(test) for test in known}
 
 
 def _signal(name: str, trial: Trial, context: Context) -> Callable[[str], float]:
