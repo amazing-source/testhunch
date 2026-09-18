@@ -148,3 +148,91 @@ its own rather than folded into this one. RTPTorrent's priority decays by a fact
 and reaches zero only after 463 builds, so a test that failed once, a hundred builds ago, still runs
 before every test that never failed. Whether such a priority carries any information is an empirical
 question, and it is the one the fourth fact points to.
+
+## What it found
+
+Replayed on both halves with the code committed with this record, `python -m benchmarks.costorder
+training` then `validation`; every figure below is on the page it writes,
+`benchmarks/results/study/cost-order/README.md`.
+
+**Recommendation: `DO_NOT_SHIP`.** Neither narrower variant meets the rule on the validation half,
+and neither meets it on the training half.
+
+| Validation half, against the shipped ranking | first-failure position | primary | had failed: position, APFDc | meets the rule |
+|---|---:|---:|---|---|
+| global hash, the yardstick | -0.157 | -0.009 | -0.002, -0.000 | no |
+| `tie=cost-if-scored` | -0.157 | -0.009 | -0.002, -0.000 | no |
+| `cold-free/tie=cost-if-risk` | -0.157 | -0.014 | -0.000, -0.004 | no |
+
+Both gain enough on the validation half, 0.157 where 0.051 was asked, and both fail on the cost:
+0.009 and 0.014 of primary where at most 0.003 was allowed. On the training half they gain 0.046
+and 0.047, under the bar, for 0.004 and 0.007. Neither harms the jobs that had failed before by the
+margin the rule counts.
+
+**The three predictions held, on both halves.** `cost-if-scored` and global hash are identical to
+four decimals on every measure: once the zero-score group is counted correctly (see the correction
+below), the duration decides no pair of equal score above zero on the training half and 3 on the
+validation half, out of 2.7 and 62 million. `cost-if-risk` places the failing test exactly where
+global hash does on every first-failure job whose failing test is silent, 74 and 176 jobs, in
+position and in time. Both are refused on the primary condition. The maintainer's hypothesis, in the
+form "keep the cost where the score says something", does not describe a different ranking on
+these data.
+
+**`cost-if-risk` is worse than the yardstick, not better.** The same first-failure gain, a larger
+primary loss, and it is the only variant that costs the jobs that had failed before anything, 0.004
+of APFDc on both halves, under the rule's 0.005. Undivided, a test whose file changed scores 0.5 and
+overtakes tests whose failure priority is small, which delays repeat failures; and on the
+first-failure jobs whose failing test is such a test, 16 and 6, it gains almost nothing in position
+and loses 0.212 of APFDc on the validation six. The divisor on the changed-file signal carries
+information. Reading "no risk information" as the history's alone is refuted.
+
+**Why there is no narrower frontier here.** The first-failure jobs whose failing test scored zero,
+split by whether that test is cheaper or dearer than the middle of the zero-score tests, with the
+change global hash makes:
+
+| Half | failing test | jobs | position | red at | APFDc |
+|---|---|---:|---:|---:|---:|
+| training | cheaper than the middle | 23 | +0.208 | +0.254 | -0.245 |
+| training | dearer than the middle | 50 | -0.207 | +0.022 | -0.022 |
+| validation | cheaper than the middle | 28 | +0.150 | +0.159 | -0.158 |
+| validation | dearer than the middle | 142 | -0.228 | +0.151 | -0.151 |
+
+When the new failure is cheap, the cost order finds it far sooner, in tests and in time. When it is
+dear, the hash finds it sooner in tests and still later in time. The failing test is dear in most
+jobs, which is why the position favours the hash, and it is reached sooner in time by the
+cheapest-first order even then, which is why the primary favours the cost. Whether the next new
+failure is cheap or dear is not known before the build, so no rule that reads the history can
+choose the order case by case. The frontier this step looked for is not inside the silent regime:
+it lies between the two measures.
+
+**What a user with a time budget sees.** On the validation half, a first failure is caught within
+a quarter of the test time in 27.0% of the jobs under the shipped order, 20.4% under global hash,
+39.0% under random and 38.9% under 0.2.0; on the training half, 34.9%, 32.9%, 39.5% and 35.2%.
+Removing the cost order makes the budget worse at the very thing the guardrail is about. Random
+beats the shipped order on this slice in time as it does in tests, as the context's fourth fact
+said: that gap is not the tie-break's.
+
+This also settles a question raised before this step. ADR 0033's two conditions, computed on the
+ten development projects as an exploration, let global hash through by 0.009 on the guardrail's
+interval, which made it a candidate to freeze and replay once on held-out data. It should not be:
+it buys the guardrail's count of tests with the time and the budget that the same slice is meant
+to protect.
+
+**A correction to the context, which is left as written.** The context counts 2,900 pairs involving
+a test that did fail and 50 pairs of "tests of equal score above zero". The 50 were not that: they
+were pairs of zero-score tests involving a test whose failure priority was still above zero, about
+1e-321, and underflowed to exactly zero once divided by its duration, which happens to a test that
+failed some 455 builds ago. The description classified tests by their history and counted that
+group by subtraction; it now defines the zero-score group by the score, and a test holds the case.
+Corrected, the training half has 2,950 pairs involving a test that did fail and none of equal score
+above zero; the validation half has 1,633,076, 2.6% of its pairs, and 3. The corrected replay
+reproduced every variant's scores exactly, and no conclusion moves: `cost-if-scored` reads the
+score, which is why it matched global hash all along.
+
+**Limitations.** Development projects only, 91 and 192 first-failure jobs. The validation half was
+not clean for global hash, as stated before the replay. The two halves disagree on the size of the
+first-failure gain, 0.046 against 0.157, which is what five projects a half allow; the verdict does
+not depend on it, since both variants fail the cost condition on both halves. The thresholds are
+halves of measured numbers, fixed before the replay, not principled bars. The unit is RTPTorrent's
+test class and its mean duration. Nothing here speaks for LRTS or the held-out projects, and no look
+at them was spent.

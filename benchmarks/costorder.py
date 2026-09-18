@@ -17,8 +17,12 @@ build. The unknown tests run first, in the job's order, and are not ranked at al
 - faded: it did fail, so long ago that its priority underflowed to exactly zero (docs/adr/0018);
 - silent: it has never failed, and no signal fires.
 
-The first two have a score above zero, and a score divided by a duration almost never ties. The
-last two score exactly zero, together, and that is where the sort key's second element decides.
+Faded and silent tests score exactly zero, together, and that is where the sort key's second
+element decides; a score above zero divided by a duration almost never ties. One exception crosses
+the line: a risk test whose priority is nearly spent, a test that failed some 455 builds ago, can
+score exactly zero once divided by its duration, since 1e-320 over a thousand milliseconds
+underflows. It keeps its state, and it sorts with the zero-score tests, so the zero-score group
+here is defined by the score and not by the state.
 "Cold start" in `benchmarks.study.rankings` means a priority of zero, which is signal, faded and
 silent together; the first-failure slice is a property of a trial, not of a test. The three are
 kept apart here because they are not the same population.
@@ -60,7 +64,6 @@ from testhunch.gitinfo import GitError, rev_parse
 HALVES = {"training": RTPTORRENT_TRAINING, "validation": RTPTORRENT_VALIDATION}
 RESULTS = Path("benchmarks/results/study/cost-order")
 STATES = ("risk", "signal", "faded", "silent")
-ZERO = ("faded", "silent")  # the states that score exactly zero
 SHIPPED = STEP_3_KEPT.name
 HASH = f"{SHIPPED}/tie=hash"
 RANDOM = "random"
@@ -144,9 +147,9 @@ def characterize(
     durations = _expected_durations(known, context.builds.records)
     states = {test: state_of(test, context, -keys[test][0]) for test in known}
     first = next(test for test in order if test in trial.failing)
-    zero = [test for test in known if states[test] in ZERO]
+    zero = [test for test in known if keys[test][0] == 0]
     percentile = weighted = None
-    if states.get(first) in ZERO and len(zero) > 1:
+    if first in keys and keys[first][0] == 0 and len(zero) > 1:
         # Where the failing test's cost sits among the other zero-score tests: 0 the cheapest, 1
         # the dearest, ties counted half. If the failure were a draw that ignores the cost, this
         # would average one half.
@@ -160,20 +163,23 @@ def characterize(
         # the quickest way to the failure and not the shortest in tests: the two measures of the
         # guardrail pull apart (docs/adr/0036).
         weighted = (sum(cheaper) + (same + 1) * mine / 2) / sum(durations[test] for test in zero)
-    by_state: dict[str, Counter[float]] = {state: Counter() for state in ZERO}
+    # The pairs the duration decides among the zero-score tests: between two tests that never
+    # failed, and the rest, where at least one of the two did fail, long ago.
+    silent: Counter[float] = Counter()
+    every: Counter[float] = Counter()
     for test in zero:
-        by_state[states[test]][durations[test]] += 1
-    faded, silent = by_state["faded"], by_state["silent"]
+        every[durations[test]] += 1
+        if states[test] == "silent":
+            silent[durations[test]] += 1
     zero_pairs = {
         "silent": _pairs(silent.values()),
-        "faded": _pairs(faded.values()),
-        "mixed": sum(faded.values()) * sum(silent.values())
-        - sum(count * silent[duration] for duration, count in faded.items()),
+        "failed": _pairs(every.values()) - _pairs(silent.values()),
     }
     return {
         "unknown": len(order) - len(known),
         "states": {state: sum(1 for s in states.values() if s == state) for state in STATES},
         "first": states.get(first, "unknown"),
+        "first_scored_zero": first in keys and keys[first][0] == 0,
         "first_percentile": percentile,
         "first_time_share": weighted,
         "pairs": zero_pairs,
@@ -399,7 +405,7 @@ def characterization(half: str, results: Sequence[Mapping[str, Any]]) -> list[st
         )
 
     first_rows = [row for name, row in rows if name == FIRST.label]
-    in_zero = [row for row in first_rows if row["first"] in ZERO]
+    in_zero = [row for row in first_rows if row["first_scored_zero"]]
     moved = _moved(results, HASH, FIRST)
     lines += [
         "",
@@ -523,9 +529,10 @@ def characterization(half: str, results: Sequence[Mapping[str, Any]]) -> list[st
         "",
         "| between | pairs | share |",
         "|---|---:|---:|",
-        f"| two silent tests | {pairs['silent']} | {_share(pairs['silent'], every)} |",
-        f"| two faded tests | {pairs['faded']} | {_share(pairs['faded'], every)} |",
-        f"| a faded and a silent test | {pairs['mixed']} | {_share(pairs['mixed'], every)} |",
+        f"| two zero-score tests that never failed | {pairs['silent']} | "
+        f"{_share(pairs['silent'], every)} |",
+        f"| two zero-score tests, at least one of which did fail, long ago | {pairs['failed']} | "
+        f"{_share(pairs['failed'], every)} |",
         f"| two tests of equal score above zero | {every - sum(pairs.values())} | "
         f"{_share(every - sum(pairs.values()), every)} |",
         f"| **all** | {every} | |",
@@ -541,7 +548,7 @@ def _moved(results: Sequence[Mapping[str, Any]], ranking: str, chosen: Slice) ->
         mine = dict(values(result, ranking, "position", chosen))
         theirs = dict(values(result, SHIPPED, "position", chosen))
         for index in mine:
-            if rows[index]["first"] in ZERO:
+            if rows[index]["first_scored_zero"]:
                 total += 1
                 moved += mine[index] != theirs[index]
     return moved, total
@@ -657,15 +664,10 @@ def variants(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
             if name == SHIPPED
             else _interval(difference(results, name, SHIPPED, "position", FIRST))
         )
-        caught = (
-            _f(mean(results, name, "time_0.25", FIRST))
-            if name in results[0]["diagnostics"]
-            else "-"
-        )
         lines.append(
             f"| {name} | {_f(position)} | {against} | {_f(position - shuffled, True)} | "
             f"{_f(position - old, True)} | {_f(mean(results, name, 'red_at', FIRST))} | "
-            f"{caught} |"
+            f"{_f(caught(results, name, 0.25, FIRST))} |"
         )
 
     reference_pairs = sum(
@@ -801,6 +803,7 @@ def variants(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
             f"{_f(found['repeat_position'], True)}, {_f(found['repeat_primary'], True)} | "
             f"{_yes(found['harmless'])} | {_yes(found['passes'])} |"
         )
+    lines += predictions(results)
     if half == "validation":
         chosen = verdict(results)
         lines += [
@@ -816,6 +819,56 @@ def variants(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
             ),
         ]
     return lines
+
+
+def caught(
+    results: Sequence[Mapping[str, Any]], ranking: str, fraction: float, chosen: Slice
+) -> float:
+    """The share of the slice's jobs turned red within `fraction` of their test time.
+
+    Read from `red_at`, which every ranking stores, so that the rankings measured without
+    diagnostics, random among them, have this column too.
+    """
+    means = [
+        statistics.fmean(float(value <= fraction) for _, value in found)
+        for result in results
+        if (found := values(result, ranking, "red_at", chosen))
+    ]
+    return statistics.fmean(means) if means else math.nan
+
+
+def predictions(results: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The three predictions of docs/adr/0036, checked on this half."""
+    measures = (("position", FIRST), ("red_at", FIRST), (PRIMARY, EVERY), ("position", BEFORE))
+    widest = max(
+        abs(mean(results, SCORED, measure, chosen) - mean(results, HASH, measure, chosen))
+        for measure, chosen in measures
+    )
+    same = total = 0
+    for result in results:
+        rows = result["diagnostics"][SHIPPED]
+        for measure in ("position", "red_at"):
+            mine = result["rankings"][RISK_ONLY]["per_trial"][measure]
+            theirs = result["rankings"][HASH]["per_trial"][measure]
+            for index, row in enumerate(rows):
+                if FIRST.keep(result, index) and row["first"] == "silent":
+                    total += 1
+                    same += mine[index] == theirs[index]
+    refused = [name for name in NARROWER if not criteria(results, name)["affordable"]]
+    return [
+        "",
+        "### The predictions of docs/adr/0036",
+        "",
+        f"1. `cost-if-scored` against global hash, largest difference over the first-failure "
+        f"position and red at, the primary, and the position of the jobs that had failed before: "
+        f"**{widest:.4f}** (predicted: at most 0.001).",
+        f"2. First-failure jobs whose failing test is silent, where `cost-if-risk` gives the same "
+        f"position and the same red at as global hash: **{same} of {total}** measures (predicted: "
+        "all).",
+        f"3. Narrower variants refused on the primary condition: **{len(refused)} of "
+        f"{len(NARROWER)}** (predicted: the first certainly, the second unless its changed-file "
+        "tests pay for it).",
+    ]
 
 
 def _mean_cell(found: Sequence[float]) -> str:

@@ -176,7 +176,31 @@ def test_the_failing_test_is_placed_among_the_zero_score_tests_in_tests_and_in_t
     assert found["states"] == {"risk": 0, "signal": 0, "faded": 0, "silent": 3}
     assert found["first_percentile"] == 0.5
     assert found["first_time_share"] == pytest.approx((10 + 20 / 2) / 100)
-    assert found["pairs"] == {"silent": 3, "faded": 0, "mixed": 0}
+    assert found["pairs"] == {"silent": 3, "failed": 0}
+
+
+def test_a_nearly_spent_priority_sorts_with_the_zero_scores_once_divided() -> None:
+    """A test that failed 459 builds ago still has a priority above zero, about 1e-321, but divided
+    by its thousand milliseconds the score underflows to exactly zero. It is a risk test that sorts
+    with the tests that never failed, and the zero-score group must be read from the score: counted
+    by state, its pairs were once reported as ties between scores above zero."""
+    old, never = "tests/test_old.py::old", "tests/test_never.py::never"
+    builds = BuildHistory()
+    builds.record([[result(old, Status.FAILED, 999), result(never, duration=9)]])
+    for _ in range(459):
+        builds.record([[result(old, duration=999), result(never, duration=9)]])
+    context = Context(builds, list)
+    trial = Trial(1, (old, never), frozenset({old}), {old: 999, never: 9}, ())
+    unknown, keys = STEP_3_KEPT.keys(trial, context)
+    order = unknown + sorted(keys, key=keys.__getitem__)
+
+    found = characterize(trial, context, order, list(keys), keys)
+
+    assert builds.records[old].priority_at(builds.builds) > 0
+    assert keys[old][0] == 0
+    assert found["states"]["risk"] == 1 and found["first"] == "risk"
+    assert found["first_scored_zero"]
+    assert found["pairs"] == {"silent": 0, "failed": 1}
 
 
 def _jobs() -> list[Job]:
