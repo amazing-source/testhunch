@@ -184,3 +184,33 @@ that keeps failing from one that failed once, within the recent states. The vali
 been read for this family of rankings, so a candidate built from what it showed should be explored
 on the training half and confirmed on data not yet read for first failures: the held-out RTPTorrent
 projects, whose first-failure slice has never been computed, with a row in the ledger.
+
+## After it, on the training half
+
+What the step above called a hypothesis for the next one was measured, on the training half only,
+before writing any protocol: `python -m benchmarks.repeats training`, then
+`python -m benchmarks.calibration training --step streaks`. No candidate came out of it, and
+neither the validation half nor the held-out projects were read.
+
+**Where the time goes before a repeat failure.** On the jobs whose failing test had failed before,
+`calibrated` spends more time than the shipped ranking on tests that never failed, on all five
+projects, from +0.003 to +0.028 of the job; `calibrated+runs` spends less of it, from +0.003 to
++0.020, and never gets back to the shipped ranking. On dynjs alone, tests that failed eight builds
+ago or more also run first more often, about +0.05 together. Tests that failed in the build just before
+barely move.
+
+**Streaks predict, and do not help.** A test that failed in the build just before fails again 282
+to 659 times per thousand runs after a single failure, and 930 to 991 after eight or more in a row
+on deeplearning4j, jetty and jOOQ. Splitting that state by streak, 1, 2 to 3, 4 and more, was the
+correction these counts supported best. It does not recover what repeat failures lose: their APFDc
+drops by 0.011 against the shipped ranking, where `calibrated+runs` loses 0.007, and first failures
+barely move. The pooling of broken and once-failed tests is not what defers repeat failures.
+
+**What that leaves.** The loss on repeat failures is, for the most part, the rule working: a test
+that never failed has a chance of failing above zero, so a cheap one runs before a dear test that
+failed recently when its chance per unit of time is higher, and that is exactly what reaches first
+failures sooner. Part of it was the rate given to tests that never failed, which test age
+reduces. What remains is a trade between the two slices, not a calibration error found so far,
+and ADR 0037's rule refuses the trade at its current size. Whether that rule should weigh the two
+slices differently is a decision about what testhunch is for; it would have to be made before any
+further measurement, and it is not made here.

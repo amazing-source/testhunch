@@ -10,6 +10,7 @@ import hashlib
 import random
 import re
 import statistics
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
@@ -245,7 +246,8 @@ class Calibrated:
     failed, so every such test runs after every test that ever failed, whatever the costs. Here
     the probability is the share of runs that failed, in this project so far, among tests in the
     same state: the age of their last failure, or never failed at all. With `by_runs`, a test that
-    never failed is also told apart by how many builds it ran in.
+    never failed is also told apart by how many builds it ran in; with `streaks`, a test that
+    failed in the build just before, by how many builds in a row it had failed.
 
     A state is drawn toward the rate over every state by one run's worth, so a state not seen yet
     starts at the project's rate rather than at nothing. Ties go as in the shipped ranking.
@@ -253,11 +255,18 @@ class Calibrated:
 
     name: str
     by_runs: bool = False
+    streaks: bool = False
 
     def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
         unknown, keys = self.keys(trial, context)
         known = sorted(keys, key=keys.__getitem__)
         return unknown + known, len(known)
+
+    def coarse(self, state: str) -> str:
+        """The state as this ranking tells states apart."""
+        if state.startswith("never"):
+            return state if self.by_runs else "never"
+        return state if self.streaks else state.split(",", 1)[0]
 
     def keys(self, trial: Trial, context: Context) -> tuple[list[str], dict[str, SortKey]]:
         builds = context.builds
@@ -281,16 +290,17 @@ class Calibrated:
         return unknown, {test: key(test) for test in known}
 
     def rates(self, builds: BuildHistory) -> Callable[[str], float]:
-        runs, failures = builds.state_runs, builds.state_failures
+        runs: Counter[str] = Counter()
+        failures: Counter[str] = Counter()
+        for state, count in builds.state_runs.items():
+            runs[self.coarse(state)] += count
+            failures[self.coarse(state)] += builds.state_failures[state]
         total = sum(runs.values())
         overall = sum(failures.values()) / total if total else 0.0
-        never_runs = sum(n for state, n in runs.items() if state.startswith("never"))
-        never_failures = sum(n for state, n in failures.items() if state.startswith("never"))
 
         def rate(state: str) -> float:
-            if state.startswith("never") and not self.by_runs:
-                return (never_failures + overall) / (never_runs + 1)
-            return (failures[state] + overall) / (runs[state] + 1)
+            mine = self.coarse(state)
+            return (failures[mine] + overall) / (runs[mine] + 1)
 
         return rate
 

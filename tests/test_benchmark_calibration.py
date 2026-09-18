@@ -27,7 +27,7 @@ def test_a_state_is_the_age_of_the_last_failure_or_how_long_a_test_ran_without_o
     builds.record([[result("old"), result("steady"), result("fresh", Status.FAILED)]])
 
     now = builds.builds
-    assert builds.records["fresh"].state(now) == "failed 0"
+    assert builds.records["fresh"].state(now) == "failed 0, streak 1"
     assert builds.records["old"].state(now) == "failed 8-15"
     assert builds.records["steady"].state(now) == "never, ran 4-15"
 
@@ -41,8 +41,8 @@ def test_each_build_counts_its_runs_by_state_before_learning_from_them() -> None
     builds.record([[result("a", Status.FAILED), result("b", Status.FAILED, flaky=True)]])
     builds.record([[result("a"), result("b")]])
 
-    assert builds.state_runs == {"never, ran 1-3": 2, "failed 0": 2}
-    assert builds.state_failures == {"never, ran 1-3": 1, "failed 0": 0}
+    assert builds.state_runs == {"never, ran 1-3": 2, "failed 0, streak 1": 2}
+    assert builds.state_failures == {"never, ran 1-3": 1, "failed 0, streak 1": 0}
 
 
 def _history() -> BuildHistory:
@@ -142,3 +142,48 @@ def test_a_candidate_must_close_half_the_time_gap_to_random_at_little_cost() -> 
     assert not criteria(dear, CALIBRATED)["affordable"]
     assert not criteria(later, CALIBRATED)["not_later"]
     assert verdict(slow) is verdict(dear) is verdict(later) is None
+
+
+def test_a_streak_tells_a_broken_test_from_one_that_failed_once() -> None:
+    """Only a failure in the build just before carries a streak. A ranking without `streaks` reads
+    the state up to the comma, so the rates of ADR 0037's candidates do not change."""
+    builds = BuildHistory()
+    builds.record([[result("broken"), result("once")]])
+    for build in range(5):
+        builds.record(
+            [
+                [
+                    result("broken", Status.FAILED),
+                    result("once", Status.FAILED if build == 4 else Status.PASSED),
+                ]
+            ]
+        )
+    now = builds.builds
+
+    assert builds.records["broken"].state(now) == "failed 0, streak 4+"
+    assert builds.records["once"].state(now) == "failed 0, streak 1"
+    plain = Calibrated(CALIBRATED)
+    assert plain.coarse("failed 0, streak 4+") == plain.coarse("failed 0, streak 1") == "failed 0"
+    split = Calibrated("s", streaks=True)
+    assert split.coarse("failed 0, streak 4+") != split.coarse("failed 0, streak 1")
+
+
+def test_each_step_replays_the_shipped_ranking_its_candidates_and_the_references() -> None:
+    from benchmarks.calibration import STEPS, rankings
+
+    for step, (_, chosen) in STEPS.items():
+        names = [ranking.name for ranking in rankings(step)]
+        assert names[0] == SHIPPED and RANDOM in names, step
+        assert [c.name for c in chosen] == names[1 : 1 + len(chosen)], step
+    assert [c.name for c in STEPS["adr-0037"][1]] == list(CANDIDATES)
+
+
+def test_the_diagnosis_groups_states_by_the_age_of_the_last_failure() -> None:
+    from benchmarks.repeats import group
+
+    assert group("never, ran 4-15") == "never failed"
+    assert group("failed 0, streak 4+") == "failed 0"
+    assert group("failed 1") == "failed 1"
+    assert group("failed 4-7") == "failed 2-7"
+    assert group("failed 32-63") == "failed 8-63"
+    assert group("failed 256+") == "failed 64+"
