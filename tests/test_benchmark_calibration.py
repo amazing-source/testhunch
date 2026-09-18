@@ -41,8 +41,11 @@ def test_each_build_counts_its_runs_by_state_before_learning_from_them() -> None
     builds.record([[result("a", Status.FAILED), result("b", Status.FAILED, flaky=True)]])
     builds.record([[result("a"), result("b")]])
 
-    assert builds.state_runs == {"never, ran 1-3": 2, "failed 0, streak 1": 2}
-    assert builds.state_failures == {"never, ran 1-3": 1, "failed 0, streak 1": 0}
+    assert builds.state_runs == {"never, ran 1-3|unchanged": 2, "failed 0, streak 1|unchanged": 2}
+    assert builds.state_failures == {
+        "never, ran 1-3|unchanged": 1,
+        "failed 0, streak 1|unchanged": 0,
+    }
 
 
 def _history() -> BuildHistory:

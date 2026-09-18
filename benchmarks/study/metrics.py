@@ -23,6 +23,8 @@ class Trial:
     failing: frozenset[str]  # failures that are not flaky (ADR 0006), or a mutant's detectors
     durations: Mapping[str, int | None]
     changed_files: tuple[str, ...]
+    # False when the job's changed files are unknown, which is not an empty change.
+    changed_known: bool = True
 
 
 def scores(trial: Trial, order: Sequence[str], known: int) -> dict[str, float | None]:

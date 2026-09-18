@@ -214,3 +214,26 @@ reduces. What remains is a trade between the two slices, not a calibration error
 and ADR 0037's rule refuses the trade at its current size. Whether that rule should weigh the two
 slices differently is a decision about what testhunch is for; it would have to be made before any
 further measurement, and it is not made here.
+
+## Note, 2026-09-18
+
+Added after a read-only review, and checked against the committed per-trial results with this
+project's bootstrap; nothing above is changed.
+
+- "The jobs that had failed before lose 0.009 of APFDc" is a point estimate: −0.0085 on the
+  validation half, interval [−0.033, +0.016]. The refusal stands under the rule as written, but that
+  rule's bound of 0.005 is finer than what ten projects resolve. ADR 0038 replaces it for the next
+  step and leaves this verdict as it is.
+- The section above, "After it, on the training half", says the loss on repeat failures is for the
+  most part the rule working. That overreaches. Against the same ranking without the changed-file
+  signal, which the candidates lacked, repeat failures move by +0.005 on the training half and by
+  −0.004, [−0.025, +0.022], over the ten projects: on the training half, the gap to the shipped
+  ranking was the missing signal. And a description of where the time goes shows where it goes, not
+  that the rates are calibrated.
+- The claim that holds is the one on first failures in time: against random, −0.143 with an
+  interval of [−0.251, −0.033] over the ten projects. In position the ranking stays worse than
+  random, +0.107, [+0.012, +0.194].
+- A failure rate measured in each project without training, conditioned on recent failures and
+  divided by the duration, is not a new idea: DANTE's stickiness (Reale et al., ICST 2026) does the
+  same. What this record adds is where it is applied, to tests that never failed and to old
+  failures, and the question it is asked, first failures.

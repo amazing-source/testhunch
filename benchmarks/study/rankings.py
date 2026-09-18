@@ -17,7 +17,17 @@ from typing import Protocol
 
 from rapidfuzz.distance import Levenshtein
 
-from benchmarks.study.history import BuildHistory, CaseRecord
+from benchmarks.study.history import (
+    BuildHistory,
+    CaseRecord,
+    changed_suffixes,
+    file_changed,
+    stem,
+    without_extension,
+)
+from benchmarks.study.history import (
+    location as location,
+)
 from benchmarks.study.metrics import EPSILON_MS, Trial
 from benchmarks.study.release_020 import CaseHistory, changed_stems, rank
 
@@ -238,7 +248,7 @@ class Candidate:
 
 @dataclass(frozen=True, slots=True)
 class Calibrated:
-    """Each test's measured chance of failing, per unit of time (docs/adr/0037).
+    """Each test's measured chance of failing, per unit of time (docs/adr/0037, 0038).
 
     Ordering by probability over cost is the order that reaches a failure soonest, when the
     probabilities are right (Smith's rule). The shipped ranking has that form with RTPTorrent's
@@ -249,13 +259,20 @@ class Calibrated:
     never failed is also told apart by how many builds it ran in; with `streaks`, a test that
     failed in the build just before, by how many builds in a row it had failed.
 
-    A state is drawn toward the rate over every state by one run's worth, so a state not seen yet
-    starts at the project's rate rather than at nothing. Ties go as in the shipped ranking.
+    With `files`, each state is also cut by whether the test's own file changed, the shipped
+    ranking's signal, so that it enters as a probability rather than as a weight. A job whose
+    changed files are unknown gets the state's rate, and runs whose changed files were unknown
+    count in the state and in neither cell.
+
+    A state is drawn toward the project's rate over every state by one run's worth, and a cell
+    toward its state's rate by one run's worth, so nothing starts at zero and no constant is
+    chosen. Ties go as in the shipped ranking.
     """
 
     name: str
     by_runs: bool = False
     streaks: bool = False
+    files: bool = False
 
     def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
         unknown, keys = self.keys(trial, context)
@@ -263,24 +280,39 @@ class Calibrated:
         return unknown + known, len(known)
 
     def coarse(self, state: str) -> str:
-        """The state as this ranking tells states apart."""
+        """The state as this ranking tells states apart, without the file cell."""
+        state = state.split("|", 1)[0]
         if state.startswith("never"):
             return state if self.by_runs else "never"
         return state if self.streaks else state.split(",", 1)[0]
 
-    def keys(self, trial: Trial, context: Context) -> tuple[list[str], dict[str, SortKey]]:
+    def probabilities(
+        self, trial: Trial, context: Context, known: Sequence[str]
+    ) -> dict[str, float]:
         builds = context.builds
         records = builds.records
         now = builds.builds
-        unknown, known = split_known(trial, builds)
-        durations = _expected_durations(known, records)
         rate = self.rates(builds)
+        tails = changed_suffixes(trial.changed_files) if self.files else frozenset()
+
+        def cell(test: str) -> str:
+            if not self.files or not trial.changed_known:
+                return "unknown"
+            return "changed" if file_changed(test, records[test].file, tails) else "unchanged"
+
+        return {test: rate(records[test].state(now), cell(test)) for test in known}
+
+    def keys(self, trial: Trial, context: Context) -> tuple[list[str], dict[str, SortKey]]:
+        records = context.builds.records
+        unknown, known = split_known(trial, context.builds)
+        durations = _expected_durations(known, records)
+        chance = self.probabilities(trial, context, known)
 
         def key(test: str) -> SortKey:
             record = records[test]
             duration = durations[test]
             return (
-                -rate(record.state(now)) / duration,
+                -chance[test] / duration,
                 duration,
                 -record.last_failure,
                 -record.priority,
@@ -289,20 +321,69 @@ class Calibrated:
 
         return unknown, {test: key(test) for test in known}
 
-    def rates(self, builds: BuildHistory) -> Callable[[str], float]:
+    def rates(self, builds: BuildHistory) -> Callable[..., float]:
+        """rate(state, cell="unknown"): the chance of failing in the next build."""
         runs: Counter[str] = Counter()
         failures: Counter[str] = Counter()
-        for state, count in builds.state_runs.items():
-            runs[self.coarse(state)] += count
-            failures[self.coarse(state)] += builds.state_failures[state]
+        cell_runs: Counter[tuple[str, str]] = Counter()
+        cell_failures: Counter[tuple[str, str]] = Counter()
+        for key, count in builds.state_runs.items():
+            state, _, cell = key.partition("|")
+            mine = self.coarse(state)
+            runs[mine] += count
+            failures[mine] += builds.state_failures[key]
+            if cell in ("changed", "unchanged"):
+                cell_runs[(mine, cell)] += count
+                cell_failures[(mine, cell)] += builds.state_failures[key]
         total = sum(runs.values())
         overall = sum(failures.values()) / total if total else 0.0
 
-        def rate(state: str) -> float:
+        def rate(state: str, cell: str = "unknown") -> float:
             mine = self.coarse(state)
-            return (failures[mine] + overall) / (runs[mine] + 1)
+            of_state = (failures[mine] + overall) / (runs[mine] + 1)
+            if not self.files or cell not in ("changed", "unchanged"):
+                return of_state
+            return (cell_failures[(mine, cell)] + of_state) / (cell_runs[(mine, cell)] + 1)
 
         return rate
+
+    def never_rate(self, builds: BuildHistory) -> float:
+        """The project's rate for a test that never failed, every run and every cell together."""
+        runs = sum(n for key, n in builds.state_runs.items() if key.startswith("never"))
+        failures = sum(n for key, n in builds.state_failures.items() if key.startswith("never"))
+        total = sum(builds.state_runs.values())
+        overall = sum(builds.state_failures.values()) / total if total else 0.0
+        return (failures + overall) / (runs + 1)
+
+
+@dataclass(frozen=True, slots=True)
+class TwoStage:
+    """The shipped order for tests that are still risky, the calibrated order for the rest.
+
+    A test that failed before and whose measured chance of failing is above the project's rate
+    for a test that never failed keeps the place the shipped ranking gives it, ahead of the rest.
+    Every other known test, old failures that predict no more than never failing among them,
+    follows in the calibrated order. No constant: the line is the project's own never-failed rate
+    (docs/adr/0038).
+    """
+
+    name: str
+    live: Candidate
+    base: Calibrated
+
+    def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
+        records = context.builds.records
+        unknown, calibrated = self.base.keys(trial, context)
+        _, shipped = self.live.keys(trial, context)
+        chance = self.base.probabilities(trial, context, list(calibrated))
+        line = self.base.never_rate(context.builds)
+
+        def risky(test: str) -> bool:
+            return bool(records[test].failures) and chance[test] > line
+
+        first = sorted((t for t in calibrated if risky(t)), key=shipped.__getitem__)
+        rest = sorted((t for t in calibrated if not risky(t)), key=calibrated.__getitem__)
+        return unknown + first + rest, len(calibrated)
 
 
 def _signal(name: str, trial: Trial, context: Context) -> Callable[[str], float]:
@@ -339,22 +420,10 @@ def _signal(name: str, trial: Trial, context: Context) -> Callable[[str], float]
     raise ValueError(f"unknown signal: {name}")
 
 
-def location(key: str, file: str | None) -> str:
-    """Where a test lives: its reported file, else its class as a path (`org.a.B` -> `org/a/B`)."""
-    if file:
-        return file.replace("\\", "/")
-    group = key.split("::", 1)[0].split("$", 1)[0]
-    return group if "/" in group else group.replace(".", "/")
-
-
-def _stem(path: str) -> str:
-    name = path.rsplit("/", 1)[-1]
-    return name.rsplit(".", 1)[0] if "." in name else name
-
-
-def _without_extension(path: str) -> str:
-    head, _, name = path.rpartition("/")
-    return f"{head}/{_stem(name)}" if head else _stem(name)
+# Kept under these names for the signals below: the definitions live in history.py, which the
+# calibrated ranking's counts also use, so that there is one changed-file signal and not two.
+_stem = stem
+_without_extension = without_extension
 
 
 def _tokens(path: str) -> set[str]:
@@ -376,15 +445,14 @@ def _proximity(name: str, trial: Trial, records: dict[str, CaseRecord]) -> Calla
     changed = sorted({path.replace("\\", "/") for path in trial.changed_files})
     if not changed:
         return lambda test: 0.0
-    stripped = [_without_extension(path) for path in changed]
+    tails = changed_suffixes(changed)
     stems = [_stem(path).lower() for path in changed]
     tokens = [_tokens(path) for path in changed]
 
     def value(test: str) -> float:
         path = location(test, records[test].file)
         if name == "test_file_changed":
-            own = _without_extension(path)
-            return float(any(s == own or s.endswith("/" + own) for s in stripped))
+            return float(file_changed(test, records[test].file, tails))
         if name == "subject_file_changed":
             subject = _TEST_AFFIXES.sub("", _stem(path)).lower()
             own = _stem(path).lower()

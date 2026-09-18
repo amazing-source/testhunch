@@ -32,6 +32,42 @@ def bucket(value: int, spans: Sequence[tuple[int, int]]) -> str:
     return f"{spans[-1][1] + 1}+"
 
 
+def location(key: str, file: str | None) -> str:
+    """Where a test lives: its reported file, else its class as a path (`org.a.B` -> `org/a/B`)."""
+    if file:
+        return file.replace("\\", "/")
+    group = key.split("::", 1)[0].split("$", 1)[0]
+    return group if "/" in group else group.replace(".", "/")
+
+
+def stem(path: str) -> str:
+    name = path.rsplit("/", 1)[-1]
+    return name.rsplit(".", 1)[0] if "." in name else name
+
+
+def without_extension(path: str) -> str:
+    head, _, name = path.rpartition("/")
+    return f"{head}/{stem(name)}" if head else stem(name)
+
+
+def changed_suffixes(paths: Iterable[str]) -> frozenset[str]:
+    """Every tail, at a `/`, of each changed path without its extension.
+
+    A test's own file changed when its location without extension is one of them: that is
+    `path == own or path.endswith("/" + own)` for some changed path, looked up in a set.
+    """
+    tails: set[str] = set()
+    for path in paths:
+        parts = without_extension(path.replace("\\", "/")).split("/")
+        tails.update("/".join(parts[i:]) for i in range(len(parts)))
+    return frozenset(tails)
+
+
+def file_changed(key: str, file: str | None, tails: frozenset[str]) -> bool:
+    """The changed-file signal of the shipped ranking, for one test."""
+    return without_extension(location(key, file)) in tails
+
+
 # The longest window the learned model's features look back over, in builds (docs/adr/0030).
 # Machalica et al. count days; RTPTorrent's jobs carry no usable timestamp, so builds it is.
 LONGEST_WINDOW = 56
@@ -120,7 +156,10 @@ class BuildHistory:
         self.state_failures: Counter[str] = Counter()
 
     def record(
-        self, jobs: Sequence[Sequence[CaseResult]], changed_files: Iterable[str] = ()
+        self,
+        jobs: Sequence[Sequence[CaseResult]],
+        changed_files: Iterable[str] = (),
+        changed_known: bool = True,
     ) -> None:
         """Record one build: the collapsed results of each of its jobs, and the files it changed.
 
@@ -128,6 +167,8 @@ class BuildHistory:
         it; its duration is the mean of the known durations of its jobs.
         """
         build = self.builds
+        changed_files = list(changed_files)
+        tails = changed_suffixes(changed_files)
         failed: dict[str, bool] = {}
         confirmed: dict[str, bool] = {}
         durations: dict[str, list[int]] = {}
@@ -147,7 +188,13 @@ class BuildHistory:
         for key, did_fail in failed.items():
             record = self.records.get(key)
             if record is not None:
-                state = record.state(build)
+                # The state, then whether the test's own file changed in this build: a build
+                # whose changed files are unknown says neither (docs/adr/0038).
+                if not changed_known:
+                    cell = "unknown"
+                else:
+                    cell = "changed" if file_changed(key, record.file, tails) else "unchanged"
+                state = f"{record.state(build)}|{cell}"
                 self.state_runs[state] += 1
                 self.state_failures[state] += confirmed[key]
             if record is None:
