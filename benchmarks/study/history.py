@@ -6,7 +6,7 @@ history testhunch 0.2.0 reads from the store: the most recent runs, one run per 
 
 from __future__ import annotations
 
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
@@ -15,6 +15,19 @@ from testhunch.models import CaseResult, Status
 
 # RTPTorrent's weight of the newest build in a test's failure priority (Mattis et al., section 4).
 ALPHA = 0.8
+
+
+# The states a test's failure rate is counted in (docs/adr/0037): the age of its last failure in
+# builds, doubling, and for a test that never failed, how many builds it ran in, doubling too.
+AGE_BUCKETS = ((0, 0), (1, 1), (2, 3), (4, 7), (8, 15), (16, 31), (32, 63), (64, 127), (128, 255))
+RUN_BUCKETS = ((1, 3), (4, 15), (16, 63), (64, 255))
+
+
+def bucket(value: int, spans: Sequence[tuple[int, int]]) -> str:
+    for low, high in spans:
+        if low <= value <= high:
+            return f"{low}" if low == high else f"{low}-{high}"
+    return f"{spans[-1][1] + 1}+"
 
 
 # The longest window the learned model's features look back over, in builds (docs/adr/0030).
@@ -60,6 +73,13 @@ class CaseRecord:
     def mean_duration_ms(self) -> float | None:
         return self.duration_total_ms / self.duration_samples if self.duration_samples else None
 
+    def state(self, build: int) -> str:
+        """Where the test stands before `build`: the age of its last failure, or never failed and
+        for how many builds (docs/adr/0037)."""
+        if self.failures:
+            return "failed " + bucket(build - 1 - self.last_failure, AGE_BUCKETS)
+        return "never, ran " + bucket(self.runs, RUN_BUCKETS)
+
 
 def _decayed(value: float, since: int, build: int) -> float:
     if since < 0:
@@ -79,6 +99,10 @@ class BuildHistory:
         self.builds = 0
         self.file_changes: dict[str, int] = {}
         self.file_failures: dict[str, dict[str, int]] = {}
+        # Per state of a known test before a build: how many ran in it, and how many of those
+        # failed without being flaky, the failures the rankings are scored on (docs/adr/0037).
+        self.state_runs: Counter[str] = Counter()
+        self.state_failures: Counter[str] = Counter()
 
     def record(
         self, jobs: Sequence[Sequence[CaseResult]], changed_files: Iterable[str] = ()
@@ -90,6 +114,7 @@ class BuildHistory:
         """
         build = self.builds
         failed: dict[str, bool] = {}
+        confirmed: dict[str, bool] = {}
         durations: dict[str, list[int]] = {}
         files: dict[str, str] = {}
         for results in jobs:
@@ -99,10 +124,17 @@ class BuildHistory:
                 if result.status is Status.SKIPPED:
                     continue
                 failed[result.key] = failed.get(result.key, False) or result.status.is_failure
+                confirmed[result.key] = confirmed.get(result.key, False) or (
+                    result.status.is_failure and not result.flaky
+                )
                 if result.duration_ms is not None:
                     durations.setdefault(result.key, []).append(result.duration_ms)
         for key, did_fail in failed.items():
             record = self.records.get(key)
+            if record is not None:
+                state = record.state(build)
+                self.state_runs[state] += 1
+                self.state_failures[state] += confirmed[key]
             if record is None:
                 record = self.records[key] = CaseRecord()
             elif did_fail != record.last_failed:

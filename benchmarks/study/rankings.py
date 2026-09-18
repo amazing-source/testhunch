@@ -235,6 +235,66 @@ class Candidate:
         return unknown, {test: key(test) for test in known}
 
 
+@dataclass(frozen=True, slots=True)
+class Calibrated:
+    """Each test's measured chance of failing, per unit of time (docs/adr/0037).
+
+    Ordering by probability over cost is the order that reaches a failure soonest, when the
+    probabilities are right (Smith's rule). The shipped ranking has that form with RTPTorrent's
+    priority in place of a probability, and the priority is exactly zero for a test that never
+    failed, so every such test runs after every test that ever failed, whatever the costs. Here
+    the probability is the share of runs that failed, in this project so far, among tests in the
+    same state: the age of their last failure, or never failed at all. With `by_runs`, a test that
+    never failed is also told apart by how many builds it ran in.
+
+    A state is drawn toward the rate over every state by one run's worth, so a state not seen yet
+    starts at the project's rate rather than at nothing. Ties go as in the shipped ranking.
+    """
+
+    name: str
+    by_runs: bool = False
+
+    def order(self, trial: Trial, context: Context) -> tuple[list[str], int]:
+        unknown, keys = self.keys(trial, context)
+        known = sorted(keys, key=keys.__getitem__)
+        return unknown + known, len(known)
+
+    def keys(self, trial: Trial, context: Context) -> tuple[list[str], dict[str, SortKey]]:
+        builds = context.builds
+        records = builds.records
+        now = builds.builds
+        unknown, known = split_known(trial, builds)
+        durations = _expected_durations(known, records)
+        rate = self.rates(builds)
+
+        def key(test: str) -> SortKey:
+            record = records[test]
+            duration = durations[test]
+            return (
+                -rate(record.state(now)) / duration,
+                duration,
+                -record.last_failure,
+                -record.priority,
+                tie(trial.job_id, test),
+            )
+
+        return unknown, {test: key(test) for test in known}
+
+    def rates(self, builds: BuildHistory) -> Callable[[str], float]:
+        runs, failures = builds.state_runs, builds.state_failures
+        total = sum(runs.values())
+        overall = sum(failures.values()) / total if total else 0.0
+        never_runs = sum(n for state, n in runs.items() if state.startswith("never"))
+        never_failures = sum(n for state, n in failures.items() if state.startswith("never"))
+
+        def rate(state: str) -> float:
+            if state.startswith("never") and not self.by_runs:
+                return (never_failures + overall) / (never_runs + 1)
+            return (failures[state] + overall) / (runs[state] + 1)
+
+        return rate
+
+
 def _signal(name: str, trial: Trial, context: Context) -> Callable[[str], float]:
     builds = context.builds
     records = builds.records
