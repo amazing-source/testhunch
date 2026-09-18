@@ -175,3 +175,16 @@ ranking on 2 projects of 5.
 
 **The look is not spent yet.** This record lets the maintainer cancel it after reading the training
 half; the decision, whatever it is, is written here before anything else is run.
+
+### The look is cancelled
+
+On 2026-09-18, after reading the training half, the maintainer cancelled the held-out replay, as
+this record allows. No row was written in the ledger and the held-out projects were not replayed;
+`python -m benchmarks.confirmation held-out` has never run. The reason is the training half itself:
+both candidates rest on chances that are right, and the check of that premise failed, so a pass on
+the held-out projects could not have been explained by the mechanism this record describes.
+
+**Result: `DO_NOT_SHIP`**, and the look stays unspent for a candidate built on what this step
+learned. What it learned is that a state's rate over the whole past is too sharp a probability: the
+states that look safe fail far more than they say. Any next candidate starts from that, under a
+protocol of its own.
