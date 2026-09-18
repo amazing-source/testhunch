@@ -427,14 +427,69 @@ def test_select_for_go_needs_the_test_list(
     assert "--go-test-list" in capsys.readouterr().err
 
 
+# What each runner is given when nothing is left out. An empty value is not neutral for all of them:
+# checked with real runs, Jest 30.5.1 finds no tests at all with `--testPathIgnorePatterns ""`, and
+# cargo-nextest 0.9.144 fails with "failed to parse filterset" on `-E ""`.
+NOTHING_LEFT_OUT = [
+    ("pytest", ""),
+    ("go", ""),
+    ("surefire", ""),
+    ("nextest", "all()"),
+    ("vitest", ".*"),
+    ("jest", "/node_modules/"),
+]
+
+
+def _runner_options(workdir: Path, runner: str) -> list[str]:
+    if runner == "go":
+        (workdir / "list.txt").write_text("TestA\nok  \texample.com/shop\t0.006s\n")
+        return ["--runner", "go", "--go-test-list", "list.txt"]
+    if runner == "vitest":
+        sample = FIXTURES.parent / "select" / "vitest" / "vitest-list.json"
+        (workdir / "list.json").write_bytes(sample.read_bytes())
+        return ["--runner", "vitest", "--vitest-list", "list.json"]
+    return ["--runner", runner]
+
+
+@pytest.mark.parametrize(("runner", "neutral"), NOTHING_LEFT_OUT)
 def test_select_without_history_leaves_nothing_out(
+    workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str], runner: str, neutral: str
+) -> None:
+    args = ["select", "--budget", "10%", *_runner_options(workdir, runner)]
+    assert main([*args, "--db", sqlite_url, "--repo", "x/y"]) == 0
+    out = capsys.readouterr()
+    assert out.out == neutral
+    assert "nothing is left out" in out.err
+
+
+@pytest.mark.parametrize(("runner", "neutral"), NOTHING_LEFT_OUT)
+def test_a_learning_run_gives_every_runner_its_neutral_value(
+    workdir: Path,
+    sqlite_url: str,
+    git: Git,
+    capsys: pytest.CaptureFixture[str],
+    runner: str,
+    neutral: str,
+) -> None:
+    common = ["--db", sqlite_url, "--repo", "acme/shop"]
+    assert main(["ingest", "junit.xml", *common]) == 0
+    next_commit(workdir, git)
+    capsys.readouterr()
+    args = ["select", "--budget", "10%", "--learning-runs", "100%"]
+    assert main([*args, *_runner_options(workdir, runner), *common]) == 0
+    out = capsys.readouterr()
+    assert out.out == neutral
+    assert "learning run" in out.err
+    assert "recorded the ranking of 8 tests" in out.err
+
+
+def test_select_without_history_still_refuses_an_unreadable_test_list(
     workdir: Path, sqlite_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    args = ["select", "--budget", "10%", "--runner", "pytest", "--db", sqlite_url, "--repo", "x/y"]
-    assert main(args) == 0
-    out = capsys.readouterr()
-    assert out.out == ""
-    assert "nothing is left out" in out.err
+    (workdir / "broken.json").write_text("not json")
+    args = ["select", "--budget", "10%", "--runner", "vitest", "--vitest-list", "broken.json"]
+    assert main([*args, "--db", sqlite_url, "--repo", "x/y"]) == 2
+    assert "cannot read broken.json" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(("share", "fraction"), [("0%", 0.0), ("25%", 0.25), ("1", 1.0)])
