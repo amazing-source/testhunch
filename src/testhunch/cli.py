@@ -17,7 +17,7 @@ from pathlib import Path
 from testhunch import __version__
 from testhunch.gitinfo import GitError, changed_files, current_branch, detect_repo, rev_parse
 from testhunch.junit import ReportError, parse_reports
-from testhunch.models import RankedTest, RunInput
+from testhunch.models import History, RankedTest, RunInput
 from testhunch.prioritize import rank
 from testhunch.runners import (
     go_skip,
@@ -412,7 +412,7 @@ def _select(args: argparse.Namespace) -> int:
         return 2
     if not history.cases:
         print(f"no history for {repo} yet: nothing is left out", file=sys.stderr)
-        return 0
+        return 0 if _leave_out(args, history, [], [], []) is not None else 2
     changed = _changed_paths(args)
     commit = rev_parse(args.commit)
     ranked = rank(history, changed, seed=commit)
@@ -423,6 +423,8 @@ def _select(args: argparse.Namespace) -> int:
             f"learning run (about {args.learning_runs:.0%} of builds): nothing is left out",
             file=sys.stderr,
         )
+        if _leave_out(args, history, [], [r.key for r in ranked], changed) is None:
+            return 2
         _record(args, store, repo, ranked)
         return 0
 
@@ -432,54 +434,10 @@ def _select(args: argparse.Namespace) -> int:
     # cheaper ones below it still run.
     kept = [r.key for rank, r in enumerate(ranked, 1) if rank in selected]
     below = [r.key for rank, r in enumerate(ranked, 1) if rank not in selected]
-    unreachable = 0
-    if args.runner == "go":
-        skip = go_skip(
-            below,
-            kept,
-            parse_go_test_list(Path(args.go_test_list).read_text(encoding="utf-8")),
-            changed,
-        )
-        # No line ending: on Windows it would be \r\n, and "$(...)" only strips the \n.
-        sys.stdout.write(skip.pattern)
-        left_out, unreachable = len(skip.left_out), len(below) - len(skip.left_out)
-    elif args.runner == "surefire":
-        exclusions = surefire_exclusions(below, kept, changed)
-        sys.stdout.write(exclusions.value)  # no line ending either, for the same reason
-        left_out = len(exclusions.left_out)
-        unreachable = len(below) - left_out
-    elif args.runner == "nextest":
-        suites = {case.key: case.suite for case in history.cases}
-        filterset = nextest_filterset(below, suites)
-        sys.stdout.write(filterset.expression)  # no line ending either, for the same reason
-        left_out = len(filterset.left_out)
-        unreachable = len(below) - left_out
-    elif args.runner == "vitest":
-        try:
-            listed = parse_vitest_list(Path(args.vitest_list).read_text(encoding="utf-8"))
-        except (ValueError, KeyError) as exc:
-            print(f"testhunch: error: cannot read {args.vitest_list}: {exc}", file=sys.stderr)
-            return 2
-        vitest = vitest_skip(below, listed)
-        sys.stdout.write(vitest.pattern)  # no line ending either, for the same reason
-        left_out = len(vitest.left_out)
-        unreachable = len(below) - left_out
-    elif args.runner == "jest":
-        files = {case.key: case.file for case in history.cases}
-        jest = jest_ignore_pattern(below, kept, files, changed)
-        sys.stdout.write(jest.pattern)  # no line ending either, for the same reason
-        left_out = len(jest.left_out)
-        unreachable = len(below) - left_out
-        if below and not any(files.values()):
-            print(
-                "no test file is known: run jest-junit with JEST_JUNIT_ADD_FILE_ATTRIBUTE=true, "
-                "since Jest can only leave out whole files",
-                file=sys.stderr,
-            )
-    else:
-        if below:
-            print("\n".join(below))
-        left_out = len(below)
+    left_out = _leave_out(args, history, below, kept, changed)
+    if left_out is None:
+        return 2
+    unreachable = len(below) - left_out
     spent = sum(r.expected_ms for rank, r in enumerate(ranked, 1) if rank in selected)
     total = sum(r.expected_ms for r in ranked)
     of = (
@@ -500,6 +458,64 @@ def _select(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     return 0
+
+
+def _leave_out(
+    args: argparse.Namespace,
+    history: History,
+    below: list[str],
+    kept: list[str],
+    changed: list[str],
+) -> int | None:
+    """Write on stdout what `args.runner` takes to leave out what it can of `below`.
+
+    Every build goes through here, including those that leave nothing out: an empty value is not
+    neutral for every runner (Jest ignores every test file with "", nextest refuses to parse it),
+    so each runner writes its own. Returns how many of `below` are left out, or None when an input
+    cannot be read.
+    """
+    if args.runner == "go":
+        skip = go_skip(
+            below,
+            kept,
+            parse_go_test_list(Path(args.go_test_list).read_text(encoding="utf-8")),
+            changed,
+        )
+        # No line ending: on Windows it would be \r\n, and "$(...)" only strips the \n.
+        sys.stdout.write(skip.pattern)
+        return len(skip.left_out)
+    if args.runner == "surefire":
+        exclusions = surefire_exclusions(below, kept, changed)
+        sys.stdout.write(exclusions.value)  # no line ending either, for the same reason
+        return len(exclusions.left_out)
+    if args.runner == "nextest":
+        suites = {case.key: case.suite for case in history.cases}
+        filterset = nextest_filterset(below, suites)
+        sys.stdout.write(filterset.expression)  # no line ending either, for the same reason
+        return len(filterset.left_out)
+    if args.runner == "vitest":
+        try:
+            listed = parse_vitest_list(Path(args.vitest_list).read_text(encoding="utf-8"))
+        except (ValueError, KeyError) as exc:
+            print(f"testhunch: error: cannot read {args.vitest_list}: {exc}", file=sys.stderr)
+            return None
+        vitest = vitest_skip(below, listed)
+        sys.stdout.write(vitest.pattern)  # no line ending either, for the same reason
+        return len(vitest.left_out)
+    if args.runner == "jest":
+        files = {case.key: case.file for case in history.cases}
+        jest = jest_ignore_pattern(below, kept, files, changed)
+        sys.stdout.write(jest.pattern)  # no line ending either, for the same reason
+        if below and not any(files.values()):
+            print(
+                "no test file is known: run jest-junit with JEST_JUNIT_ADD_FILE_ATTRIBUTE=true, "
+                "since Jest can only leave out whole files",
+                file=sys.stderr,
+            )
+        return len(jest.left_out)
+    if below:
+        print("\n".join(below))
+    return len(below)
 
 
 def _record(args: argparse.Namespace, store: SqlStore, repo: str, ranked: list[RankedTest]) -> None:
