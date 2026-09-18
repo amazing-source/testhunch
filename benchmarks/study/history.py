@@ -21,6 +21,8 @@ ALPHA = 0.8
 # builds, doubling, and for a test that never failed, how many builds it ran in, doubling too.
 AGE_BUCKETS = ((0, 0), (1, 1), (2, 3), (4, 7), (8, 15), (16, 31), (32, 63), (64, 127), (128, 255))
 RUN_BUCKETS = ((1, 3), (4, 15), (16, 63), (64, 255))
+# For a test that failed in the build just before: how many of its latest runs in a row failed.
+STREAK_BUCKETS = ((1, 1), (2, 3))
 
 
 def bucket(value: int, spans: Sequence[tuple[int, int]]) -> str:
@@ -75,10 +77,23 @@ class CaseRecord:
 
     def state(self, build: int) -> str:
         """Where the test stands before `build`: the age of its last failure, or never failed and
-        for how many builds (docs/adr/0037)."""
-        if self.failures:
-            return "failed " + bucket(build - 1 - self.last_failure, AGE_BUCKETS)
-        return "never, ran " + bucket(self.runs, RUN_BUCKETS)
+        for how many builds (docs/adr/0037). A failure in the build just before also says how
+        long the test has been failing, for the rankings that tell a broken test from one that
+        failed once; the others read the state up to the comma."""
+        if not self.failures:
+            return "never, ran " + bucket(self.runs, RUN_BUCKETS)
+        age = build - 1 - self.last_failure
+        state = "failed " + bucket(age, AGE_BUCKETS)
+        return f"{state}, streak {bucket(self.streak(), STREAK_BUCKETS)}" if age == 0 else state
+
+    def streak(self) -> int:
+        """How many of the test's latest runs in a row failed, as far as `recent` goes back."""
+        count = 0
+        for _, failed in reversed(self.recent):
+            if not failed:
+                break
+            count += 1
+        return count
 
 
 def _decayed(value: float, since: int, build: int) -> float:

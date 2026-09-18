@@ -2,6 +2,7 @@
 
     uv run python -m benchmarks.calibration training     # reported
     uv run python -m benchmarks.calibration validation   # judged
+    uv run python -m benchmarks.calibration training --step streaks   # explored after it
 
 The candidates are `Calibrated` in `benchmarks.study.rankings`. Neither uses the changed-file
 signal, so each is read twice: against what testhunch ships, which decides, and against the same
@@ -45,6 +46,16 @@ MATCHED = STEP_1_KEPT.name
 CALIBRATED = "calibrated"
 BY_RUNS = "calibrated+runs"
 CANDIDATES = (CALIBRATED, BY_RUNS)
+STREAKS = "calibrated+runs+streaks"
+# Each step: where its results go, and the candidates it replays. `adr-0037` is the step that
+# record judged; `streaks` came after it, from `benchmarks/repeats.py`, on the training half.
+STEPS: dict[str, tuple[Path, tuple[Calibrated, ...]]] = {
+    "adr-0037": (RESULTS, (Calibrated(CALIBRATED), Calibrated(BY_RUNS, by_runs=True))),
+    "streaks": (
+        Path("benchmarks/results/study/calibration-streaks"),
+        (Calibrated(BY_RUNS, by_runs=True), Calibrated(STREAKS, by_runs=True, streaks=True)),
+    ),
+}
 
 # The decision rule of docs/adr/0037, written before either candidate was replayed.
 PRIMARY_LOSS = 0.003  # as in docs/adr/0036
@@ -52,11 +63,10 @@ TIME_SHARE = 0.5  # of the gap between the shipped ranking and random, in red at
 HARM = 0.005  # ADR 0014's smallest difference
 
 
-def rankings() -> list[Ranking]:
+def rankings(step: str = "adr-0037") -> list[Ranking]:
     return [
         STEP_3_KEPT,
-        Calibrated(CALIBRATED),
-        Calibrated(BY_RUNS, by_runs=True),
+        *STEPS[step][1],
         STEP_1_KEPT,
         LatestFailure(),
         ProductRanking(),
@@ -64,9 +74,14 @@ def rankings() -> list[Ranking]:
     ]
 
 
-def run(project: str) -> dict[str, Any]:
+def run(project: str, step: str = "adr-0037") -> dict[str, Any]:
     directory = fetch_project(project, CACHE / "rtptorrent")
-    return {"project": project, **study(iter_jobs(directory), rankings())}
+    return {"project": project, **study(iter_jobs(directory), rankings(step))}
+
+
+def candidates(results: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The calibrated rankings the results hold, in their order."""
+    return [name for name in results[0]["rankings"] if name.startswith(CALIBRATED)]
 
 
 def criteria(results: Sequence[Mapping[str, Any]], ranking: str) -> dict[str, Any]:
@@ -92,7 +107,7 @@ def criteria(results: Sequence[Mapping[str, Any]], ranking: str) -> dict[str, An
 
 
 def verdict(results: Sequence[Mapping[str, Any]]) -> str | None:
-    passing = [name for name in CANDIDATES if criteria(results, name)["passes"]]
+    passing = [name for name in candidates(results) if criteria(results, name)["passes"]]
     return max(passing, key=lambda name: mean(results, name, PRIMARY, EVERY)) if passing else None
 
 
@@ -113,6 +128,7 @@ def _yes(value: bool) -> str:
 
 def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
     names = list(results[0]["rankings"])
+    chosen = candidates(results)
     lines = [
         f"## {half.capitalize()} half: " + ", ".join(r["project"] for r in results),
         "",
@@ -129,9 +145,7 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
             "" if name == SHIPPED else _interval(difference(results, name, SHIPPED, PRIMARY, EVERY))
         )
         matched = (
-            _interval(difference(results, name, MATCHED, PRIMARY, EVERY))
-            if name in CANDIDATES
-            else ""
+            _interval(difference(results, name, MATCHED, PRIMARY, EVERY)) if name in chosen else ""
         )
         lines.append(
             f"| {name} | {_f(mean(results, name, PRIMARY, EVERY))} | {against} | {matched} | "
@@ -173,7 +187,7 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
         "failures | had failed: APFDc | meets all four |",
         "|---|---|---|---|---|---|",
     ]
-    for name in CANDIDATES:
+    for name in chosen:
         found = criteria(results, name)
         lines.append(
             f"| {name} | {_f(found['primary'], True)} {_yes(found['affordable'])} | "
@@ -188,20 +202,19 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
         "",
         "| Project | first-failure jobs | "
         + " | ".join(
-            f"{n}: primary | {n}: had failed, APFDc | {n}: red at, first failures"
-            for n in CANDIDATES
+            f"{n}: primary | {n}: had failed, APFDc | {n}: red at, first failures" for n in chosen
         )
         + " |",
-        "|---|---:|" + "---:|" * (3 * len(CANDIDATES)),
+        "|---|---:|" + "---:|" * (3 * len(chosen)),
     ]
     for result in results:
         cells = []
-        for name in CANDIDATES:
-            for measure, chosen in ((PRIMARY, EVERY), (PRIMARY, BEFORE), ("red_at", FIRST)):
+        for name in chosen:
+            for measure, part in ((PRIMARY, EVERY), (PRIMARY, BEFORE), ("red_at", FIRST)):
                 cells.append(
                     _f(
-                        mean([result], name, measure, chosen)
-                        - mean([result], SHIPPED, measure, chosen),
+                        mean([result], name, measure, part)
+                        - mean([result], SHIPPED, measure, part),
                         True,
                     )
                 )
@@ -212,11 +225,11 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
             sum(
                 1
                 for r in results
-                if mean([r], name, measure, chosen) > mean([r], SHIPPED, measure, chosen)
+                if mean([r], name, measure, part) > mean([r], SHIPPED, measure, part)
             )
-            for measure, chosen in ((PRIMARY, EVERY), (PRIMARY, BEFORE))
+            for measure, part in ((PRIMARY, EVERY), (PRIMARY, BEFORE))
         ]
-        for name in CANDIDATES
+        for name in chosen
     }
     sooner = {
         name: sum(
@@ -224,7 +237,7 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
             for r in results
             if mean([r], name, "red_at", FIRST) < mean([r], SHIPPED, "red_at", FIRST)
         )
-        for name in CANDIDATES
+        for name in chosen
     }
     lines += [
         "",
@@ -233,7 +246,7 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
         + "; ".join(
             f"{name}, primary {better[name][0]}, had failed {better[name][1]}, first failures "
             f"sooner {sooner[name]}"
-            for name in CANDIDATES
+            for name in chosen
         )
         + ".",
     ]
@@ -250,11 +263,20 @@ def section(half: str, results: Sequence[Mapping[str, Any]]) -> list[str]:
     return lines
 
 
-def page(halves: Mapping[str, Sequence[Mapping[str, Any]]]) -> str:
+def page(halves: Mapping[str, Sequence[Mapping[str, Any]]], step: str = "adr-0037") -> str:
+    title = (
+        "# A measured failure rate in place of the priority"
+        if step == "adr-0037"
+        else f"# A measured failure rate in place of the priority: step `{step}`"
+    )
     lines = [
-        "# A measured failure rate in place of the priority",
+        title,
         "",
-        "Generated by `python -m benchmarks.calibration`; protocol in docs/adr/0037. Development "
+        "Generated by `python -m benchmarks.calibration"
+        + ("" if step == "adr-0037" else f" --step {step}")
+        + "`; protocol in docs/adr/0037"
+        + (" and after it, exploration on the training half" if step != "adr-0037" else "")
+        + ". Development "
         f"projects only. `{SHIPPED}` is what testhunch ships; `{MATCHED}` is the same without the "
         f"changed-file signal, which neither candidate uses; `{RELEASE_020}` and `{RANDOM}` are "
         "read alongside. LRTS and the held-out projects are not touched.",
@@ -269,22 +291,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("half", choices=sorted(HALVES))
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--from-cache", action="store_true")
+    parser.add_argument("--step", choices=sorted(STEPS), default="adr-0037")
     args = parser.parse_args(argv)
-    out = RESULTS / args.half
+    results_dir = STEPS[args.step][0]
+    out = results_dir / args.half
     if not args.from_cache:
         out.mkdir(parents=True, exist_ok=True)
+        projects = HALVES[args.half]
         with ProcessPoolExecutor(max_workers=args.jobs) as pool:
-            for result in pool.map(run, HALVES[args.half]):
+            for result in pool.map(run, projects, [args.step] * len(projects)):
                 result["testhunch"] = {"version": __version__}
                 slug = result["project"].replace("/", "@")
                 (out / f"{slug}.json").write_text(json.dumps(result) + "\n", encoding="utf-8")
                 sys.stdout.write(f"{result['project']}: {result['counts']}\n")
     halves = {}
     for half in HALVES:
-        stored = sorted((RESULTS / half).glob("*.json"))
+        stored = sorted((results_dir / half).glob("*.json"))
         if stored:
             halves[half] = [json.loads(p.read_text(encoding="utf-8")) for p in stored]
-    (RESULTS / "README.md").write_bytes(page(halves).encode("utf-8"))
+    (results_dir / "README.md").write_bytes(page(halves, args.step).encode("utf-8"))
     return 0
 
 
