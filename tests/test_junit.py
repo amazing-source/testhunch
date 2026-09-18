@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from testhunch.junit import (
+    LONGEST_DURATION_MS,
     MAX_MESSAGE_CHARS,
     ReportError,
     collapse,
@@ -369,3 +370,49 @@ class TestDigest:
 
     def test_different_report_sets_differ(self) -> None:
         assert digest_reports([b"a"]) != digest_reports([b"a", b"b"])
+
+
+def test_a_duration_no_store_can_hold_is_unknown_not_a_crash() -> None:
+    """`time="1e300"` once became a 304-digit integer that neither database accepts, and failed
+    the whole ingestion. Past Postgres' INTEGER it is not a duration anyone measured: unknown."""
+    xml = (
+        b"<testsuite name='s'>"
+        b"<testcase classname='c' name='longest' time='2147483.647'/>"
+        b"<testcase classname='c' name='absurd' time='1e300'/>"
+        b"</testsuite>"
+    )
+    longest, absurd = parse_report(xml)
+
+    assert longest.duration_ms == LONGEST_DURATION_MS
+    assert absurd.duration_ms is None
+
+
+def test_a_report_nested_thousands_of_suites_deep_is_read_like_any_other() -> None:
+    depth = 5000
+    xml = (
+        b"<testsuites>"
+        + b"<testsuite name='s'>" * depth
+        + b"<testcase name='t'/>"
+        + b"</testsuite>" * depth
+        + b"</testsuites>"
+    )
+    (case,) = parse_report(xml)
+
+    # Without a classname the case is grouped under its suite, carried down five thousand levels.
+    assert case.key == "s::t"
+
+
+def test_nested_suites_keep_their_order_and_their_own_names() -> None:
+    xml = (
+        b"<testsuites><testsuite name='outer'>"
+        b"<testcase name='own'/>"
+        b"<testsuite name='inner'><testcase name='nested'/></testsuite>"
+        b"<testsuite><testcase name='unnamed'/></testsuite>"
+        b"</testsuite></testsuites>"
+    )
+
+    cases = parse_report(xml)
+
+    # A nested suite's cases come where it appears, a suite's own at its end, and a suite without
+    # a name lends its cases the name of the one around it.
+    assert [case.key for case in cases] == ["inner::nested", "outer::unnamed", "outer::own"]

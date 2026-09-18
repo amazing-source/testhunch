@@ -159,7 +159,9 @@ def _request(
     if content_type is not None:
         request.add_header("Content-Type", content_type)
     if token:
-        request.add_header("Authorization", f"Bearer {token}")
+        # Unredirected: urllib copies ordinary headers onto a redirected request, wherever the
+        # redirect points, and the token opens a repository.
+        request.add_unredirected_header("Authorization", f"Bearer {token}")
 
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:

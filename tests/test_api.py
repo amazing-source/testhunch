@@ -347,3 +347,15 @@ def test_requests_are_counted_under_the_route_and_not_the_path_typed(client: Tes
     assert 'testhunch_requests_total{route="/v1/report",status="200"} 2' in exposition
     assert 'testhunch_requests_total{route="unmatched",status="404"} 1' in exposition
     assert "acme/other" not in exposition.split("testhunch_runs")[0]
+
+
+def test_a_token_that_is_not_ascii_is_refused_like_any_wrong_token(client: TestClient) -> None:
+    """`compare_digest` raises on a str that is not ASCII: a stray accent was a 500."""
+    # Bytes on the wire, as a real client sends them; the server reads them as Latin-1.
+    response = client.get(
+        "/v1/shadow",
+        params={"repo": "acme/shop"},
+        headers={b"Authorization": "Bearer jéton".encode("latin-1")},
+    )
+
+    assert response.status_code == 401
