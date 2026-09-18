@@ -28,7 +28,7 @@ N'allez pas les reprendre ailleurs.
 Chaque version publie une image sur GHCR, en deux étiquettes :
 
 ```text
-ghcr.io/amazing-source/testhunch:0.5.0
+ghcr.io/amazing-source/testhunch:0.6.0
 ghcr.io/amazing-source/testhunch:0.3
 ```
 
@@ -39,7 +39,7 @@ L'image contient la CLI et l'API. Elle lit sa configuration dans l'environnement
 Dans l'Action, passez l'URL depuis un secret :
 
 ```yaml
-- uses: amazing-source/testhunch@v0.5.0
+- uses: amazing-source/testhunch@v0.6.0
   with:
     command: ingest
     reports: junit.xml
