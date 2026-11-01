@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- build: resolve and install dependencies into a virtual environment -------------------
-FROM python:3.14-slim AS build
+FROM python:3.15-slim AS build
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.13 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable --extra api --extra postgres
 
 # ---- runtime: only the virtual environment, run as an unprivileged user -------------------
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 RUN useradd --system --uid 10001 --no-create-home testhunch
 COPY --from=build /app/.venv /app/.venv
